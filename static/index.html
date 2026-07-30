@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>RANDEVU</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="style.css"></head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">⚡ RANDEVU</div>
+    <div class="user-info">
+      <span class="username" id="username">Игрок</span>
+      <div class="stars" id="balance">⭐ 0</div>
+    </div>
+  </header>
+
+  <div class="balance-card">
+    <div class="balance-label">💰 Баланс</div>
+    <div class="balance-value" id="balanceValue">0 ⭐</div>
+  </div>
+
+  <div class="carousel-wrapper">
+    <button class="carousel-btn left" onclick="moveCarousel(-1)">‹</button>
+    <div class="carousel-container" id="carousel">
+      <div class="case-card" onclick="openCase('free')"><div class="case-icon">🎁</div><div class="case-name">Бесплатный</div><div class="case-price">0⭐</div><div class="jackpot">🎯 100⭐</div></div>
+      <div class="case-card" onclick="openCase('wood')"><div class="case-icon">🪵</div><div class="case-name">Деревянный</div><div class="case-price">30⭐</div><div class="jackpot">🎯 200⭐</div></div>
+      <div class="case-card" onclick="openCase('silver')"><div class="case-icon">⭐</div><div class="case-name">Серебряный</div><div class="case-price">50⭐</div><div class="jackpot">🎯 500⭐</div></div>
+      <div class="case-card" onclick="openCase('gold')"><div class="case-icon">👑</div><div class="case-name">Золотой</div><div class="case-price">200⭐</div><div class="jackpot">🎯 1000⭐</div></div>
+      <div class="case-card" onclick="openCase('diamond')"><div class="case-icon">💎</div><div class="case-name">Алмазный</div><div class="case-price">500⭐</div><div class="jackpot">🎯 2000⭐</div></div>
+      <div class="case-card" onclick="openCase('netherite')"><div class="case-icon">💥</div><div class="case-name">Незеритовый</div><div class="case-price">2000⭐</div><div class="jackpot">🎯 25000⭐</div></div>
+    </div>
+    <button class="carousel-btn right" onclick="moveCarousel(1)">›</button>
+  </div>
+
+  <div id="result">
+    <div id="prizeDisplay"></div>
+    <div id="prizeName"></div>
+    <div id="prizeValue"></div>
+    <div id="adBlock" style="display:none;margin-top:12px;color:#aaa;">📢 <span id="adText"></span></div>
+    <div class="result-buttons">
+      <button onclick="closeResult()" class="btn-close">🔙 Закрыть</button>
+      <button id="againBtn" onclick="openAgain()" style="display:none;" class="btn-again">🎲 Открыть ещё</button>
+    </div>
+  </div>
+
+  <nav>
+    <span onclick="navigate('home')" class="nav-item active">🏠 Главная</span>
+    <span onclick="navigate('profile')" class="nav-item">👤 Профиль</span>
+  </nav>
+
+  <div id="profileSection" style="display:none;margin-top:20px;">
+    <div class="profile-card">
+      <div class="profile-avatar">👤</div>
+      <div class="profile-name" id="profileName">Игрок</div>
+      <div class="profile-stats">
+        <div>📦 Кейсов: <span id="profileCases">0</span></div>
+        <div>👥 Приглашено: <span id="profileRefs">0</span></div>
+        <div>⭐ Баланс: <span id="profileBalance">0</span></div>
+      </div>
+      <div class="profile-buttons">
+        <button onclick="showInvite()">📨 Пригласить</button>
+        <button onclick="showTopup()">💳 Пополнить</button>
+        <button onclick="showWithdraw()">💸 Вывод</button>
+      </div>
+      <button onclick="navigate('home')" class="btn-back">🔙 Назад</button>
+    </div>
+  </div>
+
+  <div id="inviteSection" style="display:none;margin-top:20px;">
+    <div class="section-card">
+      <p>👥 Твоя реферальная ссылка:</p>
+      <input id="inviteLink" readonly>
+      <button onclick="copyInvite()" class="btn-copy">📋 Скопировать</button>
+      <button onclick="navigate('profile')" class="btn-back">🔙 Назад</button>
+    </div>
+  </div>
+
+  <div id="topupSection" style="display:none;margin-top:20px;">
+    <div class="section-card">
+      <p>💳 Пополнение (Telegram Stars)</p>
+      <div class="topup-grid">
+        <button onclick="buyStars(100)">100⭐</button>
+        <button onclick="buyStars(200)">200⭐</button>
+        <button onclick="buyStars(300)">300⭐</button>
+        <button onclick="buyStars(400)">400⭐</button>
+        <button onclick="buyStars(500)">500⭐</button>
+      </div>
+      <button onclick="navigate('profile')" class="btn-back">🔙 Назад</button>
+    </div>
+  </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
