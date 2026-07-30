@@ -1,0 +1,32 @@
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: Arial; background:#0b0b12; color:#fff; padding:16px; }
+#app { max-width:420px; margin:auto; }
+header { display:flex; justify-content:space-between; align-items:center; padding-bottom:16px; }
+.logo { font-size:24px; font-weight:bold; color:#b388ff; }
+.stars { background:#1a1a2e; padding:4px 12px; border-radius:20px; color:#ffd700; }
+.balance-block { display:flex; justify-content:space-between; background:#1a1a2e; padding:16px; border-radius:12px; margin:16px 0; }
+.carousel-wrapper { position:relative; overflow:hidden; margin:16px 0; }
+.carousel-container { display:flex; gap:14px; overflow-x:auto; scroll-behavior:smooth; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding:4px 0; }
+.carousel-container .case-card { flex:0 0 48%; scroll-snap-align:start; }
+.case-card { background:#1a1a2e; padding:16px; border-radius:12px; text-align:center; cursor:pointer; }
+.case-card:active { transform:scale(0.95); }
+.icon { font-size:40px; }
+.carousel-btn { position:absolute; top:50%; transform:translateY(-50%); background:rgba(0,0,0,0.6); color:#fff; border:none; font-size:24px; padding:8px 12px; border-radius:50%; cursor:pointer; z-index:5; user-select:none; }
+.carousel-btn.left { left:0; }
+.carousel-btn.right { right:0; }
+#result { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.9); display:none; flex-direction:column; align-items:center; justify-content:center; z-index:100; }
+#result.show { display:flex; }
+#prizeDisplay { font-size:72px; }
+#prizeName { font-size:24px; margin:10px 0; }
+#prizeValue { font-size:32px; color:#b388ff; }
+.result-buttons { display:flex; gap:12px; margin-top:10px; }
+.result-buttons button { background:#b388ff; border:none; color:#fff; padding:10px 20px; border-radius:12px; font-size:16px; cursor:pointer; }
+#againBtn { background:#ffd700; color:#000; }
+.flash { animation:flash 0.3s ease-out; }
+@keyframes flash { 0% { background:rgba(255,255,255,0.9); } 100% { background:transparent; } }
+nav { display:flex; justify-content:space-around; margin-top:20px; padding:12px 0; border-top:1px solid #1a1a2e; }
+nav span { cursor:pointer; color:#888; }
+nav span:active { color:#b388ff; }
+#profileSection, #inviteSection, #topupSection { background:#1a1a2e; padding:16px; border-radius:12px; margin-top:10px; }
+#profileSection button, #inviteSection button, #topupSection button { background:#b388ff; border:none; color:#fff; padding:8px 16px; border-radius:8px; margin:5px; cursor:pointer; }
+#inviteLink { background:#0b0b12; color:#fff; border:1px solid #333; }
