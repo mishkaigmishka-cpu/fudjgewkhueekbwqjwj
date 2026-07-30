@@ -28,7 +28,8 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS users (
     status TEXT DEFAULT 'Новичок',
     refs INTEGER DEFAULT 0,
     daily_claimed INTEGER DEFAULT 0,
-    username TEXT DEFAULT ''
+    username TEXT DEFAULT '',
+    promo_used INTEGER DEFAULT 0
 )''')
 conn.commit()
 
@@ -147,8 +148,10 @@ def update_user(uid, **kwargs):
             data[7] = val
         elif key == 'username':
             data[8] = val
-    cursor.execute("UPDATE users SET balance=?, total_cases=?, streak=?, last_open=?, status=?, refs=?, daily_claimed=?, username=? WHERE id=?",
-                   (data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], uid))
+        elif key == 'promo_used':
+            data[9] = val
+    cursor.execute("UPDATE users SET balance=?, total_cases=?, streak=?, last_open=?, status=?, refs=?, daily_claimed=?, username=?, promo_used=? WHERE id=?",
+                   (data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], uid))
     conn.commit()
 
 def is_already_invited(inviter_id, invited_id):
@@ -158,6 +161,9 @@ def is_already_invited(inviter_id, invited_id):
 def add_invited(inviter_id, invited_id):
     cursor.execute("INSERT OR IGNORE INTO invited (inviter_id, invited_id) VALUES (?, ?)", (inviter_id, invited_id))
     conn.commit()
+
+# === ПРОМОКОД ===
+PROMO_CODE = "RANDEVU50"
 
 @bot.message_handler(commands=['start'])
 def start(msg):
@@ -198,6 +204,33 @@ def start(msg):
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("🎮 Открыть приложение", url="https://randevu-bot-production.up.railway.app"))
     bot.send_message(msg.chat.id, "Добро пожаловать в RANDEVU! Нажми на кнопку, чтобы открыть кейсы.", reply_markup=kb)
+
+# === ОБРАБОТЧИК ПРОМОКОДА ===
+@bot.message_handler(commands=['promo'])
+def promo_handler(msg):
+    uid = msg.from_user.id
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Введи промокод: /promo RANDEVU50")
+        return
+    
+    code = args[1]
+    if code != PROMO_CODE:
+        bot.reply_to(msg, "❌ Неверный промокод!")
+        return
+    
+    user = get_user(uid)
+    if not user:
+        bot.reply_to(msg, "Напиши /start")
+        return
+    
+    if user[9] == 1:
+        bot.reply_to(msg, "❌ Ты уже использовал промокод!")
+        return
+    
+    new_bal = user[1] + 50
+    update_user(uid, balance=new_bal, promo_used=1)
+    bot.reply_to(msg, f"✅ Промокод активирован! Ты получил 50⭐")
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def handle_pre_checkout(query):
