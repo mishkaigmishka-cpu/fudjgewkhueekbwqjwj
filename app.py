@@ -196,7 +196,7 @@ def start(msg):
 
     update_user(uid, username=username)
     kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("🎮 Открыть приложение", web_app={"url": "https://randevu-bot-production.up.railway.app"}))
+    kb.add(InlineKeyboardButton("🎮 Открыть приложение", url="https://randevu-bot-production.up.railway.app"))
     bot.send_message(msg.chat.id, "Добро пожаловать в RANDEVU! Нажми на кнопку, чтобы открыть кейсы.", reply_markup=kb)
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
