@@ -44,31 +44,126 @@ conn.commit()
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
 
 CASE_RANGES = {
-    "free": {"common": (1, 1), "rare": (2, 2), "epic": (3, 3), "legendary": (100, 100), "legendary_chance": 0.0001},
-    "wood": {"common": (20, 30), "rare": (30, 40), "epic": (40, 60), "legendary": (200, 200), "legendary_chance": 0.0001},
-    "silver": {"common": (40, 60), "rare": (60, 80), "epic": (80, 120), "legendary": (500, 500), "legendary_chance": 0.0001},
-    "gold": {"common": (150, 200), "rare": (200, 300), "epic": (300, 500), "legendary": (1000, 1000), "legendary_chance": 0.0001},
-    "diamond": {"common": (350, 500), "rare": (500, 800), "epic": (800, 1200), "legendary": (2000, 2000), "legendary_chance": 0.0001},
-    "netherite": {"common": (1000, 2000), "rare": (2000, 4000), "epic": (4000, 8000), "legendary": (25000, 25000), "legendary_chance": 0.0001}
+    "free": {
+        "common": (1, 2),
+        "rare": (3, 4),
+        "epic": (5, 10),
+        "legendary": (100, 100),
+        "jackpot": (1000, 1000),
+        "common_chance": 0.5999,
+        "rare_chance": 0.2999,
+        "epic_chance": 0.0999,
+        "legendary_chance": 0.0001,
+        "jackpot_chance": 0.000000001
+    },
+    "wood": {
+        "common": (1, 5),
+        "rare": (5, 10),
+        "epic": (10, 15),
+        "legendary": (1000, 1000),
+        "jackpot": (10000, 10000),
+        "common_chance": 0.2499,
+        "rare_chance": 0.6499,
+        "epic_chance": 0.0999,
+        "legendary_chance": 0.00000001,
+        "jackpot_chance": 0.000000001
+    },
+    "stone": {
+        "common": (10, 15),
+        "rare": (15, 23),
+        "epic": (23, 35),
+        "legendary": (2500, 2500),
+        "jackpot": (25000, 25000),
+        "common_chance": 0.2499,
+        "rare_chance": 0.6499,
+        "epic_chance": 0.0999,
+        "legendary_chance": 0.000001,
+        "jackpot_chance": 0.000000001
+    },
+    "bronze": {
+        "common": (20, 30),
+        "rare": (30, 50),
+        "epic": (50, 75),
+        "legendary": (5000, 5000),
+        "jackpot": (50000, 50000),
+        "common_chance": 0.2499,
+        "rare_chance": 0.6499,
+        "epic_chance": 0.09999999,
+        "legendary_chance": 0.000000001,
+        "jackpot_chance": 0.000000001
+    },
+    "silver": {
+        "common": (40, 70),
+        "rare": (70, 100),
+        "epic": (100, 150),
+        "legendary": (10000, 10000),
+        "jackpot": (100000, 100000),
+        "common_chance": 0.2499,
+        "rare_chance": 0.6749,
+        "epic_chance": 0.0749,
+        "legendary_chance": 0.000000001,
+        "jackpot_chance": 0.000000001
+    },
+    "gold": {
+        "common": (75, 150),
+        "rare": (150, 250),
+        "epic": (250, 400),
+        "legendary": (25000, 25000),
+        "jackpot": (250000, 250000),
+        "common_chance": 0.2499,
+        "rare_chance": 0.6749,
+        "epic_chance": 0.0749,
+        "legendary_chance": 0.00000001,
+        "jackpot_chance": 0.000000001
+    },
+    "diamond": {
+        "common": (299, 349),
+        "rare": (349, 500),
+        "epic": (500, 1000),
+        "legendary": (50000, 50000),
+        "jackpot": (500000, 500000),
+        "common_chance": 0.2749,
+        "rare_chance": 0.6499,
+        "epic_chance": 0.0749,
+        "legendary_chance": 0.00000001,
+        "jackpot_chance": 0.000000001
+    },
+    "netherite": {
+        "common": (500, 750),
+        "rare": (750, 1000),
+        "epic": (1000, 1500),
+        "legendary": (100000, 100000),
+        "jackpot": (1000000, 1000000),
+        "common_chance": 0.7,
+        "rare_chance": 0.25,
+        "epic_chance": 0.04999,
+        "legendary_chance": 0.000001,
+        "jackpot_chance": 0.000000001
+    },
+    "bedrock": {
+        "common": (250, 2500),
+        "rare": (2500, 5000),
+        "epic": (250000, 250000),
+        "legendary": (2500000, 2500000),
+        "common_chance": 0.99999,
+        "rare_chance": 0.0000001,
+        "epic_chance": 0.000001,
+        "legendary_chance": 0.000000001,
+        "jackpot_chance": 0.000000001
+    }
 }
 
 def get_prize(case_type):
     data = CASE_RANGES[case_type]
     rnd = random.random()
-    if rnd < data["legendary_chance"]:
+    
+    if rnd < data["jackpot_chance"]:
+        return random.randint(data["jackpot"][0], data["jackpot"][1])
+    elif rnd < data["jackpot_chance"] + data["legendary_chance"]:
         return random.randint(data["legendary"][0], data["legendary"][1])
-    if case_type == "free":
-        if rnd < 0.6:
-            return 1
-        elif rnd < 0.85:
-            return 2
-        elif rnd < 0.95:
-            return 3
-        else:
-            return 5
-    if rnd < 0.6:
+    elif rnd < data["common_chance"]:
         return random.randint(data["common"][0], data["common"][1])
-    elif rnd < 0.9:
+    elif rnd < data["common_chance"] + data["rare_chance"]:
         return random.randint(data["rare"][0], data["rare"][1])
     else:
         return random.randint(data["epic"][0], data["epic"][1])
@@ -174,9 +269,6 @@ def process_topup_amount(msg):
         bot.reply_to(msg, "❌ Сумма должна быть от 50 до 5000⭐!")
         return
 
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("🔙 Назад", callback_data="cancel_topup"))
-
     bot.send_invoice(
         chat_id=uid,
         title=f"Пополнение на {amount}⭐",
@@ -185,9 +277,12 @@ def process_topup_amount(msg):
         provider_token="",
         currency="XTR",
         prices=[LabeledPrice(label=f"{amount} Stars", amount=amount)],
-        start_parameter="buy_stars",
-        reply_markup=kb
+        start_parameter="buy_stars"
     )
+
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("🔙 Назад", callback_data="cancel_topup"))
+    bot.send_message(uid, "💳 Оплати счёт выше. Если передумал — нажми «Назад».", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_topup")
 def cancel_topup(call):
@@ -298,12 +393,22 @@ def check_balance():
     user = get_user(user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    prices = {"free":0, "silver":50, "gold":200, "wood":30, "diamond":500, "netherite":2000}
+    prices = {
+        "free": 0,
+        "wood": 9,
+        "stone": 19,
+        "bronze": 49,
+        "silver": 99,
+        "gold": 249,
+        "diamond": 499,
+        "netherite": 999,
+        "bedrock": 2499
+    }
     price = prices.get(case_type, 0)
     if user[1] < price:
         return jsonify({'error': 'Недостаточно звёзд!', 'can_open': False}), 400
-    if case_type == "free" and time.time() - user[4] < 14400:
-        wait = int((14400 - (time.time() - user[4])) // 60)
+    if case_type == "free" and time.time() - user[4] < 43200:
+        wait = int((43200 - (time.time() - user[4])) // 60)
         return jsonify({'error': f'Жди {wait} мин', 'can_open': False}), 400
     return jsonify({'can_open': True})
 
@@ -316,13 +421,23 @@ def open_case():
         user = get_user(user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 404
-        prices = {"free":0, "silver":50, "gold":200, "wood":30, "diamond":500, "netherite":2000}
+        prices = {
+            "free": 0,
+            "wood": 9,
+            "stone": 19,
+            "bronze": 49,
+            "silver": 99,
+            "gold": 249,
+            "diamond": 499,
+            "netherite": 999,
+            "bedrock": 2499
+        }
         price = prices.get(case_type, 0)
         if user[1] < price:
             return jsonify({'error': 'Недостаточно звёзд!'}), 400
         if case_type == "free":
-            if time.time() - user[4] < 14400:
-                wait = int((14400 - (time.time() - user[4])) // 60)
+            if time.time() - user[4] < 43200:
+                wait = int((43200 - (time.time() - user[4])) // 60)
                 return jsonify({'error': f'Жди {wait} мин'}), 400
         prize = get_prize(case_type)
         new_bal = user[1] - price + prize
