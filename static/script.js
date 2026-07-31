@@ -13,6 +13,7 @@ let _tapeContainer = null;
 let _spinInterval = null;
 let _spinCounter = 0;
 
+// ===== ВСЕ ВОЗМОЖНЫЕ НАГРАДЫ =====
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
     'mud': [1, 2, 3, 4, 5, 6, 7, 10, 12, 14, 16, 20, 22, 24, 27, 30, 35, 40, 50, 500],
@@ -26,18 +27,18 @@ const CASE_PRIZES = {
     'bedrock': [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 2600, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000]
 };
 
-// ===== НОВЫЕ СКОРОСТИ (БЫСТРЕЕ + ДЛЯ ТОП КЕЙСОВ НА 0.5 МЕДЛЕННЕЕ) =====
+// ===== СКОРОСТЬ ПРЕДПРОСМОТРА (БЫСТРО) =====
 const CASE_SPEED = {
-    'free': 4,
-    'mud': 4,
-    'wood': 4,
-    'stone': 4,
-    'bronze': 4,
-    'silver': 4,
-    'gold': 4,
-    'diamond': 4.5,
-    'netherite': 5,
-    'bedrock': 5.5
+    'free': 3,
+    'mud': 3,
+    'wood': 3,
+    'stone': 3,
+    'bronze': 3,
+    'silver': 3,
+    'gold': 3,
+    'diamond': 3.5,
+    'netherite': 4,
+    'bedrock': 4.5
 };
 
 const CASE_STYLES = {
@@ -55,7 +56,7 @@ const CASE_STYLES = {
 
 function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
-function getSpeed(type) { return CASE_SPEED[type] || 4; }
+function getSpeed(type) { return CASE_SPEED[type] || 3; }
 
 async function loadBalance() {
     try {
@@ -216,7 +217,7 @@ function showFullScreenTape(type, isOpening) {
         transition: none;
     `;
 
-    // ===== РАМКИ МЕЖДУ ЦИФРАМИ =====
+    // ===== ВСЕ ВОЗМОЖНЫЕ НАГРАДЫ (8 ПОВТОРОВ) =====
     let allItems = [];
     for (let repeat = 0; repeat < 8; repeat++) {
         prizes.forEach((p, index) => {
@@ -235,7 +236,7 @@ function showFullScreenTape(type, isOpening) {
     styleTag.textContent = `@keyframes ${animKey} { 0% { transform: translateX(0); } 100% { transform: translateX(-${100 / 8}%); } }`;
     document.head.appendChild(styleTag);
 
-    // ===== АНИМАЦИЯ ДВИЖЕНИЯ ЛЕНТЫ =====
+    // ===== АНИМАЦИЯ =====
     tapeContent.style.animation = `${animKey} ${speed}s linear infinite`;
     tapeContent.style.animationTimingFunction = 'linear';
     tapeTrack.appendChild(tapeContent);
@@ -304,7 +305,7 @@ function showFullScreenTape(type, isOpening) {
     tapeContainer.appendChild(bottomSection);
     document.body.appendChild(tapeContainer);
 
-    // ===== ПОДСВЕТКА (БЕЗ ПОДНЯТИЯ ЦИФР) =====
+    // ===== ПОДСВЕТКА =====
     let activeIndex = 0;
     const totalItems = prizes.length;
     _tapeInterval = setInterval(() => {
