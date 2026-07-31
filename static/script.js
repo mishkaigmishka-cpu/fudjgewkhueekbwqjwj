@@ -167,7 +167,7 @@ function showFullScreenTape(type, isOpening) {
         position: relative;
     `;
 
-    // ===== СТРЕЛКИ РАЗВЁРНУТЫ В ДРУГУЮ СТОРОНУ =====
+    // ===== СТРЕЛКИ ВВЕРХ/ВНИЗ (НАОБОРОТ) =====
     const arrowTop = document.createElement('div');
     arrowTop.id = 'arrowTop';
     arrowTop.style.cssText = `
@@ -179,7 +179,7 @@ function showFullScreenTape(type, isOpening) {
         margin-bottom: 4px;
         opacity: 0.9;
     `;
-    arrowTop.textContent = '▶';
+    arrowTop.textContent = '▼';  // стрелка вниз СВЕРХУ
 
     const tapeTrack = document.createElement('div');
     tapeTrack.style.cssText = `
@@ -207,12 +207,14 @@ function showFullScreenTape(type, isOpening) {
         transition: none;
     `;
 
+    // ===== РАМКИ МЕЖДУ ЦИФРАМИ =====
     let allItems = [];
     for (let repeat = 0; repeat < 8; repeat++) {
         prizes.forEach((p, index) => {
             const isLarge = p > 1000;
             const fontSize = isLarge ? '38px' : '44px';
-            allItems.push(`<span class="prize-item" data-index="${index}" data-value="${p}" style="color:${style.itemColor}; transition: none; font-size: ${fontSize}; text-shadow: 0 0 15px ${style.glowColor}; padding: 6px 10px; display: inline-block; flex-shrink: 0;">${p}⭐</span>`);
+            // Добавляем разделитель между числами
+            allItems.push(`<span class="prize-item" data-index="${index}" data-value="${p}" style="color:${style.itemColor}; transition: none; font-size: ${fontSize}; text-shadow: 0 0 15px ${style.glowColor}; padding: 6px 10px; display: inline-block; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.06);">${p}⭐</span>`);
         });
     }
     tapeContent.innerHTML = allItems.join('');
@@ -225,6 +227,7 @@ function showFullScreenTape(type, isOpening) {
     styleTag.textContent = `@keyframes ${animKey} { 0% { transform: translateX(0); } 100% { transform: translateX(-${100 / 8}%); } }`;
     document.head.appendChild(styleTag);
 
+    // ===== АНИМАЦИЯ ДВИЖЕНИЯ ЛЕНТЫ СО ВСЕМИ ЧИСЛАМИ =====
     tapeContent.style.animation = `${animKey} ${speed}s linear infinite`;
     tapeContent.style.animationTimingFunction = 'linear';
     tapeTrack.appendChild(tapeContent);
@@ -240,7 +243,7 @@ function showFullScreenTape(type, isOpening) {
         margin-top: 4px;
         opacity: 0.9;
     `;
-    arrowBottom.textContent = '◀';
+    arrowBottom.textContent = '▲';  // стрелка вверх СНИЗУ
 
     tapeWrapper.appendChild(arrowTop);
     tapeWrapper.appendChild(tapeTrack);
@@ -329,6 +332,7 @@ function startFinalSpin(type) {
     const tapeContent = document.getElementById('tapeContent');
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
 
+    // ===== БЫСТРЫЙ СТАРТ =====
     tapeContent.style.animationDuration = '0.25s';
     tapeContent.style.animationTimingFunction = 'linear';
 
@@ -364,11 +368,11 @@ function startFinalSpin(type) {
         const arrowTop = document.getElementById('arrowTop');
         const arrowBottom = document.getElementById('arrowBottom');
         if (arrowTop && arrowBottom && target) {
-            arrowTop.style.transform = 'translateX(-4px)';
-            arrowBottom.style.transform = 'translateX(4px)';
+            arrowTop.style.transform = 'translateY(4px)';
+            arrowBottom.style.transform = 'translateY(-4px)';
             setTimeout(() => {
-                arrowTop.style.transform = 'translateX(0)';
-                arrowBottom.style.transform = 'translateX(0)';
+                arrowTop.style.transform = 'translateY(0)';
+                arrowBottom.style.transform = 'translateY(0)';
             }, 150);
         }
 
