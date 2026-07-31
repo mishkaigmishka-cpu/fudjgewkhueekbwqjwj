@@ -136,6 +136,15 @@ header {
     100% { background: transparent; }
 }
 
+#profileScreen {
+    display: none;
+    margin-top: 10px;
+}
+
+#mainScreen {
+    display: block;
+}
+
 nav {
     position: fixed;
     bottom: 0;
