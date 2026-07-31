@@ -26,9 +26,18 @@ const CASE_PRIZES = {
     'bedrock': [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 2600, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000]
 };
 
+// ===== НОВЫЕ СКОРОСТИ (БЫСТРЕЕ + ДЛЯ ТОП КЕЙСОВ НА 0.5 МЕДЛЕННЕЕ) =====
 const CASE_SPEED = {
-    'free': 10, 'mud': 10, 'wood': 10, 'stone': 10, 'bronze': 10, 'silver': 10, 'gold': 10,
-    'diamond': 14, 'netherite': 16, 'bedrock': 18
+    'free': 4,
+    'mud': 4,
+    'wood': 4,
+    'stone': 4,
+    'bronze': 4,
+    'silver': 4,
+    'gold': 4,
+    'diamond': 4.5,
+    'netherite': 5,
+    'bedrock': 5.5
 };
 
 const CASE_STYLES = {
@@ -46,7 +55,7 @@ const CASE_STYLES = {
 
 function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
-function getSpeed(type) { return CASE_SPEED[type] || 10; }
+function getSpeed(type) { return CASE_SPEED[type] || 4; }
 
 async function loadBalance() {
     try {
@@ -167,7 +176,7 @@ function showFullScreenTape(type, isOpening) {
         position: relative;
     `;
 
-    // ===== СТРЕЛКИ ВВЕРХ/ВНИЗ (НАОБОРОТ) =====
+    // ===== СТРЕЛКИ =====
     const arrowTop = document.createElement('div');
     arrowTop.id = 'arrowTop';
     arrowTop.style.cssText = `
@@ -179,7 +188,7 @@ function showFullScreenTape(type, isOpening) {
         margin-bottom: 4px;
         opacity: 0.9;
     `;
-    arrowTop.textContent = '▼';  // стрелка вниз СВЕРХУ
+    arrowTop.textContent = '▼';
 
     const tapeTrack = document.createElement('div');
     tapeTrack.style.cssText = `
@@ -213,7 +222,6 @@ function showFullScreenTape(type, isOpening) {
         prizes.forEach((p, index) => {
             const isLarge = p > 1000;
             const fontSize = isLarge ? '38px' : '44px';
-            // Добавляем разделитель между числами
             allItems.push(`<span class="prize-item" data-index="${index}" data-value="${p}" style="color:${style.itemColor}; transition: none; font-size: ${fontSize}; text-shadow: 0 0 15px ${style.glowColor}; padding: 6px 10px; display: inline-block; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.06);">${p}⭐</span>`);
         });
     }
@@ -227,7 +235,7 @@ function showFullScreenTape(type, isOpening) {
     styleTag.textContent = `@keyframes ${animKey} { 0% { transform: translateX(0); } 100% { transform: translateX(-${100 / 8}%); } }`;
     document.head.appendChild(styleTag);
 
-    // ===== АНИМАЦИЯ ДВИЖЕНИЯ ЛЕНТЫ СО ВСЕМИ ЧИСЛАМИ =====
+    // ===== АНИМАЦИЯ ДВИЖЕНИЯ ЛЕНТЫ =====
     tapeContent.style.animation = `${animKey} ${speed}s linear infinite`;
     tapeContent.style.animationTimingFunction = 'linear';
     tapeTrack.appendChild(tapeContent);
@@ -243,7 +251,7 @@ function showFullScreenTape(type, isOpening) {
         margin-top: 4px;
         opacity: 0.9;
     `;
-    arrowBottom.textContent = '▲';  // стрелка вверх СНИЗУ
+    arrowBottom.textContent = '▲';
 
     tapeWrapper.appendChild(arrowTop);
     tapeWrapper.appendChild(tapeTrack);
@@ -296,13 +304,13 @@ function showFullScreenTape(type, isOpening) {
     tapeContainer.appendChild(bottomSection);
     document.body.appendChild(tapeContainer);
 
+    // ===== ПОДСВЕТКА (БЕЗ ПОДНЯТИЯ ЦИФР) =====
     let activeIndex = 0;
     const totalItems = prizes.length;
     _tapeInterval = setInterval(() => {
         document.querySelectorAll('.prize-item').forEach(el => {
             el.style.color = style.itemColor;
             el.style.textShadow = `0 0 15px ${style.glowColor}`;
-            el.style.transform = 'scale(1)';
             el.style.transition = 'all 0.3s ease';
         });
         const idx = activeIndex % totalItems;
@@ -310,8 +318,6 @@ function showFullScreenTape(type, isOpening) {
         if (target) {
             target.style.color = '#FFFFFF';
             target.style.textShadow = `0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}, 0 0 90px ${style.highlightColor}80`;
-            target.style.transform = 'scale(1.4)';
-            target.style.fontWeight = '900';
             target.style.transition = 'all 0.25s ease';
         }
         activeIndex++;
@@ -332,7 +338,6 @@ function startFinalSpin(type) {
     const tapeContent = document.getElementById('tapeContent');
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
 
-    // ===== БЫСТРЫЙ СТАРТ =====
     tapeContent.style.animationDuration = '0.25s';
     tapeContent.style.animationTimingFunction = 'linear';
 
@@ -354,14 +359,12 @@ function startFinalSpin(type) {
         allItems.forEach(el => {
             el.style.color = style.itemColor;
             el.style.textShadow = `0 0 15px ${style.glowColor}`;
-            el.style.transform = 'scale(1)';
             el.style.transition = 'all 0.15s ease';
         });
 
         if (target) {
             target.style.color = '#FFFFFF';
             target.style.textShadow = `0 0 20px ${style.highlightColor}, 0 0 40px ${style.highlightColor}40`;
-            target.style.transform = 'scale(1.15)';
             target.style.transition = 'all 0.15s ease';
         }
 
@@ -388,12 +391,10 @@ function startFinalSpin(type) {
                 document.querySelectorAll('.prize-item').forEach(el => {
                     el.style.color = style.itemColor;
                     el.style.textShadow = `0 0 15px ${style.glowColor}`;
-                    el.style.transform = 'scale(1)';
                     el.style.transition = 'all 0.3s ease';
                 });
                 targetItem.style.color = '#FFFFFF';
                 targetItem.style.textShadow = `0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80`;
-                targetItem.style.transform = 'scale(1.8)';
                 targetItem.style.transition = 'all 0.5s ease';
 
                 const arrowTop = document.getElementById('arrowTop');
