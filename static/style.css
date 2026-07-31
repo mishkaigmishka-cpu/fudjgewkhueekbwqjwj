@@ -1,32 +1,24 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: radial-gradient(circle at 20% 30%, #0f0c1a, #050308);
     color: #fff;
     min-height: 100vh;
-    padding: 16px 12px 80px 12px;
+    padding: 16px 16px 100px 16px;
 }
 
-#app {
-    max-width: 480px;
-    margin: 0 auto;
-}
+#app { max-width: 480px; margin: 0 auto; }
 
-/* ===== ШАПКА ===== */
 header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 0 20px 0;
+    padding: 12px 0 20px 0;
 }
 
 .logo {
-    font-size: 26px;
+    font-size: 28px;
     font-weight: 800;
     background: linear-gradient(135deg, #b388ff, #7c4dff);
     -webkit-background-clip: text;
@@ -39,138 +31,72 @@ header {
     gap: 12px;
 }
 
-.username {
-    font-size: 16px;
-    color: #ccc;
-}
+.username { font-size: 16px; color: #ccc; }
 
 .stars {
-    background: rgba(255, 215, 0, 0.12);
+    background: rgba(255,215,0,0.12);
     padding: 8px 18px;
-    border-radius: 24px;
+    border-radius: 30px;
     color: #ffd700;
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 700;
-    border: 1px solid rgba(255, 215, 0, 0.15);
-    animation: pulse-glow 2s infinite;
+    border: 1px solid rgba(255,215,0,0.15);
 }
 
-@keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 5px rgba(255,215,0,0.2); }
-    50% { box-shadow: 0 0 18px rgba(255,215,0,0.4); }
-}
-
-/* ===== БАЛАНС ===== */
 .balance-card {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255,255,255,0.04);
     backdrop-filter: blur(12px);
     border-radius: 24px;
     padding: 20px 24px;
     margin-bottom: 24px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
+.balance-label { font-size: 18px; color: #aaa; font-weight: 500; }
+.balance-value { font-size: 28px; font-weight: 800; color: #b388ff; }
 
-.balance-label {
-    font-size: 16px;
-    color: #aaa;
-    font-weight: 500;
-}
-
-.balance-value {
-    font-size: 26px;
-    font-weight: 800;
-    color: #b388ff;
-}
-
-/* ===== КАРУСЕЛЬ ===== */
-.carousel-wrapper {
-    position: relative;
-    overflow: hidden;
-    margin: 0 -6px;
-}
-
-.carousel-container {
+.cases-list {
     display: flex;
+    flex-direction: column;
     gap: 16px;
-    overflow-x: auto;
-    scroll-behavior: smooth;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    padding: 6px 0 12px 0;
+    margin-bottom: 20px;
 }
 
-.carousel-btn {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(0, 0, 0, 0.6);
-    color: #fff;
-    border: none;
-    font-size: 28px;
-    padding: 14px 10px;
-    border-radius: 50%;
-    cursor: pointer;
-    z-index: 5;
-    backdrop-filter: blur(6px);
-}
-.carousel-btn.left { left: 2px; }
-.carousel-btn.right { right: 2px; }
-
-/* ===== КАРТОЧКИ КЕЙСОВ (БОЛЬШИЕ) ===== */
 .case-card {
-    flex: 0 0 80%;
-    scroll-snap-align: center;
-    background: rgba(255, 255, 255, 0.04);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: rgba(255,255,255,0.04);
     backdrop-filter: blur(12px);
-    border-radius: 28px;
-    padding: 28px 16px 22px 16px;
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    transition: all 0.2s;
+    border-radius: 24px;
+    padding: 18px 20px;
+    border: 1px solid rgba(255,255,255,0.06);
     cursor: pointer;
+    transition: all 0.15s;
 }
+.case-card:active { transform: scale(0.97); background: rgba(255,255,255,0.08); }
 
-.case-card:active {
-    transform: scale(0.96);
-    background: rgba(255, 255, 255, 0.08);
-}
+.case-icon { font-size: 48px; flex-shrink: 0; }
 
-.case-icon {
-    font-size: 64px;
-    margin-bottom: 8px;
-}
-
-.case-name {
-    font-size: 20px;
-    font-weight: 700;
-    margin-bottom: 4px;
-}
-
-.case-price {
-    font-size: 18px;
-    color: #bbb;
-    margin-bottom: 6px;
-}
-
+.case-info { flex: 1; }
+.case-name { font-size: 20px; font-weight: 700; }
+.case-price { font-size: 16px; color: #bbb; }
 .jackpot {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     color: #ffd700;
-    background: rgba(255, 215, 0, 0.08);
-    padding: 4px 14px;
-    border-radius: 14px;
+    background: rgba(255,215,0,0.08);
+    padding: 2px 12px;
+    border-radius: 12px;
     display: inline-block;
-    border: 1px solid rgba(255, 215, 0, 0.1);
+    margin-top: 4px;
 }
 
-/* ===== МОДАЛКА РЕЗУЛЬТАТА ===== */
 #result {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.90);
+    background: rgba(0,0,0,0.92);
     backdrop-filter: blur(20px);
     display: none;
     flex-direction: column;
@@ -179,12 +105,10 @@ header {
     z-index: 100;
     padding: 24px;
 }
-
 #result.show { display: flex; }
-
 #prizeDisplay { font-size: 90px; margin-bottom: 10px; }
 #prizeName { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
-#prizeValue { font-size: 42px; font-weight: 800; color: #b388ff; }
+#prizeValue { font-size: 44px; font-weight: 800; color: #b388ff; }
 
 .result-buttons {
     display: flex;
@@ -193,7 +117,6 @@ header {
     flex-wrap: wrap;
     justify-content: center;
 }
-
 .result-buttons button {
     padding: 16px 34px;
     border: none;
@@ -201,67 +124,49 @@ header {
     font-size: 18px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.15s;
     min-width: 140px;
 }
 .result-buttons button:active { transform: scale(0.94); }
-
-.btn-close {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
-    backdrop-filter: blur(4px);
-}
-.btn-again {
-    background: linear-gradient(135deg, #b388ff, #7c4dff);
-    color: #fff;
-}
+.btn-close { background: rgba(255,255,255,0.08); color: #fff; }
+.btn-again { background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; }
 
 .flash { animation: flash 0.35s ease-out; }
 @keyframes flash {
-    0% { background: rgba(255, 255, 255, 0.7); }
+    0% { background: rgba(255,255,255,0.7); }
     100% { background: transparent; }
 }
 
-/* ===== НАВИГАЦИЯ ===== */
 nav {
     position: fixed;
     bottom: 0;
     left: 0; right: 0;
     max-width: 480px;
     margin: 0 auto;
-    background: rgba(15, 12, 26, 0.92);
+    background: rgba(15,12,26,0.95);
     backdrop-filter: blur(16px);
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    border-top: 1px solid rgba(255,255,255,0.04);
     display: flex;
     justify-content: space-around;
-    padding: 14px 0 20px 0;
+    padding: 16px 0 22px 0;
 }
-
 .nav-item {
-    font-size: 16px;
+    font-size: 17px;
     color: #666;
-    padding: 8px 20px;
+    padding: 8px 24px;
     border-radius: 16px;
     cursor: pointer;
-    transition: all 0.2s;
     font-weight: 600;
 }
-.nav-item.active {
-    color: #b388ff;
-    background: rgba(179, 136, 255, 0.08);
-}
+.nav-item.active { color: #b388ff; background: rgba(179,136,255,0.08); }
 
-/* ===== ПРОФИЛЬ ===== */
 .profile-card, .section-card {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255,255,255,0.04);
     backdrop-filter: blur(12px);
     border-radius: 28px;
     padding: 28px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
 }
-
-.profile-avatar { font-size: 60px; text-align: center; margin-bottom: 10px; }
-.profile-name { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 14px; }
+.profile-avatar { font-size: 60px; text-align: center; }
+.profile-name { font-size: 24px; font-weight: 700; text-align: center; margin: 8px 0 14px 0; }
 .profile-stats { font-size: 17px; color: #ccc; margin-bottom: 18px; }
 .profile-stats div { padding: 6px 0; }
 
@@ -272,20 +177,18 @@ nav {
     justify-content: center;
 }
 .profile-buttons button {
-    padding: 14px 24px;
+    padding: 16px 28px;
     border: none;
     border-radius: 16px;
     font-size: 17px;
     font-weight: 600;
     cursor: pointer;
-    background: rgba(179, 136, 255, 0.15);
+    background: rgba(179,136,255,0.15);
     color: #b388ff;
-    transition: all 0.15s;
 }
 .profile-buttons button:active { transform: scale(0.94); }
 
 .btn-back, .btn-copy {
-    display: block;
     width: 100%;
     margin-top: 14px;
     padding: 16px;
@@ -294,9 +197,8 @@ nav {
     font-size: 17px;
     font-weight: 600;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255,255,255,0.04);
     color: #aaa;
-    transition: all 0.15s;
 }
 .btn-back:active, .btn-copy:active { transform: scale(0.96); }
 
@@ -310,22 +212,3 @@ nav {
     font-size: 15px;
     margin: 10px 0 14px 0;
 }
-
-.topup-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin: 14px 0;
-}
-.topup-grid button {
-    padding: 16px;
-    border: none;
-    border-radius: 16px;
-    font-size: 17px;
-    font-weight: 700;
-    cursor: pointer;
-    background: rgba(179, 136, 255, 0.1);
-    color: #b388ff;
-    transition: all 0.15s;
-}
-.topup-grid button:active { transform: scale(0.94); }
