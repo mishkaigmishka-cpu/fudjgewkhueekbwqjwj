@@ -12,7 +12,6 @@ let _isOpening = false;
 let _tapeContainer = null;
 let _spinInterval = null;
 
-// ===== ВСЕ ВОЗМОЖНЫЕ НАГРАДЫ =====
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
     'mud': [1, 2, 3, 4, 5, 6, 7, 10, 12, 14, 16, 20, 22, 24, 27, 30, 35, 40, 50, 500],
@@ -26,18 +25,9 @@ const CASE_PRIZES = {
     'bedrock': [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 2600, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000]
 };
 
-// ===== СКОРОСТЬ ПРЕДПРОСМОТРА (УВЕЛИЧЕНА В 1.25 РАЗА) =====
 const CASE_SPEED = {
-    'free': 15,
-    'mud': 15,
-    'wood': 15,
-    'stone': 15,
-    'bronze': 15,
-    'silver': 15,
-    'gold': 15,
-    'diamond': 17,
-    'netherite': 19,
-    'bedrock': 21
+    'free': 15, 'mud': 15, 'wood': 15, 'stone': 15, 'bronze': 15, 'silver': 15, 'gold': 15,
+    'diamond': 17, 'netherite': 19, 'bedrock': 21
 };
 
 const CASE_STYLES = {
@@ -345,24 +335,30 @@ function startFinalSpin(type) {
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
 
     // ===== БЫСТРЫЙ СТАРТ =====
-    tapeContent.style.animationDuration = '0.2s';
+    tapeContent.style.animationDuration = '0.15s';
     tapeContent.style.animationTimingFunction = 'linear';
     
-    let duration = 0.2;
-    const maxDuration = 2.0;
-    const step = 0.06;
-    const interval = 120;
+    let duration = 0.15;
+    const maxDuration = 5.0;
+    const step = 0.03;
+    const interval = 60;
     
     let steps = 0;
-    const maxSteps = 30;
+    const maxSteps = 80;
 
     if (_spinInterval) clearInterval(_spinInterval);
     _spinInterval = setInterval(() => {
         steps++;
         
-        // ===== ПЛАВНОЕ ЗАМЕДЛЕНИЕ =====
+        // ===== ПЛАВНОЕ ЗАМЕДЛЕНИЕ (ОЧЕНЬ МЕДЛЕННО В КОНЦЕ) =====
         if (duration < maxDuration) {
-            duration += step;
+            if (duration < 1.0) {
+                duration += 0.05;
+            } else if (duration < 2.5) {
+                duration += 0.03;
+            } else {
+                duration += 0.015;
+            }
             if (duration > maxDuration) duration = maxDuration;
             tapeContent.style.animationDuration = duration + 's';
         }
@@ -375,15 +371,16 @@ function startFinalSpin(type) {
         allItems.forEach(el => {
             el.style.color = style.itemColor;
             el.style.textShadow = `0 0 15px ${style.glowColor}`;
-            el.style.transition = 'all 0.1s ease';
+            el.style.transition = 'all 0.08s ease';
         });
 
         if (target) {
             target.style.color = '#FFFFFF';
             target.style.textShadow = `0 0 25px ${style.highlightColor}, 0 0 50px ${style.highlightColor}40`;
-            target.style.transition = 'all 0.1s ease';
+            target.style.transition = 'all 0.08s ease';
         }
 
+        // ===== СТРЕЛКА ДВИГАЕТСЯ ЗА ПОДСВЕТКОЙ =====
         const arrowTop = document.getElementById('arrowTop');
         const arrowBottom = document.getElementById('arrowBottom');
         if (arrowTop && arrowBottom && target) {
@@ -392,16 +389,16 @@ function startFinalSpin(type) {
             setTimeout(() => {
                 arrowTop.style.transform = 'translateY(0)';
                 arrowBottom.style.transform = 'translateY(0)';
-            }, 80);
+            }, 50);
         }
 
         // ===== ОСТАНОВКА =====
-        if (steps >= maxSteps) {
+        if (steps >= maxSteps || duration >= maxDuration) {
             clearInterval(_spinInterval);
             _spinInterval = null;
             
             tapeContent.style.animation = 'none';
-            tapeContent.style.transition = 'transform 1.2s cubic-bezier(0.2, 0.9, 0.3, 1)';
+            tapeContent.style.transition = 'transform 1.2s cubic-bezier(0.15, 0.9, 0.25, 1)';
 
             const prizeIndex = prizes.indexOf(_currentPrize);
             const targetItem = document.querySelector(`.prize-item[data-index="${prizeIndex}"]`);
@@ -413,23 +410,29 @@ function startFinalSpin(type) {
                     el.style.transition = 'all 0.3s ease';
                 });
                 
+                // ===== ЯРКАЯ ПОДСВЕТКА ВЫИГРЫША =====
                 targetItem.style.color = '#FFFFFF';
                 targetItem.style.textShadow = `
                     0 0 60px ${style.highlightColor},
                     0 0 120px ${style.highlightColor},
                     0 0 200px ${style.highlightColor}80
                 `;
-                targetItem.style.transition = 'all 0.4s ease';
+                targetItem.style.transition = 'all 0.5s ease';
 
+                // ===== СТРЕЛКА УКАЗЫВАЕТ НА ВЫИГРЫШ =====
                 const arrowTop = document.getElementById('arrowTop');
                 const arrowBottom = document.getElementById('arrowBottom');
                 if (arrowTop) {
                     arrowTop.style.color = '#FFFFFF';
-                    arrowTop.style.textShadow = `0 0 40px ${style.highlightColor}`;
+                    arrowTop.style.textShadow = `0 0 60px ${style.highlightColor}`;
+                    arrowTop.style.transform = 'scale(1.3)';
+                    arrowTop.style.transition = 'all 0.5s ease';
                 }
                 if (arrowBottom) {
                     arrowBottom.style.color = '#FFFFFF';
-                    arrowBottom.style.textShadow = `0 0 40px ${style.highlightColor}`;
+                    arrowBottom.style.textShadow = `0 0 60px ${style.highlightColor}`;
+                    arrowBottom.style.transform = 'scale(1.3)';
+                    arrowBottom.style.transition = 'all 0.5s ease';
                 }
 
                 const containerWidth = tapeContainer.querySelector('.tape-track')?.offsetWidth || 400;
@@ -440,7 +443,7 @@ function startFinalSpin(type) {
 
                 setTimeout(() => {
                     tapeContent.innerHTML = `
-                        <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900; transition: all 0.4s ease;">
+                        <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900; transition: all 0.5s ease;">
                             ${_currentPrize}⭐
                         </span>
                     `;
@@ -452,8 +455,8 @@ function startFinalSpin(type) {
                         _tapeContainer = null;
                         _isOpening = false;
                         openCaseReal(type, _currentPrize);
-                    }, 1000);
-                }, 1200);
+                    }, 1200);
+                }, 1500);
             } else {
                 tapeContent.innerHTML = `
                     <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900;">
@@ -465,7 +468,7 @@ function startFinalSpin(type) {
                     _tapeContainer = null;
                     _isOpening = false;
                     openCaseReal(type, _currentPrize);
-                }, 1000);
+                }, 1200);
             }
         }
     }, interval);
