@@ -3,18 +3,18 @@ const user_id = tg.initDataUnsafe?.user?.id || 0;
 let lastOpenedCase = null;
 let _pendingCase = null;
 
-// ===== НАГРАДЫ ДЛЯ КАЖДОГО КЕЙСА (ДО 50) =====
+// ===== ВСЕ НАГРАДЫ ДЛЯ ЛЕНТЫ (ТВОИ СПИСКИ) =====
 const CASE_PRIZES = {
-    'free': [1,2,3,4,5,6,7,8,9,10,15,20,25,30,35,40,45,50,100,1000],
-    'mud': [1,2,3,4,5,6,7,8,9,10,12,15,18,20,25,30,35,40,45,50,500],
-    'wood': [1,2,3,4,5,6,7,8,9,10,12,14,16,18,20,22,24,26,28,30,35,40,45,50,1000,10000],
-    'stone': [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,40,45,50,2500,25000],
-    'bronze': [10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,5000,50000],
-    'silver': [20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,10000,100000],
-    'gold': [30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,25000,250000],
-    'diamond': [35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,50000,500000],
-    'netherite': [40,41,42,43,44,45,46,47,48,49,50,100000,1000000],
-    'bedrock': [45,46,47,48,49,50,250000,2500000]
+    'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
+    'mud': [1, 2, 3, 4, 5, 6, 7, 10, 12, 14, 16, 20, 22, 24, 27, 30, 35, 40, 50, 500],
+    'wood': [2, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15, 20, 50, 100, 500, 1000, 10000],
+    'stone': [11, 13, 15, 16, 17, 18, 19, 21, 23, 24, 25, 30, 50, 100, 250, 500, 1000, 2500],
+    'bronze': [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 100, 222, 333, 444, 555, 1000, 1500, 2000, 5000],
+    'silver': [40, 50, 60, 70, 70, 80, 90, 100, 100, 110, 120, 130, 140, 150, 200, 250, 333, 444, 555, 666, 777, 888, 999, 1488, 2011, 5000, 10000],
+    'gold': [75, 100, 150, 169, 190, 220, 251, 300, 400, 500, 777, 999, 1000, 2000, 5000, 10000, 12500, 25000],
+    'diamond': [250, 300, 333, 350, 444, 505, 1000, 1488, 2222, 1000, 2500, 5000, 10000, 12500, 25000, 50000],
+    'netherite': [500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 10000, 15000, 20000, 25000],
+    'bedrock': [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 2600, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000]
 };
 
 function getPrizes(type) {
@@ -41,6 +41,35 @@ async function loadBalance() {
     } catch(e) { console.error(e); }
 }
 
+async function checkBalance(type) {
+    try {
+        const res = await fetch('/check_balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, case_type: type })
+        });
+        const data = await res.json();
+        if (data.error) {
+            setTimeout(() => {
+                tg.showAlert('❌ ' + data.error);
+            }, 500);
+            return false;
+        }
+        if (!data.can_open) {
+            setTimeout(() => {
+                tg.showAlert('❌ Недостаточно звёзд или время не прошло!');
+            }, 500);
+            return false;
+        }
+        return true;
+    } catch(e) {
+        setTimeout(() => {
+            tg.showAlert('❌ Ошибка проверки баланса');
+        }, 500);
+        return false;
+    }
+}
+
 function showCaseInfo(type) {
     const caseData = {
         'free': { icon: '🎁', name: 'Бесплатный', price: '0⭐' },
@@ -58,6 +87,7 @@ function showCaseInfo(type) {
     const data = caseData[type];
     if (!data) return;
 
+    // ВСЕГДА показываем ленту (баланс не проверяем)
     document.getElementById('caseInfoIcon').textContent = data.icon;
     document.getElementById('caseInfoName').textContent = data.name;
     document.getElementById('caseInfoPrice').textContent = 'Цена: ' + data.price;
@@ -65,7 +95,7 @@ function showCaseInfo(type) {
     document.getElementById('caseInfo').style.display = 'flex';
     _pendingCase = type;
     
-    // СРАЗУ ПОКАЗЫВАЕМ ЛЕНТУ (на половину экрана)
+    // Показываем ленту на половину экрана
     setTimeout(() => {
         showPrizeTape(type);
     }, 300);
@@ -74,17 +104,26 @@ function showCaseInfo(type) {
 function closeCaseInfo() {
     document.getElementById('caseInfo').style.display = 'none';
     _pendingCase = null;
+    // Удаляем контейнер ленты, если он есть
+    const tape = document.getElementById('tapeContainer');
+    if (tape) tape.remove();
 }
 
 function confirmOpen() {
     const type = _pendingCase;
     if (!type) return;
-    closeCaseInfo();
-    // Запускаем финальную прокрутку со стрелкой
-    startFinalSpin(type);
+    
+    // При нажатии «Открыть» — проверяем баланс
+    checkBalance(type).then(canOpen => {
+        if (!canOpen) {
+            closeCaseInfo();
+            return;
+        }
+        // Запускаем анимацию открытия
+        startFinalSpin(type);
+    });
 }
 
-// ===== ЛЕНТА НА ПОЛОВИНУ ЭКРАНА (МЕДЛЕННАЯ) =====
 function showPrizeTape(type) {
     const prizes = getPrizes(type);
     
@@ -92,7 +131,7 @@ function showPrizeTape(type) {
     tapeContainer.id = 'tapeContainer';
     tapeContainer.style.cssText = `
         position: fixed;
-        top: 25%;
+        top: 0;
         left: 0;
         right: 0;
         height: 50vh;
@@ -104,7 +143,6 @@ function showPrizeTape(type) {
         justify-content: center;
         z-index: 200;
         padding: 20px;
-        border-top: 2px solid rgba(255,215,0,0.3);
         border-bottom: 2px solid rgba(255,215,0,0.3);
     `;
     
@@ -120,18 +158,19 @@ function showPrizeTape(type) {
     `;
     
     const tapeContent = document.createElement('div');
+    tapeContent.id = 'tapeContent';
     tapeContent.style.cssText = `
         display: flex;
         gap: 40px;
         white-space: nowrap;
         font-size: 48px;
         font-weight: 900;
-        animation: scrollTape 6s linear infinite;
+        animation: scrollTape 15s linear infinite;
     `;
     
-    const items = prizes.map(p => {
-        const color = p > 1000 ? '#ff6b6b' : p > 100 ? '#ffd93d' : '#6bcbff';
-        return `<span style="color:${color};">${p}⭐</span>`;
+    // Все награды с подсветкой (активная — золотая)
+    const items = prizes.map((p, index) => {
+        return `<span class="prize-item" data-index="${index}" style="color:#6bcbff; transition: all 0.3s;">${p}⭐</span>`;
     }).join('');
     tapeContent.innerHTML = items + items + items;
     
@@ -141,7 +180,7 @@ function showPrizeTape(type) {
         style.textContent = `
             @keyframes scrollTape {
                 0% { transform: translateX(0); }
-                100% { transform: translateX(-33.33%); }
+                100% { transform: translateX(-100%); }
             }
         `;
         document.head.appendChild(style);
@@ -150,9 +189,16 @@ function showPrizeTape(type) {
     tapeBox.appendChild(tapeContent);
     tapeContainer.appendChild(tapeBox);
     
-    // Кнопка "Открыть" внутри ленты
+    // Кнопки
+    const btnContainer = document.createElement('div');
+    btnContainer.style.cssText = `
+        display: flex;
+        gap: 16px;
+        margin-top: 20px;
+    `;
+    
     const openBtn = document.createElement('button');
-    openBtn.textContent = '🎲 Открыть кейс';
+    openBtn.textContent = '🎲 Открыть';
     openBtn.style.cssText = `
         background: linear-gradient(135deg, #b388ff, #7c4dff);
         color: #fff;
@@ -162,111 +208,105 @@ function showPrizeTape(type) {
         font-size: 18px;
         font-weight: 700;
         cursor: pointer;
-        margin-top: 20px;
         transition: all 0.15s;
     `;
     openBtn.onclick = function() {
         confirmOpen();
     };
-    tapeContainer.appendChild(openBtn);
+    
+    const backBtn = document.createElement('button');
+    backBtn.textContent = '🔙 Назад';
+    backBtn.style.cssText = `
+        background: rgba(255,255,255,0.08);
+        color: #fff;
+        border: none;
+        padding: 14px 32px;
+        border-radius: 16px;
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    `;
+    backBtn.onclick = function() {
+        closeCaseInfo();
+    };
+    
+    btnContainer.appendChild(openBtn);
+    btnContainer.appendChild(backBtn);
+    tapeContainer.appendChild(btnContainer);
     
     document.body.appendChild(tapeContainer);
+    
+    // Запускаем подсветку (смена активной награды)
+    let activeIndex = 0;
+    const allItems = document.querySelectorAll('.prize-item');
+    const totalItems = allItems.length / 3; // потому что лента утроена
+    
+    const highlightInterval = setInterval(() => {
+        // Снимаем подсветку со всех
+        document.querySelectorAll('.prize-item').forEach(el => {
+            el.style.color = '#6bcbff';
+            el.style.textShadow = 'none';
+        });
+        // Подсвечиваем текущую
+        const idx = activeIndex % totalItems;
+        const target = document.querySelector(`.prize-item[data-index="${idx}"]`);
+        if (target) {
+            target.style.color = '#ffd700';
+            target.style.textShadow = '0 0 20px rgba(255,215,0,0.8)';
+        }
+        activeIndex++;
+    }, 600);
+    
+    // Сохраняем interval для очистки
+    tapeContainer._highlightInterval = highlightInterval;
 }
 
-// ===== ФИНАЛЬНАЯ ПРОКРУТКА СО СТРЕЛКОЙ =====
 function startFinalSpin(type) {
     const prizes = getPrizes(type);
     const tapeContainer = document.getElementById('tapeContainer');
     if (!tapeContainer) return;
     
-    // Меняем ленту на весь экран
+    // Останавливаем подсветку
+    if (tapeContainer._highlightInterval) {
+        clearInterval(tapeContainer._highlightInterval);
+    }
+    
+    // Убираем кнопки
+    const btns = tapeContainer.querySelectorAll('button');
+    btns.forEach(btn => btn.remove());
+    
+    // Разворачиваем на весь экран
     tapeContainer.style.top = '0';
     tapeContainer.style.height = '100vh';
-    tapeContainer.style.borderTop = 'none';
     tapeContainer.style.borderBottom = 'none';
     
-    // Убираем кнопку
-    const btn = tapeContainer.querySelector('button');
-    if (btn) btn.remove();
-    
-    // Получаем содержимое ленты
     const tapeBox = tapeContainer.querySelector('div');
-    const tapeContent = tapeBox.querySelector('div');
-    
-    // Ускоряем анимацию
+    const tapeContent = document.getElementById('tapeContent');
     tapeContent.style.animation = 'scrollTape 0.8s linear infinite';
     
-    // Стрелка
-    const arrow = document.createElement('div');
-    arrow.id = 'tapeArrow';
-    arrow.textContent = '👇';
-    arrow.style.cssText = `
-        font-size: 60px;
-        margin-top: 20px;
-        animation: bounceArrow 0.4s infinite alternate;
-        color: #ffd700;
-        text-shadow: 0 0 30px rgba(255,215,0,0.5);
-        opacity: 0;
-        transition: opacity 0.5s;
-    `;
-    tapeContainer.appendChild(arrow);
-    
-    if (!document.getElementById('arrowStyle')) {
-        const style = document.createElement('style');
-        style.id = 'arrowStyle';
-        style.textContent = `
-            @keyframes bounceArrow {
-                0% { transform: translateY(0); opacity: 0.6; }
-                100% { transform: translateY(15px); opacity: 1; }
-            }
-        `;
-        document.head.appendChild(style);
-    }
+    // Выбираем случайную награду
+    const finalPrize = prizes[Math.floor(Math.random() * prizes.length)];
     
     // Через 1.5 секунды — показываем результат
     setTimeout(() => {
-        // Останавливаем ленту
         tapeContent.style.animation = 'none';
-        
-        // Выбираем случайную награду (шансы не меняем)
-        const finalPrize = prizes[Math.floor(Math.random() * prizes.length)];
-        
-        // Показываем финальную награду
         tapeContent.innerHTML = `<span style="color:#ffd700; font-size:64px; text-shadow: 0 0 40px rgba(255,215,0,0.8);">${finalPrize}⭐</span>`;
         
-        // Показываем стрелку
-        arrow.style.opacity = '1';
+        // Снимаем подсветку со всех
+        document.querySelectorAll('.prize-item').forEach(el => {
+            el.style.color = '#6bcbff';
+            el.style.textShadow = 'none';
+        });
         
-        // Через 1 секунду — модалка
         setTimeout(() => {
             tapeContainer.remove();
             openCaseReal(type, finalPrize);
         }, 1000);
-        
     }, 1500);
 }
 
 async function openCaseReal(type, finalPrize) {
-    try {
-        const checkRes = await fetch('/check_balance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, case_type: type })
-        });
-        const checkData = await checkRes.json();
-        if (checkData.error) {
-            tg.showAlert('❌ ' + checkData.error);
-            return;
-        }
-        if (!checkData.can_open) {
-            tg.showAlert('❌ Недостаточно звёзд!');
-            return;
-        }
-    } catch(e) {
-        tg.showAlert('❌ Ошибка проверки баланса');
-        return;
-    }
-
     try {
         const res = await fetch('/open_case', {
             method: 'POST',
