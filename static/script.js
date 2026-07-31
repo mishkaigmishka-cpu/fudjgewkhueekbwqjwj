@@ -30,6 +30,19 @@ const CASE_SPEED = {
     'diamond': 17, 'netherite': 19, 'bedrock': 21
 };
 
+const CASE_PRICES = {
+    'free': 0,
+    'mud': 5,
+    'wood': 9,
+    'stone': 19,
+    'bronze': 49,
+    'silver': 99,
+    'gold': 249,
+    'diamond': 499,
+    'netherite': 999,
+    'bedrock': 2499
+};
+
 const CASE_STYLES = {
     'free': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(46,204,113,0.6)', titleColor: '#2ecc71', itemColor: '#6bcbff', highlightColor: '#ffd700', glowColor: 'rgba(46,204,113,0.3)', shadowColor: 'rgba(46,204,113,0.5)', icon: '🎁', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(46,204,113,0.08), transparent 70%)' },
     'mud': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(142,68,173,0.6)', titleColor: '#8e44ad', itemColor: '#c39bd3', highlightColor: '#ff6b6b', glowColor: 'rgba(142,68,173,0.3)', shadowColor: 'rgba(142,68,173,0.5)', icon: '🟫', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(142,68,173,0.08), transparent 70%)' },
@@ -46,6 +59,7 @@ const CASE_STYLES = {
 function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
 function getSpeed(type) { return CASE_SPEED[type] || 15; }
+function getPrice(type) { return CASE_PRICES[type] || 0; }
 
 async function loadBalance() {
     try {
@@ -117,6 +131,7 @@ function showFullScreenTape(type, isOpening) {
     const prizes = getPrizes(type);
     const style = getStyle(type);
     const speed = getSpeed(type);
+    const price = getPrice(type);
     closeTape();
 
     const tapeContainer = document.createElement('div');
@@ -260,7 +275,7 @@ function showFullScreenTape(type, isOpening) {
     btnContainer.style.cssText = `display:flex; gap:16px; flex-wrap:wrap; justify-content:center;`;
 
     const openBtn = document.createElement('button');
-    openBtn.textContent = `🎲 Открыть ${style.icon}`;
+    openBtn.textContent = `🎲 Открыть (${price}⭐)`;
     openBtn.style.cssText = `
         background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
         color: #fff;
@@ -334,29 +349,30 @@ function startFinalSpin(type) {
     
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
 
-    // ===== БЫСТРЫЙ СТАРТ =====
+    // ===== БЫСТРЫЙ СТАРТ (0.15с) =====
     tapeContent.style.animationDuration = '0.15s';
     tapeContent.style.animationTimingFunction = 'linear';
     
     let duration = 0.15;
-    const maxDuration = 5.5;
+    const maxDuration = 6.0;
     let steps = 0;
-    const maxSteps = 90;
+    const maxSteps = 100;
 
     if (_spinInterval) clearInterval(_spinInterval);
     _spinInterval = setInterval(() => {
         steps++;
         
-        // ===== ПЛАВНОЕ ЗАМЕДЛЕНИЕ (ПОЧТИ ОСТАНОВКА) =====
+        // ===== 3 ЭТАПА ЗАМЕДЛЕНИЯ =====
         if (duration < maxDuration) {
-            if (duration < 0.5) {
-                duration += 0.04;
-            } else if (duration < 1.5) {
+            if (steps < 30) {
+                // ЭТАП 1: быстро (0–3 сек)
+                duration += 0.06;
+            } else if (steps < 60) {
+                // ЭТАП 2: среднее замедление (3–6 сек)
                 duration += 0.025;
-            } else if (duration < 3.0) {
-                duration += 0.015;
             } else {
-                duration += 0.008;  // ОЧЕНЬ МЕДЛЕННО В КОНЦЕ
+                // ЭТАП 3: очень медленно (6–10 сек)
+                duration += 0.008;
             }
             if (duration > maxDuration) duration = maxDuration;
             tapeContent.style.animationDuration = duration + 's';
@@ -468,7 +484,7 @@ function startFinalSpin(type) {
                 }, 1200);
             }
         }
-    }, 45);
+    }, 35);
 }
 
 async function openCaseReal(type, finalPrize) {
