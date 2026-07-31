@@ -26,7 +26,7 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS users (
     total_cases INTEGER DEFAULT 0,
     streak INTEGER DEFAULT 0,
     last_open INTEGER DEFAULT 0,
-    status TEXT DEFAULT 'Новичок',
+    status TEXT DEFAULT '🟢 Новичок',
     refs INTEGER DEFAULT 0,
     daily_claimed INTEGER DEFAULT 0,
     username TEXT DEFAULT '',
@@ -54,6 +54,18 @@ CASE_RANGES = {
         "rare_chance": 0.2999,
         "epic_chance": 0.0999,
         "legendary_chance": 0.0001,
+        "jackpot_chance": 0.000000001
+    },
+    "mud": {
+        "common": (1, 3),
+        "rare": (3, 5),
+        "epic": (5, 7),
+        "legendary": (50, 50),
+        "jackpot": (500, 500),
+        "common_chance": 0.1499,
+        "rare_chance": 0.65,
+        "epic_chance": 0.19999,
+        "legendary_chance": 0.00000001,
         "jackpot_chance": 0.000000001
     },
     "wood": {
@@ -157,6 +169,19 @@ def get_prize(case_type):
     data = CASE_RANGES[case_type]
     rnd = random.random()
     
+    if case_type == "mud":
+        if rnd < data["jackpot_chance"]:
+            return random.randint(data["jackpot"][0], data["jackpot"][1])
+        elif rnd < data["jackpot_chance"] + data["legendary_chance"]:
+            return random.randint(data["legendary"][0], data["legendary"][1])
+        elif rnd < data["common_chance"]:
+            return random.randint(data["common"][0], data["common"][1])
+        elif rnd < data["common_chance"] + data["rare_chance"]:
+            return random.randint(data["rare"][0], data["rare"][1])
+        else:
+            return random.randint(data["epic"][0], data["epic"][1])
+    
+    # Остальные кейсы
     if rnd < data["jackpot_chance"]:
         return random.randint(data["jackpot"][0], data["jackpot"][1])
     elif rnd < data["jackpot_chance"] + data["legendary_chance"]:
@@ -254,7 +279,13 @@ def start(msg):
 @bot.callback_query_handler(func=lambda call: call.data == "topup")
 def topup_callback(call):
     bot.answer_callback_query(call.id)
-    bot.send_message(call.message.chat.id, "💳 Введите сумму пополнения (от 50 до 5000⭐):")
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("🔙 Назад", callback_data="cancel_topup"))
+    bot.send_message(
+        call.message.chat.id,
+        "💳 Введите сумму пополнения (от 50 до 5000⭐):",
+        reply_markup=kb
+    )
     bot.register_next_step_handler(call.message, process_topup_amount)
 
 def process_topup_amount(msg):
@@ -279,10 +310,6 @@ def process_topup_amount(msg):
         prices=[LabeledPrice(label=f"{amount} Stars", amount=amount)],
         start_parameter="buy_stars"
     )
-
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("🔙 Назад", callback_data="cancel_topup"))
-    bot.send_message(uid, "💳 Оплати счёт выше. Если передумал — нажми «Назад».", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_topup")
 def cancel_topup(call):
@@ -395,6 +422,7 @@ def check_balance():
         return jsonify({'error': 'User not found'}), 404
     prices = {
         "free": 0,
+        "mud": 5,
         "wood": 9,
         "stone": 19,
         "bronze": 49,
@@ -407,8 +435,8 @@ def check_balance():
     price = prices.get(case_type, 0)
     if user[1] < price:
         return jsonify({'error': 'Недостаточно звёзд!', 'can_open': False}), 400
-    if case_type == "free" and time.time() - user[4] < 43200:
-        wait = int((43200 - (time.time() - user[4])) // 60)
+    if case_type == "free" and time.time() - user[4] < 7200:
+        wait = int((7200 - (time.time() - user[4])) // 60)
         return jsonify({'error': f'Жди {wait} мин', 'can_open': False}), 400
     return jsonify({'can_open': True})
 
@@ -423,6 +451,7 @@ def open_case():
             return jsonify({'error': 'User not found'}), 404
         prices = {
             "free": 0,
+            "mud": 5,
             "wood": 9,
             "stone": 19,
             "bronze": 49,
@@ -436,25 +465,28 @@ def open_case():
         if user[1] < price:
             return jsonify({'error': 'Недостаточно звёзд!'}), 400
         if case_type == "free":
-            if time.time() - user[4] < 43200:
-                wait = int((43200 - (time.time() - user[4])) // 60)
+            if time.time() - user[4] < 7200:
+                wait = int((7200 - (time.time() - user[4])) // 60)
                 return jsonify({'error': f'Жди {wait} мин'}), 400
         prize = get_prize(case_type)
         new_bal = user[1] - price + prize
         if case_type == "free":
             new_total = user[2] + 1
             new_streak = user[3] + 1
-            status = "Новичок"
-            if new_total >= 30:
-                status = "Легенда"
-            elif new_streak >= 7:
-                status = "Мастер фортуны"
-            elif new_streak >= 3:
-                status = "Сталкер халявы"
+            
+            if new_total >= 100:
+                status = "👑 Легенда"
+            elif new_total >= 50:
+                status = "🟣 Мастер фортуны"
+            elif new_total >= 30:
+                status = "🔴 Сталкер халявы"
             elif new_total >= 10:
-                status = "Везунчик"
+                status = "🟠 Везунчик"
             elif new_total >= 5:
-                status = "Кейс-охотник"
+                status = "🟡 Кейс-охотник"
+            else:
+                status = "🟢 Новичок"
+            
             update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()), status=status)
         else:
             update_user(user_id, balance=new_bal)
