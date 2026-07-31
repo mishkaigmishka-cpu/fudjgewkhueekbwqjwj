@@ -339,25 +339,24 @@ function startFinalSpin(type) {
     tapeContent.style.animationTimingFunction = 'linear';
     
     let duration = 0.15;
-    const maxDuration = 5.0;
-    const step = 0.03;
-    const interval = 60;
-    
+    const maxDuration = 5.5;
     let steps = 0;
-    const maxSteps = 80;
+    const maxSteps = 90;
 
     if (_spinInterval) clearInterval(_spinInterval);
     _spinInterval = setInterval(() => {
         steps++;
         
-        // ===== ПЛАВНОЕ ЗАМЕДЛЕНИЕ (ОЧЕНЬ МЕДЛЕННО В КОНЦЕ) =====
+        // ===== ПЛАВНОЕ ЗАМЕДЛЕНИЕ (ПОЧТИ ОСТАНОВКА) =====
         if (duration < maxDuration) {
-            if (duration < 1.0) {
-                duration += 0.05;
-            } else if (duration < 2.5) {
-                duration += 0.03;
-            } else {
+            if (duration < 0.5) {
+                duration += 0.04;
+            } else if (duration < 1.5) {
+                duration += 0.025;
+            } else if (duration < 3.0) {
                 duration += 0.015;
+            } else {
+                duration += 0.008;  // ОЧЕНЬ МЕДЛЕННО В КОНЦЕ
             }
             if (duration > maxDuration) duration = maxDuration;
             tapeContent.style.animationDuration = duration + 's';
@@ -371,16 +370,16 @@ function startFinalSpin(type) {
         allItems.forEach(el => {
             el.style.color = style.itemColor;
             el.style.textShadow = `0 0 15px ${style.glowColor}`;
-            el.style.transition = 'all 0.08s ease';
+            el.style.transition = 'all 0.06s ease';
         });
 
         if (target) {
             target.style.color = '#FFFFFF';
             target.style.textShadow = `0 0 25px ${style.highlightColor}, 0 0 50px ${style.highlightColor}40`;
-            target.style.transition = 'all 0.08s ease';
+            target.style.transition = 'all 0.06s ease';
         }
 
-        // ===== СТРЕЛКА ДВИГАЕТСЯ ЗА ПОДСВЕТКОЙ =====
+        // ===== СТРЕЛКА =====
         const arrowTop = document.getElementById('arrowTop');
         const arrowBottom = document.getElementById('arrowBottom');
         if (arrowTop && arrowBottom && target) {
@@ -389,7 +388,7 @@ function startFinalSpin(type) {
             setTimeout(() => {
                 arrowTop.style.transform = 'translateY(0)';
                 arrowBottom.style.transform = 'translateY(0)';
-            }, 50);
+            }, 40);
         }
 
         // ===== ОСТАНОВКА =====
@@ -398,7 +397,7 @@ function startFinalSpin(type) {
             _spinInterval = null;
             
             tapeContent.style.animation = 'none';
-            tapeContent.style.transition = 'transform 1.2s cubic-bezier(0.15, 0.9, 0.25, 1)';
+            tapeContent.style.transition = 'transform 1.2s cubic-bezier(0.1, 0.95, 0.2, 1)';
 
             const prizeIndex = prizes.indexOf(_currentPrize);
             const targetItem = document.querySelector(`.prize-item[data-index="${prizeIndex}"]`);
@@ -410,7 +409,6 @@ function startFinalSpin(type) {
                     el.style.transition = 'all 0.3s ease';
                 });
                 
-                // ===== ЯРКАЯ ПОДСВЕТКА ВЫИГРЫША =====
                 targetItem.style.color = '#FFFFFF';
                 targetItem.style.textShadow = `
                     0 0 60px ${style.highlightColor},
@@ -419,7 +417,6 @@ function startFinalSpin(type) {
                 `;
                 targetItem.style.transition = 'all 0.5s ease';
 
-                // ===== СТРЕЛКА УКАЗЫВАЕТ НА ВЫИГРЫШ =====
                 const arrowTop = document.getElementById('arrowTop');
                 const arrowBottom = document.getElementById('arrowBottom');
                 if (arrowTop) {
@@ -471,7 +468,7 @@ function startFinalSpin(type) {
                 }, 1200);
             }
         }
-    }, interval);
+    }, 45);
 }
 
 async function openCaseReal(type, finalPrize) {
