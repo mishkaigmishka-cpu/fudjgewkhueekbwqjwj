@@ -23,7 +23,7 @@ async function loadBalance() {
 }
 
 async function openCase(type) {
-    // === ПРОВЕРКА БАЛАНСА ДО АНИМАЦИИ ===
+    // Проверка баланса ДО анимации
     try {
         const checkRes = await fetch('/check_balance', {
             method: 'POST',
@@ -44,115 +44,24 @@ async function openCase(type) {
         return;
     }
 
-    // === АНИМАЦИЯ ===
+    // Возможные выигрыши для каждого кейса (для анимации)
+    const casePrizes = {
+        'free': [1, 2, 3, 5, 10, 100],
+        'wood': [20, 25, 30, 35, 40, 50, 60, 100, 200],
+        'silver': [40, 50, 60, 70, 80, 90, 100, 120, 200, 500],
+        'gold': [150, 175, 200, 250, 300, 350, 400, 450, 500, 1000],
+        'diamond': [350, 400, 500, 600, 700, 800, 900, 1000, 1200, 2000],
+        'netherite': [1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 8000, 15000, 25000]
+    };
+
+    const prizes = casePrizes[type] || [1, 10, 100];
+    const displayPrizes = prizes.slice().sort((a, b) => a - b);
+
+    // Анимация
     lastOpenedCase = type;
     const resultDiv = document.getElementById('result');
     const display = document.getElementById('prizeDisplay');
     const name = document.getElementById('prizeName');
     const value = document.getElementById('prizeValue');
     const adBlock = document.getElementById('adBlock');
-    const adText = document.getElementById('adText');
-    const againBtn = document.getElementById('againBtn');
-
-    resultDiv.classList.add('show');
-    adBlock.style.display = 'none';
-    againBtn.style.display = 'none';
-    display.textContent = '🎰';
-    name.textContent = 'Крутится...';
-    value.textContent = '⭐ 0';
-
-    for (let i = 0; i < 20; i++) {
-        const randomPrize = Math.floor(Math.random() * 50000) + 1;
-        value.textContent = '⭐ ' + randomPrize;
-        await new Promise(r => setTimeout(r, 100));
-    }
-
-    try {
-        const res = await fetch('/open_case', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, case_type: type })
-        });
-        const data = await res.json();
-        if (data.error) {
-            display.textContent = '❌';
-            name.textContent = 'Ошибка';
-            value.textContent = data.error;
-            return;
-        }
-        resultDiv.classList.add('flash');
-        setTimeout(() => resultDiv.classList.remove('flash'), 400);
-
-        display.textContent = '🎁';
-        name.textContent = 'Ты выиграл!';
-        value.textContent = '⭐ ' + data.prize;
-        if (data.ad) {
-            adText.textContent = data.ad;
-            adBlock.style.display = 'block';
-        }
-        loadBalance();
-        againBtn.style.display = 'inline-block';
-    } catch(e) {
-        display.textContent = '⚠️';
-        name.textContent = 'Ошибка';
-        value.textContent = 'Попробуй снова';
-    }
-}
-
-function openAgain() {
-    closeResult();
-    if (lastOpenedCase) {
-        setTimeout(() => openCase(lastOpenedCase), 300);
-    }
-}
-
-function closeResult() {
-    document.getElementById('result').classList.remove('show');
-    document.getElementById('againBtn').style.display = 'none';
-}
-
-// === ПРОФИЛЬ КАК ОТДЕЛЬНАЯ ВКЛАДКА ===
-function showProfile() {
-    document.getElementById('mainScreen').style.display = 'none';
-    document.getElementById('profileScreen').style.display = 'block';
-    loadBalance();
-}
-
-function showMain() {
-    document.getElementById('profileScreen').style.display = 'none';
-    document.getElementById('mainScreen').style.display = 'block';
-}
-
-function showInvite() {
-    document.getElementById('inviteSection').style.display = 'block';
-}
-
-function copyInvite() {
-    navigator.clipboard.writeText(document.getElementById('inviteLink').value);
-    tg.showAlert('✅ Ссылка скопирована!');
-}
-
-function showWithdraw() {
-    const amount = prompt('Введите количество звёзд (мин. 1000⭐):');
-    if (!amount || amount < 1000) {
-        tg.showAlert('❌ Минимум 1000⭐');
-        return;
-    }
-    fetch('/withdraw_request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, amount })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            tg.showAlert('✅ Заявка отправлена! Админ свяжется с вами.');
-        } else {
-            tg.showAlert('❌ ' + data.error);
-        }
-    })
-    .catch(() => tg.showAlert('❌ Ошибка соединения'));
-}
-
-loadBalance();
-tg.ready();
+    const ad
