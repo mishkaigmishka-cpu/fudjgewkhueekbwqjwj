@@ -63,97 +63,137 @@ header {
     margin-bottom: 20px;
 }
 
-/* ===== РАМКИ ДЛЯ КЕЙСОВ (КАК НА КАРТИНКЕ) ===== */
+/* ===== НОВЫЙ ДИЗАЙН КЕЙСОВ (СМАЙЛИК И НАЗВАНИЕ ПО ЦЕНТРУ, ГРАНИЦЫ КАК НА ФОТО) ===== */
 .case-card {
-    position: relative;
-    background: rgba(255, 255, 255, 0.04);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.03);
     backdrop-filter: blur(12px);
-    border-radius: 24px;
-    padding: 18px 20px;
-    border: 2px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 20px 16px;
+    border: 1.5px solid rgba(255, 255, 255, 0.08);
     cursor: pointer;
     transition: all 0.25s ease;
+    position: relative;
     overflow: hidden;
+    min-height: 100px;
 }
 
+/* ===== ТОНКАЯ СВЕТЯЩАЯСЯ ГРАНИЦА ===== */
 .case-card::before {
     content: '';
     position: absolute;
-    top: -2px;
-    left: -2px;
-    right: -2px;
-    bottom: -2px;
-    border-radius: 26px;
-    z-index: -1;
+    inset: -1.5px;
+    border-radius: 21px;
+    padding: 1.5px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent, rgba(255,255,255,0.02));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
     opacity: 0.6;
     transition: opacity 0.3s ease;
 }
 
-/* ===== УНИКАЛЬНЫЙ ЦВЕТ РАМКИ ДЛЯ КАЖДОГО КЕЙСА ===== */
-.case-card[data-case="free"] { border-color: rgba(46, 204, 113, 0.5); }
-.case-card[data-case="free"]::before { background: radial-gradient(circle at 50% 50%, rgba(46, 204, 113, 0.15), transparent 70%); }
-
-.case-card[data-case="mud"] { border-color: rgba(142, 68, 173, 0.5); }
-.case-card[data-case="mud"]::before { background: radial-gradient(circle at 50% 50%, rgba(142, 68, 173, 0.15), transparent 70%); }
-
-.case-card[data-case="wood"] { border-color: rgba(211, 84, 0, 0.5); }
-.case-card[data-case="wood"]::before { background: radial-gradient(circle at 50% 50%, rgba(211, 84, 0, 0.15), transparent 70%); }
-
-.case-card[data-case="stone"] { border-color: rgba(127, 140, 141, 0.5); }
-.case-card[data-case="stone"]::before { background: radial-gradient(circle at 50% 50%, rgba(127, 140, 141, 0.15), transparent 70%); }
-
-.case-card[data-case="bronze"] { border-color: rgba(205, 127, 50, 0.5); }
-.case-card[data-case="bronze"]::before { background: radial-gradient(circle at 50% 50%, rgba(205, 127, 50, 0.15), transparent 70%); }
-
-.case-card[data-case="silver"] { border-color: rgba(189, 195, 199, 0.5); }
-.case-card[data-case="silver"]::before { background: radial-gradient(circle at 50% 50%, rgba(189, 195, 199, 0.15), transparent 70%); }
-
-.case-card[data-case="gold"] { border-color: rgba(241, 196, 15, 0.5); }
-.case-card[data-case="gold"]::before { background: radial-gradient(circle at 50% 50%, rgba(241, 196, 15, 0.15), transparent 70%); }
-
-.case-card[data-case="diamond"] { border-color: rgba(52, 152, 219, 0.5); }
-.case-card[data-case="diamond"]::before { background: radial-gradient(circle at 50% 50%, rgba(52, 152, 219, 0.15), transparent 70%); }
-
-.case-card[data-case="netherite"] { border-color: rgba(231, 76, 60, 0.5); }
-.case-card[data-case="netherite"]::before { background: radial-gradient(circle at 50% 50%, rgba(231, 76, 60, 0.15), transparent 70%); }
-
-.case-card[data-case="bedrock"] { border-color: rgba(52, 73, 94, 0.5); }
-.case-card[data-case="bedrock"]::before { background: radial-gradient(circle at 50% 50%, rgba(52, 73, 94, 0.15), transparent 70%); }
-
-/* ===== УСИЛЕНИЕ ПРИ НАЖАТИИ ===== */
-.case-card:active {
-    transform: scale(0.97);
-    background: rgba(255, 255, 255, 0.06);
+.case-card:active::before {
+    opacity: 1;
 }
-.case-card:active::before { opacity: 1; }
 
-.case-card:active[data-case="free"] { border-color: rgba(46, 204, 113, 0.9); box-shadow: 0 0 30px rgba(46, 204, 113, 0.2); }
-.case-card:active[data-case="mud"] { border-color: rgba(142, 68, 173, 0.9); box-shadow: 0 0 30px rgba(142, 68, 173, 0.2); }
-.case-card:active[data-case="wood"] { border-color: rgba(211, 84, 0, 0.9); box-shadow: 0 0 30px rgba(211, 84, 0, 0.2); }
-.case-card:active[data-case="stone"] { border-color: rgba(127, 140, 141, 0.9); box-shadow: 0 0 30px rgba(127, 140, 141, 0.2); }
-.case-card:active[data-case="bronze"] { border-color: rgba(205, 127, 50, 0.9); box-shadow: 0 0 30px rgba(205, 127, 50, 0.2); }
-.case-card:active[data-case="silver"] { border-color: rgba(189, 195, 199, 0.9); box-shadow: 0 0 30px rgba(189, 195, 199, 0.2); }
-.case-card:active[data-case="gold"] { border-color: rgba(241, 196, 15, 0.9); box-shadow: 0 0 30px rgba(241, 196, 15, 0.2); }
-.case-card:active[data-case="diamond"] { border-color: rgba(52, 152, 219, 0.9); box-shadow: 0 0 30px rgba(52, 152, 219, 0.2); }
-.case-card:active[data-case="netherite"] { border-color: rgba(231, 76, 60, 0.9); box-shadow: 0 0 30px rgba(231, 76, 60, 0.2); }
-.case-card:active[data-case="bedrock"] { border-color: rgba(52, 73, 94, 0.9); box-shadow: 0 0 30px rgba(52, 73, 94, 0.2); }
+/* ===== УНИКАЛЬНЫЙ ЦВЕТ ГРАНИЦЫ ===== */
+.case-card[data-case="free"] { border-color: rgba(46, 204, 113, 0.25); }
+.case-card[data-case="free"]:active { border-color: rgba(46, 204, 113, 0.7); box-shadow: 0 0 25px rgba(46, 204, 113, 0.15); }
 
-.case-icon { font-size: 52px; flex-shrink: 0; filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.05)); }
-.case-name { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
-.case-price { font-size: 16px; color: #bbb; font-weight: 500; }
+.case-card[data-case="mud"] { border-color: rgba(142, 68, 173, 0.25); }
+.case-card[data-case="mud"]:active { border-color: rgba(142, 68, 173, 0.7); box-shadow: 0 0 25px rgba(142, 68, 173, 0.15); }
 
-.jackpot {
+.case-card[data-case="wood"] { border-color: rgba(211, 84, 0, 0.25); }
+.case-card[data-case="wood"]:active { border-color: rgba(211, 84, 0, 0.7); box-shadow: 0 0 25px rgba(211, 84, 0, 0.15); }
+
+.case-card[data-case="stone"] { border-color: rgba(127, 140, 141, 0.25); }
+.case-card[data-case="stone"]:active { border-color: rgba(127, 140, 141, 0.7); box-shadow: 0 0 25px rgba(127, 140, 141, 0.15); }
+
+.case-card[data-case="bronze"] { border-color: rgba(205, 127, 50, 0.25); }
+.case-card[data-case="bronze"]:active { border-color: rgba(205, 127, 50, 0.7); box-shadow: 0 0 25px rgba(205, 127, 50, 0.15); }
+
+.case-card[data-case="silver"] { border-color: rgba(189, 195, 199, 0.25); }
+.case-card[data-case="silver"]:active { border-color: rgba(189, 195, 199, 0.7); box-shadow: 0 0 25px rgba(189, 195, 199, 0.15); }
+
+.case-card[data-case="gold"] { border-color: rgba(241, 196, 15, 0.25); }
+.case-card[data-case="gold"]:active { border-color: rgba(241, 196, 15, 0.7); box-shadow: 0 0 25px rgba(241, 196, 15, 0.15); }
+
+.case-card[data-case="diamond"] { border-color: rgba(52, 152, 219, 0.25); }
+.case-card[data-case="diamond"]:active { border-color: rgba(52, 152, 219, 0.7); box-shadow: 0 0 25px rgba(52, 152, 219, 0.15); }
+
+.case-card[data-case="netherite"] { border-color: rgba(231, 76, 60, 0.25); }
+.case-card[data-case="netherite"]:active { border-color: rgba(231, 76, 60, 0.7); box-shadow: 0 0 25px rgba(231, 76, 60, 0.15); }
+
+.case-card[data-case="bedrock"] { border-color: rgba(52, 73, 94, 0.25); }
+.case-card[data-case="bedrock"]:active { border-color: rgba(52, 73, 94, 0.7); box-shadow: 0 0 25px rgba(52, 73, 94, 0.15); }
+
+/* ===== ИКОНКА (СМАЙЛИК) ===== */
+.case-icon {
+    font-size: 48px;
+    margin-bottom: 6px;
+    filter: drop-shadow(0 0 15px rgba(255,255,255,0.03));
+}
+
+/* ===== НАЗВАНИЕ ПО ЦЕНТРУ ===== */
+.case-name {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fff;
+}
+
+/* ===== ЦЕНА ===== */
+.case-price {
     font-size: 14px;
+    color: #aaa;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+/* ===== ДЖЕКПОТ (ПОД ЦЕНОЙ) ===== */
+.jackpot {
+    font-size: 13px;
     font-weight: 700;
     color: #ffd700;
-    background: rgba(255, 215, 0, 0.08);
+    background: rgba(255, 215, 0, 0.06);
     padding: 2px 14px;
     border-radius: 20px;
     display: inline-block;
     margin-top: 4px;
-    border: 1px solid rgba(255, 215, 0, 0.08);
+    border: 1px solid rgba(255, 215, 0, 0.06);
 }
 
+/* ===== НАВИГАЦИЯ ===== */
+nav {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    max-width: 480px;
+    margin: 0 auto;
+    background: rgba(15,12,26,0.95);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    justify-content: space-around;
+    padding: 16px 0 22px 0;
+}
+.nav-item {
+    font-size: 17px;
+    color: #666;
+    padding: 8px 24px;
+    border-radius: 16px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.nav-item.active { color: #b388ff; background: rgba(179,136,255,0.08); }
+
+/* ===== ОСТАЛЬНЫЕ СТИЛИ (БЕЗ ИЗМЕНЕНИЙ) ===== */
 #result {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -193,29 +233,6 @@ header {
 
 #profileScreen { display: none; margin-top: 10px; }
 #mainScreen { display: block; }
-
-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0; right: 0;
-    max-width: 480px;
-    margin: 0 auto;
-    background: rgba(15,12,26,0.95);
-    backdrop-filter: blur(16px);
-    border-top: 1px solid rgba(255,255,255,0.04);
-    display: flex;
-    justify-content: space-around;
-    padding: 16px 0 22px 0;
-}
-.nav-item {
-    font-size: 17px;
-    color: #666;
-    padding: 8px 24px;
-    border-radius: 16px;
-    cursor: pointer;
-    font-weight: 600;
-}
-.nav-item.active { color: #b388ff; background: rgba(179,136,255,0.08); }
 
 .profile-card, .section-card {
     background: rgba(255,255,255,0.04);
