@@ -250,6 +250,23 @@ def home():
 def static_files(path):
     return send_from_directory('static', path)
 
+@app.route('/check_balance', methods=['POST'])
+def check_balance():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    case_type = data.get('case_type')
+    user = get_user(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    prices = {"free":0, "silver":50, "gold":200, "wood":30, "diamond":500, "netherite":2000}
+    price = prices.get(case_type, 0)
+    if user[1] < price:
+        return jsonify({'error': 'Недостаточно звёзд!', 'can_open': False}), 400
+    if case_type == "free" and time.time() - user[4] < 14400:
+        wait = int((14400 - (time.time() - user[4])) // 60)
+        return jsonify({'error': f'Жди {wait} мин', 'can_open': False}), 400
+    return jsonify({'can_open': True})
+
 @app.route('/open_case', methods=['POST'])
 def open_case():
     try:
