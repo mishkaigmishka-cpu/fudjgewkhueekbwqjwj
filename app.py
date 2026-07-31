@@ -184,17 +184,7 @@ def start(msg):
     kb = InlineKeyboardMarkup(row_width=1)
     kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
     kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
-    kb.add(InlineKeyboardButton("💰 Мой баланс", callback_data="show_balance"))
     bot.send_message(msg.chat.id, "Добро пожаловать в RANDEVU!", reply_markup=kb)
-
-@bot.callback_query_handler(func=lambda call: call.data == "show_balance")
-def show_balance_callback(call):
-    user = get_user(call.from_user.id)
-    if not user:
-        bot.answer_callback_query(call.id, "Ошибка, напиши /start")
-        return
-    bot.answer_callback_query(call.id)
-    bot.send_message(call.message.chat.id, f"💰 Баланс: {user[1]}⭐\n📦 Открыто кейсов: {user[2]}\n🏆 Статус: {user[5]}\n👥 Рефералов: {user[6]}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "topup")
 def topup_callback(call):
@@ -223,7 +213,6 @@ def cancel_topup(call):
     kb = InlineKeyboardMarkup(row_width=1)
     kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
     kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
-    kb.add(InlineKeyboardButton("💰 Мой баланс", callback_data="show_balance"))
     bot.edit_message_text("Добро пожаловать в RANDEVU!", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=kb)
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
