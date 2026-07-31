@@ -167,7 +167,7 @@ function showFullScreenTape(type, isOpening) {
         position: relative;
     `;
 
-    // ===== СТРЕЛКИ =====
+    // ===== СТРЕЛКИ РАЗВЁРНУТЫ В ДРУГУЮ СТОРОНУ =====
     const arrowTop = document.createElement('div');
     arrowTop.id = 'arrowTop';
     arrowTop.style.cssText = `
@@ -179,7 +179,7 @@ function showFullScreenTape(type, isOpening) {
         margin-bottom: 4px;
         opacity: 0.9;
     `;
-    arrowTop.textContent = '▲';
+    arrowTop.textContent = '▶';
 
     const tapeTrack = document.createElement('div');
     tapeTrack.style.cssText = `
@@ -240,7 +240,7 @@ function showFullScreenTape(type, isOpening) {
         margin-top: 4px;
         opacity: 0.9;
     `;
-    arrowBottom.textContent = '▼';
+    arrowBottom.textContent = '◀';
 
     tapeWrapper.appendChild(arrowTop);
     tapeWrapper.appendChild(tapeTrack);
@@ -364,11 +364,11 @@ function startFinalSpin(type) {
         const arrowTop = document.getElementById('arrowTop');
         const arrowBottom = document.getElementById('arrowBottom');
         if (arrowTop && arrowBottom && target) {
-            arrowTop.style.transform = 'translateY(-4px)';
-            arrowBottom.style.transform = 'translateY(4px)';
+            arrowTop.style.transform = 'translateX(-4px)';
+            arrowBottom.style.transform = 'translateX(4px)';
             setTimeout(() => {
-                arrowTop.style.transform = 'translateY(0)';
-                arrowBottom.style.transform = 'translateY(0)';
+                arrowTop.style.transform = 'translateX(0)';
+                arrowBottom.style.transform = 'translateX(0)';
             }, 150);
         }
 
