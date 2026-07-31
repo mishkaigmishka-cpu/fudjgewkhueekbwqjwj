@@ -1,6 +1,7 @@
 const tg = window.Telegram.WebApp;
 const user_id = tg.initDataUnsafe?.user?.id || 0;
 let lastOpenedCase = null;
+let _pendingCase = null;
 
 async function loadBalance() {
     try {
@@ -20,6 +21,45 @@ async function loadBalance() {
             document.getElementById('inviteLink').value = 'https://t.me/Randevucase_bot?start=' + user_id;
         }
     } catch(e) { console.error(e); }
+}
+
+function showCaseInfo(type) {
+    const caseData = {
+        'free': { icon: '🎁', name: 'Бесплатный', price: '0⭐', prizes: '1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000' },
+        'mud': { icon: '🟫', name: 'Грязь', price: '5⭐', prizes: '1, 2, 3, 4, 5, 6, 7, 50, 500' },
+        'wood': { icon: '🌳', name: 'Деревянный', price: '9⭐', prizes: '1–15, 1000, 10000' },
+        'stone': { icon: '🪨', name: 'Каменный', price: '19⭐', prizes: '10–35, 2500, 25000' },
+        'bronze': { icon: '🥉', name: 'Бронзовый', price: '49⭐', prizes: '20–75, 5000, 50000' },
+        'silver': { icon: '🔘', name: 'Серебряный', price: '99⭐', prizes: '40–150, 10000, 100000' },
+        'gold': { icon: '👑', name: 'Золотой', price: '249⭐', prizes: '75–400, 25000, 250000' },
+        'diamond': { icon: '💎', name: 'Алмазный', price: '499⭐', prizes: '299–1000, 50000, 500000' },
+        'netherite': { icon: '🔥', name: 'Незеритовый', price: '999⭐', prizes: '500–1500, 100000, 1000000' },
+        'bedrock': { icon: '⛏️', name: 'Бедрок', price: '2499⭐', prizes: '250–2500, 250000, 2500000' }
+    };
+
+    const data = caseData[type];
+    if (!data) return;
+
+    document.getElementById('caseInfoIcon').textContent = data.icon;
+    document.getElementById('caseInfoName').textContent = data.name;
+    document.getElementById('caseInfoPrice').textContent = 'Цена: ' + data.price;
+    document.getElementById('caseInfoList').textContent = data.prizes;
+
+    document.getElementById('caseInfo').style.display = 'flex';
+    _pendingCase = type;
+}
+
+function closeCaseInfo() {
+    document.getElementById('caseInfo').style.display = 'none';
+    _pendingCase = null;
+}
+
+function confirmOpen() {
+    closeCaseInfo();
+    const type = _pendingCase;
+    if (type) {
+        openCase(type);
+    }
 }
 
 async function openCase(type) {
