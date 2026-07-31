@@ -347,21 +347,35 @@ function startFinalSpin(type) {
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
 
     // ===== БЫСТРЫЙ СТАРТ =====
-    tapeContent.style.animationDuration = '0.5s';
+    tapeContent.style.animationDuration = '0.3s';
     tapeContent.style.animationTimingFunction = 'linear';
 
     let steps = 0;
-    const maxSteps = 16;
-    let currentSpeed = 0.5;
+    const maxSteps = 20;
+    let currentSpeed = 0.3;
 
     if (_spinInterval) clearInterval(_spinInterval);
     _spinInterval = setInterval(() => {
         steps++;
-        // ===== ПЛАВНОЕ ЗАМЕДЛЕНИЕ (МЕДЛЕННЕЕ) =====
-        currentSpeed += 0.2;
+        
+        // ===== ПЛАВНОЕ УВЕЛИЧЕНИЕ ВРЕМЕНИ (ЗАМЕДЛЕНИЕ) =====
+        let increment;
+        if (steps < 6) {
+            increment = 0.08;
+        } else if (steps < 12) {
+            increment = 0.15;
+        } else {
+            increment = 0.25;
+        }
+        
+        currentSpeed += increment;
         tapeContent.style.animationDuration = currentSpeed + 's';
-        if (steps > 6) tapeContent.style.animationTimingFunction = 'ease-out';
+        
+        if (steps > 8) {
+            tapeContent.style.animationTimingFunction = 'ease-out';
+        }
 
+        // ===== ПОДСВЕТКА =====
         const allItems = document.querySelectorAll('.prize-item');
         const randomIdx = Math.floor(Math.random() * prizes.length);
         const target = document.querySelector(`.prize-item[data-index="${randomIdx}"]`);
@@ -369,15 +383,16 @@ function startFinalSpin(type) {
         allItems.forEach(el => {
             el.style.color = style.itemColor;
             el.style.textShadow = `0 0 15px ${style.glowColor}`;
-            el.style.transition = 'all 0.15s ease';
+            el.style.transition = 'all 0.2s ease';
         });
 
         if (target) {
             target.style.color = '#FFFFFF';
             target.style.textShadow = `0 0 20px ${style.highlightColor}, 0 0 40px ${style.highlightColor}40`;
-            target.style.transition = 'all 0.15s ease';
+            target.style.transition = 'all 0.2s ease';
         }
 
+        // ===== СТРЕЛКИ =====
         const arrowTop = document.getElementById('arrowTop');
         const arrowBottom = document.getElementById('arrowBottom');
         if (arrowTop && arrowBottom && target) {
@@ -386,13 +401,16 @@ function startFinalSpin(type) {
             setTimeout(() => {
                 arrowTop.style.transform = 'translateY(0)';
                 arrowBottom.style.transform = 'translateY(0)';
-            }, 200);
+            }, 150);
         }
 
+        // ===== ОСТАНОВКА =====
         if (steps >= maxSteps) {
             clearInterval(_spinInterval);
             _spinInterval = null;
+            
             tapeContent.style.animation = 'none';
+            tapeContent.style.transition = 'transform 2s cubic-bezier(0.25, 0.1, 0.15, 1)';
 
             const prizeIndex = prizes.indexOf(_currentPrize);
             const targetItem = document.querySelector(`.prize-item[data-index="${prizeIndex}"]`);
@@ -401,38 +419,57 @@ function startFinalSpin(type) {
                 document.querySelectorAll('.prize-item').forEach(el => {
                     el.style.color = style.itemColor;
                     el.style.textShadow = `0 0 15px ${style.glowColor}`;
-                    el.style.transition = 'all 0.3s ease';
+                    el.style.transition = 'all 0.5s ease';
                 });
                 targetItem.style.color = '#FFFFFF';
-                targetItem.style.textShadow = `0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80`;
-                targetItem.style.transition = 'all 0.5s ease';
+                targetItem.style.textShadow = `
+                    0 0 60px ${style.highlightColor},
+                    0 0 120px ${style.highlightColor},
+                    0 0 200px ${style.highlightColor}80
+                `;
+                targetItem.style.transition = 'all 0.6s ease';
 
                 const arrowTop = document.getElementById('arrowTop');
                 const arrowBottom = document.getElementById('arrowBottom');
-                if (arrowTop) { arrowTop.style.color = '#FFFFFF'; arrowTop.style.textShadow = `0 0 40px ${style.highlightColor}`; }
-                if (arrowBottom) { arrowBottom.style.color = '#FFFFFF'; arrowBottom.style.textShadow = `0 0 40px ${style.highlightColor}`; }
+                if (arrowTop) {
+                    arrowTop.style.color = '#FFFFFF';
+                    arrowTop.style.textShadow = `0 0 40px ${style.highlightColor}`;
+                    arrowTop.style.transition = 'all 0.5s ease';
+                }
+                if (arrowBottom) {
+                    arrowBottom.style.color = '#FFFFFF';
+                    arrowBottom.style.textShadow = `0 0 40px ${style.highlightColor}`;
+                    arrowBottom.style.transition = 'all 0.5s ease';
+                }
 
                 const containerWidth = tapeContainer.querySelector('.tape-track')?.offsetWidth || 400;
                 const itemWidth = 120;
                 const gap = 50;
                 const scrollPosition = prizeIndex * (itemWidth + gap) * 4 - containerWidth / 2 + itemWidth / 2;
-                tapeContent.style.transition = 'transform 1.8s cubic-bezier(0.2, 0.8, 0.3, 1)';
                 tapeContent.style.transform = `translateX(-${Math.max(0, scrollPosition)}px)`;
 
                 setTimeout(() => {
-                    tapeContent.innerHTML = `<span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900; transition: all 0.5s ease;">${_currentPrize}⭐</span>`;
+                    tapeContent.innerHTML = `
+                        <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900; transition: all 0.5s ease;">
+                            ${_currentPrize}⭐
+                        </span>
+                    `;
                     if (arrowTop) arrowTop.style.display = 'none';
                     if (arrowBottom) arrowBottom.style.display = 'none';
+                    
                     setTimeout(() => {
                         tapeContainer.remove();
                         _tapeContainer = null;
                         _isOpening = false;
-                        // ===== ОТПРАВЛЯЕМ ТУ ЖЕ НАГРАДУ =====
                         openCaseReal(type, _currentPrize);
                     }, 1200);
                 }, 1800);
             } else {
-                tapeContent.innerHTML = `<span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900;">${_currentPrize}⭐</span>`;
+                tapeContent.innerHTML = `
+                    <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900;">
+                        ${_currentPrize}⭐
+                    </span>
+                `;
                 setTimeout(() => {
                     tapeContainer.remove();
                     _tapeContainer = null;
@@ -441,7 +478,7 @@ function startFinalSpin(type) {
                 }, 1200);
             }
         }
-    }, 400);
+    }, 250);
 }
 
 async function openCaseReal(type, finalPrize) {
