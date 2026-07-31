@@ -272,7 +272,7 @@ def start(msg):
 
     update_user(uid, username=username)
     kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton("🎮 Открыть приложение", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
+    kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
     kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
     bot.send_message(msg.chat.id, "Добро пожаловать в RANDEVU!", reply_markup=kb)
 
@@ -314,7 +314,15 @@ def process_topup_amount(msg):
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_topup")
 def cancel_topup(call):
     bot.answer_callback_query(call.id)
-    bot.send_message(call.message.chat.id, "❌ Пополнение отменено.")
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
+    kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
+    bot.edit_message_text(
+        "Добро пожаловать в RANDEVU!",
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        reply_markup=kb
+    )
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def handle_pre_checkout(query):
