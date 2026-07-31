@@ -24,7 +24,7 @@
             </div>
 
             <div class="cases-list">
-                <div class="case-card" onclick="openCase('free')">
+                <div class="case-card" onclick="showCaseInfo('free')">
                     <div class="case-icon">🎁</div>
                     <div class="case-info">
                         <div class="case-name">Бесплатный</div>
@@ -32,7 +32,7 @@
                         <div class="jackpot">🎯 1000⭐</div>
                     </div>
                 </div>
-                <div class="case-card" onclick="openCase('mud')">
+                <div class="case-card" onclick="showCaseInfo('mud')">
                     <div class="case-icon">🟫</div>
                     <div class="case-info">
                         <div class="case-name">Грязь</div>
@@ -40,7 +40,7 @@
                         <div class="jackpot">🎯 500⭐</div>
                     </div>
                 </div>
-                <div class="case-card" onclick="openCase('wood')">
+                <div class="case-card" onclick="showCaseInfo('wood')">
                     <div class="case-icon">🌳</div>
                     <div class="case-info">
                         <div class="case-name">Деревянный</div>
@@ -48,7 +48,7 @@
                         <div class="jackpot">🎯 10000⭐</div>
                     </div>
                 </div>
-                <div class="case-card" onclick="openCase('stone')">
+                <div class="case-card" onclick="showCaseInfo('stone')">
                     <div class="case-icon">🪨</div>
                     <div class="case-info">
                         <div class="case-name">Каменный</div>
@@ -56,7 +56,7 @@
                         <div class="jackpot">🎯 25000⭐</div>
                     </div>
                 </div>
-                <div class="case-card" onclick="openCase('bronze')">
+                <div class="case-card" onclick="showCaseInfo('bronze')">
                     <div class="case-icon">🥉</div>
                     <div class="case-info">
                         <div class="case-name">Бронзовый</div>
@@ -64,7 +64,7 @@
                         <div class="jackpot">🎯 50000⭐</div>
                     </div>
                 </div>
-                <div class="case-card" onclick="openCase('silver')">
+                <div class="case-card" onclick="showCaseInfo('silver')">
                     <div class="case-icon">🔘</div>
                     <div class="case-info">
                         <div class="case-name">Серебряный</div>
@@ -72,7 +72,7 @@
                         <div class="jackpot">🎯 100000⭐</div>
                     </div>
                 </div>
-                <div class="case-card" onclick="openCase('gold')">
+                <div class="case-card" onclick="showCaseInfo('gold')">
                     <div class="case-icon">👑</div>
                     <div class="case-info">
                         <div class="case-name">Золотой</div>
@@ -80,7 +80,7 @@
                         <div class="jackpot">🎯 250000⭐</div>
                     </div>
                 </div>
-                <div class="case-card" onclick="openCase('diamond')">
+                <div class="case-card" onclick="showCaseInfo('diamond')">
                     <div class="case-icon">💎</div>
                     <div class="case-info">
                         <div class="case-name">Алмазный</div>
@@ -88,7 +88,7 @@
                         <div class="jackpot">🎯 500000⭐</div>
                     </div>
                 </div>
-                <div class="case-card" onclick="openCase('netherite')">
+                <div class="case-card" onclick="showCaseInfo('netherite')">
                     <div class="case-icon">🔥</div>
                     <div class="case-info">
                         <div class="case-name">Незеритовый</div>
@@ -96,7 +96,7 @@
                         <div class="jackpot">🎯 1000000⭐</div>
                     </div>
                 </div>
-                <div class="case-card" onclick="openCase('bedrock')">
+                <div class="case-card" onclick="showCaseInfo('bedrock')">
                     <div class="case-icon">⛏️</div>
                     <div class="case-info">
                         <div class="case-name">Бедрок</div>
@@ -142,6 +142,22 @@
             <div class="result-buttons">
                 <button onclick="closeResult()" class="btn-close">🔙 Закрыть</button>
                 <button id="againBtn" onclick="openAgain()" style="display:none;" class="btn-again">🎲 Открыть ещё</button>
+            </div>
+        </div>
+
+        <div id="caseInfo" style="display:none;">
+            <div class="case-info-content">
+                <div class="case-info-icon" id="caseInfoIcon">🎁</div>
+                <div class="case-info-name" id="caseInfoName">Кейс</div>
+                <div class="case-info-price" id="caseInfoPrice">Цена: 0⭐</div>
+                <div class="case-info-prizes">
+                    <p>🎯 Возможные награды:</p>
+                    <div id="caseInfoList"></div>
+                </div>
+                <div class="case-info-buttons">
+                    <button onclick="confirmOpen()" class="btn-open">🎲 Открыть</button>
+                    <button onclick="closeCaseInfo()" class="btn-back">🔙 Назад</button>
+                </div>
             </div>
         </div>
 
