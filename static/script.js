@@ -23,6 +23,28 @@ async function loadBalance() {
 }
 
 async function openCase(type) {
+    // === ПРОВЕРКА БАЛАНСА ДО АНИМАЦИИ ===
+    try {
+        const checkRes = await fetch('/check_balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, case_type: type })
+        });
+        const checkData = await checkRes.json();
+        if (checkData.error) {
+            tg.showAlert('❌ ' + checkData.error);
+            return;
+        }
+        if (!checkData.can_open) {
+            tg.showAlert('❌ Недостаточно звёзд!');
+            return;
+        }
+    } catch(e) {
+        tg.showAlert('❌ Ошибка проверки баланса');
+        return;
+    }
+
+    // === АНИМАЦИЯ ===
     lastOpenedCase = type;
     const resultDiv = document.getElementById('result');
     const display = document.getElementById('prizeDisplay');
@@ -89,20 +111,19 @@ function closeResult() {
     document.getElementById('againBtn').style.display = 'none';
 }
 
-function navigate(section) {
-    document.querySelectorAll('#profileSection, #inviteSection').forEach(el => el.style.display = 'none');
-    if (section === 'profile') {
-        document.getElementById('profileSection').style.display = 'block';
-        loadBalance();
-    } else {
-        document.getElementById('profileSection').style.display = 'none';
-    }
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    document.querySelector(`[onclick="navigate('${section}')"]`)?.classList.add('active');
+// === ПРОФИЛЬ КАК ОТДЕЛЬНАЯ ВКЛАДКА ===
+function showProfile() {
+    document.getElementById('mainScreen').style.display = 'none';
+    document.getElementById('profileScreen').style.display = 'block';
+    loadBalance();
+}
+
+function showMain() {
+    document.getElementById('profileScreen').style.display = 'none';
+    document.getElementById('mainScreen').style.display = 'block';
 }
 
 function showInvite() {
-    document.getElementById('profileSection').style.display = 'none';
     document.getElementById('inviteSection').style.display = 'block';
 }
 
