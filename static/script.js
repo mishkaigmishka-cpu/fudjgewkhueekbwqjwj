@@ -23,7 +23,6 @@ async function loadBalance() {
 }
 
 async function openCase(type) {
-    // Проверка баланса
     try {
         const checkRes = await fetch('/check_balance', {
             method: 'POST',
@@ -44,9 +43,9 @@ async function openCase(type) {
         return;
     }
 
-    // === ВОЗМОЖНЫЕ ВЫИГРЫШИ ДЛЯ КАЖДОГО КЕЙСА ===
     const casePrizes = {
         'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
+        'mud': [1, 2, 3, 4, 5, 6, 7, 50, 500],
         'wood': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1000, 10000],
         'stone': [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 2500, 25000],
         'bronze': [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 5000, 50000],
@@ -142,8 +141,14 @@ function showInvite() {
 }
 
 function copyInvite() {
-    navigator.clipboard.writeText(document.getElementById('inviteLink').value);
-    tg.showAlert('✅ Ссылка скопирована!');
+    const linkInput = document.getElementById('inviteLink');
+    linkInput.select();
+    linkInput.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(linkInput.value).then(() => {
+        tg.showAlert('✅ Ссылка скопирована!');
+    }).catch(() => {
+        tg.showAlert('❌ Не удалось скопировать');
+    });
 }
 
 function showWithdraw() {
