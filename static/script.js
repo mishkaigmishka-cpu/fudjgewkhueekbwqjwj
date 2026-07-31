@@ -11,6 +11,8 @@ let _currentPrize = null;
 let _isOpening = false;
 let _tapeContainer = null;
 let _spinInterval = null;
+let _rafId = null;
+let _startTime = null;
 
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
@@ -123,8 +125,10 @@ function openCaseDirect(type) {
 function closeTape() {
     if (_tapeInterval) { clearInterval(_tapeInterval); _tapeInterval = null; }
     if (_spinInterval) { clearInterval(_spinInterval); _spinInterval = null; }
+    if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
     if (_tapeContainer) { _tapeContainer.remove(); _tapeContainer = null; }
     _isOpening = false;
+    _startTime = null;
 }
 
 function showFullScreenTape(type, isOpening) {
@@ -355,33 +359,27 @@ function startFinalSpin(type) {
     
     let duration = 0.15;
     const maxDuration = 7.0;
-    let steps = 0;
-    const maxSteps = 140;
+    let elapsed = 0;
+    const totalTime = 10000; // 10 секунд всего
+    _startTime = performance.now();
 
-    if (_spinInterval) clearInterval(_spinInterval);
-    _spinInterval = setInterval(() => {
-        steps++;
+    // ===== ИСПОЛЬЗУЕМ requestAnimationFrame ДЛЯ ПЛАВНОСТИ =====
+    function animateSpin(timestamp) {
+        if (!_startTime) _startTime = timestamp;
+        elapsed = timestamp - _startTime;
         
-        // ===== 4 ЭТАПА ЗАМЕДЛЕНИЯ =====
-        if (duration < maxDuration) {
-            if (steps < 25) {
-                // ЭТАП 1: быстро (0–2.5 сек)
-                duration += 0.07;
-            } else if (steps < 50) {
-                // ЭТАП 2: среднее (2.5–5 сек)
-                duration += 0.035;
-            } else if (steps < 80) {
-                // ЭТАП 3: медленно (5–8 сек)
-                duration += 0.018;
-            } else {
-                // ЭТАП 4: очень медленно (8–10 сек)
-                duration += 0.008;
-            }
-            if (duration > maxDuration) duration = maxDuration;
-            tapeContent.style.animationDuration = duration + 's';
-        }
+        // Прогресс от 0 до 1 за 10 секунд
+        const progress = Math.min(elapsed / totalTime, 1);
         
-        // ===== ПОДСВЕТКА =====
+        // ===== ПЛАВНАЯ КРИВАЯ ЗАМЕДЛЕНИЯ (ease-out) =====
+        // Сначала быстро, потом очень медленно
+        const eased = 1 - Math.pow(1 - progress, 3); // кубический ease-out
+        
+        // Вычисляем текущую скорость: от 0.15 до maxDuration
+        const currentDuration = 0.15 + (maxDuration - 0.15) * eased;
+        tapeContent.style.animationDuration = currentDuration + 's';
+        
+        // ===== ПОДСВЕТКА (каждые ~50мс) =====
         const allItems = document.querySelectorAll('.prize-item');
         const randomIdx = Math.floor(Math.random() * prizes.length);
         const target = document.querySelector(`.prize-item[data-index="${randomIdx}"]`);
@@ -411,10 +409,11 @@ function startFinalSpin(type) {
         }
 
         // ===== ОСТАНОВКА =====
-        if (steps >= maxSteps || duration >= maxDuration) {
-            clearInterval(_spinInterval);
-            _spinInterval = null;
-            
+        if (progress < 1) {
+            _rafId = requestAnimationFrame(animateSpin);
+        } else {
+            // ===== ФИНАЛ =====
+            _rafId = null;
             tapeContent.style.animation = 'none';
             tapeContent.style.transition = 'transform 1.2s cubic-bezier(0.1, 0.95, 0.2, 1)';
 
@@ -487,7 +486,9 @@ function startFinalSpin(type) {
                 }, 1200);
             }
         }
-    }, 30);
+    }
+
+    _rafId = requestAnimationFrame(animateSpin);
 }
 
 async function openCaseReal(type, finalPrize) {
