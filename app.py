@@ -174,6 +174,9 @@ def process_topup_amount(msg):
         bot.reply_to(msg, "❌ Сумма должна быть от 50 до 5000⭐!")
         return
 
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("🔙 Назад", callback_data="cancel_topup"))
+
     bot.send_invoice(
         chat_id=uid,
         title=f"Пополнение на {amount}⭐",
@@ -182,8 +185,14 @@ def process_topup_amount(msg):
         provider_token="",
         currency="XTR",
         prices=[LabeledPrice(label=f"{amount} Stars", amount=amount)],
-        start_parameter="buy_stars"
+        start_parameter="buy_stars",
+        reply_markup=kb
     )
+
+@bot.callback_query_handler(func=lambda call: call.data == "cancel_topup")
+def cancel_topup(call):
+    bot.answer_callback_query(call.id)
+    bot.send_message(call.message.chat.id, "❌ Пополнение отменено.")
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def handle_pre_checkout(query):
@@ -232,15 +241,46 @@ def add_ad(msg):
     ads.append(parts[1])
     bot.reply_to(msg, "✅ Реклама добавлена")
 
-@bot.message_handler(commands=['give_me_money'])
-def give_money_self(msg):
+@bot.message_handler(commands=['give_me'])
+def give_me(msg):
     if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Укажи сумму: /give_me 500")
+        return
+    try:
+        amount = int(args[1])
+    except:
+        bot.reply_to(msg, "❌ Сумма должна быть числом")
         return
     user = get_user(msg.from_user.id)
     if user:
-        new_bal = user[1] + 1000
+        new_bal = user[1] + amount
         update_user(msg.from_user.id, balance=new_bal)
-        bot.reply_to(msg, f"⭐ Тебе начислено 1000 звёзд!")
+        bot.reply_to(msg, f"✅ Ты получил {amount}⭐\n💰 Баланс: {new_bal}⭐")
+
+@bot.message_handler(commands=['give'])
+def give_to_user(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "❌ Формат: /give @username 500")
+        return
+    username = args[1].replace('@', '')
+    try:
+        amount = int(args[2])
+    except:
+        bot.reply_to(msg, "❌ Сумма должна быть числом")
+        return
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        return
+    new_bal = user[1] + amount
+    update_user(user[0], balance=new_bal)
+    bot.reply_to(msg, f"✅ @{username} получил {amount}⭐\n💰 Баланс: {new_bal}⭐")
 
 @app.route('/')
 def home():
