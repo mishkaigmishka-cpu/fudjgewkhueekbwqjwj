@@ -224,7 +224,10 @@ nav {
 
 #caseInfo {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: rgba(0,0,0,0.85);
     backdrop-filter: blur(12px);
     display: none;
@@ -265,4 +268,5 @@ nav {
     transition: all 0.15s;
 }
 .case-info-buttons button:active { transform: scale(0.94); }
+.btn-open { background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; }
 .btn-back { background: rgba(255,255,255,0.08); color: #fff; }
