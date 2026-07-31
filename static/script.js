@@ -12,7 +12,7 @@ let _isOpening = false;
 let _tapeContainer = null;
 let _spinInterval = null;
 
-// ===== ВСЕ ВОЗМОЖНЫЕ НАГРАДЫ =====
+// ===== ВСЕ ВОЗМОЖНЫЕ НАГРАДЫ (ТОЛЬКО ТЕ, ЧТО В РУЛЕТКЕ) =====
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
     'mud': [1, 2, 3, 4, 5, 6, 7, 10, 12, 14, 16, 20, 22, 24, 27, 30, 35, 40, 50, 500],
@@ -26,18 +26,18 @@ const CASE_PRIZES = {
     'bedrock': [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 2600, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000]
 };
 
-// ===== СКОРОСТЬ ПРЕДПРОСМОТРА =====
+// ===== СКОРОСТЬ ПРЕДПРОСМОТРА (УМЕНЬШЕНА В 2.5 РАЗА = МЕДЛЕННЕЕ) =====
 const CASE_SPEED = {
-    'free': 4,
-    'mud': 4,
-    'wood': 4,
-    'stone': 4,
-    'bronze': 4,
-    'silver': 4,
-    'gold': 4,
-    'diamond': 4.5,
-    'netherite': 5,
-    'bedrock': 5.5
+    'free': 18.75,
+    'mud': 18.75,
+    'wood': 18.75,
+    'stone': 18.75,
+    'bronze': 18.75,
+    'silver': 18.75,
+    'gold': 18.75,
+    'diamond': 21.25,
+    'netherite': 23.75,
+    'bedrock': 26.25
 };
 
 const CASE_STYLES = {
@@ -55,7 +55,7 @@ const CASE_STYLES = {
 
 function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
-function getSpeed(type) { return CASE_SPEED[type] || 4; }
+function getSpeed(type) { return CASE_SPEED[type] || 18.75; }
 
 async function loadBalance() {
     try {
@@ -175,7 +175,6 @@ function showFullScreenTape(type, isOpening) {
         position: relative;
     `;
 
-    // ===== СТРЕЛКИ =====
     const arrowTop = document.createElement('div');
     arrowTop.id = 'arrowTop';
     arrowTop.style.cssText = `
@@ -227,11 +226,9 @@ function showFullScreenTape(type, isOpening) {
     }
     tapeContent.innerHTML = allItems.join('');
 
-    // ===== ВЫЧИСЛЯЕМ ШИРИНУ ОДНОГО ПОВТОРА =====
-    const itemWidth = 120; // примерная ширина одного элемента
+    const itemWidth = 120;
     const gap = 50;
     const oneRepeatWidth = prizes.length * (itemWidth + gap);
-    const totalWidth = oneRepeatWidth * 8;
 
     const animKey = `scrollTape_${type}_${Date.now()}`;
     const oldStyle = document.getElementById(`tapeStyle_${type}`);
@@ -246,7 +243,6 @@ function showFullScreenTape(type, isOpening) {
     `;
     document.head.appendChild(styleTag);
 
-    // ===== АНИМАЦИЯ =====
     tapeContent.style.animation = `${animKey} ${speed}s linear infinite`;
     tapeContent.style.animationTimingFunction = 'linear';
     tapeTrack.appendChild(tapeContent);
@@ -315,7 +311,6 @@ function showFullScreenTape(type, isOpening) {
     tapeContainer.appendChild(bottomSection);
     document.body.appendChild(tapeContainer);
 
-    // ===== ПОДСВЕТКА =====
     let activeIndex = 0;
     const totalItems = prizes.length;
     _tapeInterval = setInterval(() => {
@@ -347,21 +342,25 @@ function startFinalSpin(type) {
     btns.forEach(btn => btn.remove());
 
     const tapeContent = document.getElementById('tapeContent');
+    
+    // ===== ВЫБИРАЕМ НАГРАДУ ИЗ ТЕХ, ЧТО В РУЛЕТКЕ =====
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
 
-    tapeContent.style.animationDuration = '0.25s';
+    // ===== БЫСТРЫЙ СТАРТ =====
+    tapeContent.style.animationDuration = '0.5s';
     tapeContent.style.animationTimingFunction = 'linear';
 
     let steps = 0;
-    const maxSteps = 12;
-    let currentSpeed = 0.25;
+    const maxSteps = 16;
+    let currentSpeed = 0.5;
 
     if (_spinInterval) clearInterval(_spinInterval);
     _spinInterval = setInterval(() => {
         steps++;
-        currentSpeed += 0.15;
+        // ===== ПЛАВНОЕ ЗАМЕДЛЕНИЕ (МЕДЛЕННЕЕ) =====
+        currentSpeed += 0.2;
         tapeContent.style.animationDuration = currentSpeed + 's';
-        if (steps > 4) tapeContent.style.animationTimingFunction = 'ease-out';
+        if (steps > 6) tapeContent.style.animationTimingFunction = 'ease-out';
 
         const allItems = document.querySelectorAll('.prize-item');
         const randomIdx = Math.floor(Math.random() * prizes.length);
@@ -387,7 +386,7 @@ function startFinalSpin(type) {
             setTimeout(() => {
                 arrowTop.style.transform = 'translateY(0)';
                 arrowBottom.style.transform = 'translateY(0)';
-            }, 150);
+            }, 200);
         }
 
         if (steps >= maxSteps) {
@@ -415,8 +414,9 @@ function startFinalSpin(type) {
 
                 const containerWidth = tapeContainer.querySelector('.tape-track')?.offsetWidth || 400;
                 const itemWidth = 120;
-                const scrollPosition = prizeIndex * (itemWidth + 50) * 4 - containerWidth / 2 + itemWidth / 2;
-                tapeContent.style.transition = 'transform 1.5s cubic-bezier(0.2, 0.8, 0.3, 1)';
+                const gap = 50;
+                const scrollPosition = prizeIndex * (itemWidth + gap) * 4 - containerWidth / 2 + itemWidth / 2;
+                tapeContent.style.transition = 'transform 1.8s cubic-bezier(0.2, 0.8, 0.3, 1)';
                 tapeContent.style.transform = `translateX(-${Math.max(0, scrollPosition)}px)`;
 
                 setTimeout(() => {
@@ -427,9 +427,10 @@ function startFinalSpin(type) {
                         tapeContainer.remove();
                         _tapeContainer = null;
                         _isOpening = false;
+                        // ===== ОТПРАВЛЯЕМ ТУ ЖЕ НАГРАДУ =====
                         openCaseReal(type, _currentPrize);
                     }, 1200);
-                }, 1500);
+                }, 1800);
             } else {
                 tapeContent.innerHTML = `<span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900;">${_currentPrize}⭐</span>`;
                 setTimeout(() => {
@@ -440,7 +441,7 @@ function startFinalSpin(type) {
                 }, 1200);
             }
         }
-    }, 300);
+    }, 400);
 }
 
 async function openCaseReal(type, finalPrize) {
