@@ -22,14 +22,6 @@ async function loadBalance() {
     } catch(e) { console.error(e); }
 }
 
-function moveCarousel(direction) {
-    const container = document.getElementById('carousel');
-    const cardWidth = container.querySelector('.case-card')?.offsetWidth || 150;
-    const gap = 14;
-    const scrollAmount = (cardWidth + gap) * 2 * direction;
-    container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-}
-
 async function openCase(type) {
     lastOpenedCase = type;
     const resultDiv = document.getElementById('result');
@@ -47,7 +39,7 @@ async function openCase(type) {
     name.textContent = 'Крутится...';
     value.textContent = '⭐ 0';
 
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 20; i++) {
         const randomPrize = Math.floor(Math.random() * 50000) + 1;
         value.textContent = '⭐ ' + randomPrize;
         await new Promise(r => setTimeout(r, 100));
@@ -98,7 +90,7 @@ function closeResult() {
 }
 
 function navigate(section) {
-    document.querySelectorAll('#profileSection, #inviteSection, #topupSection').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('#profileSection, #inviteSection').forEach(el => el.style.display = 'none');
     if (section === 'profile') {
         document.getElementById('profileSection').style.display = 'block';
         loadBalance();
@@ -114,33 +106,9 @@ function showInvite() {
     document.getElementById('inviteSection').style.display = 'block';
 }
 
-function showTopup() {
-    document.getElementById('profileSection').style.display = 'none';
-    document.getElementById('topupSection').style.display = 'block';
-}
-
 function copyInvite() {
     navigator.clipboard.writeText(document.getElementById('inviteLink').value);
     tg.showAlert('✅ Ссылка скопирована!');
-}
-
-async function buyStars(amount) {
-    try {
-        tg.showAlert('🔄 Оформление платежа...');
-        const res = await fetch('/buy_stars', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, amount })
-        });
-        const data = await res.json();
-        if (data.error) {
-            tg.showAlert('❌ ' + data.error);
-        } else {
-            tg.showAlert('✅ Счёт отправлен! Оплати в Telegram.');
-        }
-    } catch(e) {
-        tg.showAlert('❌ Ошибка пополнения');
-    }
 }
 
 function showWithdraw() {
