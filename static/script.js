@@ -11,7 +11,6 @@ let _currentPrize = null;
 let _isOpening = false;
 let _tapeContainer = null;
 let _spinInterval = null;
-let _spinCounter = 0;
 
 // ===== ВСЕ ВОЗМОЖНЫЕ НАГРАДЫ =====
 const CASE_PRIZES = {
@@ -27,18 +26,18 @@ const CASE_PRIZES = {
     'bedrock': [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 2600, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000]
 };
 
-// ===== СКОРОСТЬ ПРЕДПРОСМОТРА (БЫСТРО) =====
+// ===== СКОРОСТЬ ПРЕДПРОСМОТРА =====
 const CASE_SPEED = {
-    'free': 3,
-    'mud': 3,
-    'wood': 3,
-    'stone': 3,
-    'bronze': 3,
-    'silver': 3,
-    'gold': 3,
-    'diamond': 3.5,
-    'netherite': 4,
-    'bedrock': 4.5
+    'free': 4,
+    'mud': 4,
+    'wood': 4,
+    'stone': 4,
+    'bronze': 4,
+    'silver': 4,
+    'gold': 4,
+    'diamond': 4.5,
+    'netherite': 5,
+    'bedrock': 5.5
 };
 
 const CASE_STYLES = {
@@ -56,7 +55,7 @@ const CASE_STYLES = {
 
 function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
-function getSpeed(type) { return CASE_SPEED[type] || 3; }
+function getSpeed(type) { return CASE_SPEED[type] || 4; }
 
 async function loadBalance() {
     try {
@@ -122,7 +121,6 @@ function closeTape() {
     if (_spinInterval) { clearInterval(_spinInterval); _spinInterval = null; }
     if (_tapeContainer) { _tapeContainer.remove(); _tapeContainer = null; }
     _isOpening = false;
-    _spinCounter = 0;
 }
 
 function showFullScreenTape(type, isOpening) {
@@ -215,6 +213,7 @@ function showFullScreenTape(type, isOpening) {
         padding: 0 16px;
         will-change: transform;
         transition: none;
+        width: auto;
     `;
 
     // ===== ВСЕ ВОЗМОЖНЫЕ НАГРАДЫ (8 ПОВТОРОВ) =====
@@ -228,12 +227,23 @@ function showFullScreenTape(type, isOpening) {
     }
     tapeContent.innerHTML = allItems.join('');
 
+    // ===== ВЫЧИСЛЯЕМ ШИРИНУ ОДНОГО ПОВТОРА =====
+    const itemWidth = 120; // примерная ширина одного элемента
+    const gap = 50;
+    const oneRepeatWidth = prizes.length * (itemWidth + gap);
+    const totalWidth = oneRepeatWidth * 8;
+
     const animKey = `scrollTape_${type}_${Date.now()}`;
     const oldStyle = document.getElementById(`tapeStyle_${type}`);
     if (oldStyle) oldStyle.remove();
     const styleTag = document.createElement('style');
     styleTag.id = `tapeStyle_${type}`;
-    styleTag.textContent = `@keyframes ${animKey} { 0% { transform: translateX(0); } 100% { transform: translateX(-${100 / 8}%); } }`;
+    styleTag.textContent = `
+        @keyframes ${animKey} {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-${oneRepeatWidth}px); }
+        }
+    `;
     document.head.appendChild(styleTag);
 
     // ===== АНИМАЦИЯ =====
@@ -400,12 +410,12 @@ function startFinalSpin(type) {
 
                 const arrowTop = document.getElementById('arrowTop');
                 const arrowBottom = document.getElementById('arrowBottom');
-                if (arrowTop) { arrowTop.style.color = '#FFFFFF'; arrowTop.style.textShadow = `0 0 40px ${style.highlightColor}`; arrowTop.style.transform = 'scale(1.2)'; }
-                if (arrowBottom) { arrowBottom.style.color = '#FFFFFF'; arrowBottom.style.textShadow = `0 0 40px ${style.highlightColor}`; arrowBottom.style.transform = 'scale(1.2)'; }
+                if (arrowTop) { arrowTop.style.color = '#FFFFFF'; arrowTop.style.textShadow = `0 0 40px ${style.highlightColor}`; }
+                if (arrowBottom) { arrowBottom.style.color = '#FFFFFF'; arrowBottom.style.textShadow = `0 0 40px ${style.highlightColor}`; }
 
                 const containerWidth = tapeContainer.querySelector('.tape-track')?.offsetWidth || 400;
                 const itemWidth = 120;
-                const scrollPosition = prizeIndex * itemWidth * 4 - containerWidth / 2 + itemWidth / 2;
+                const scrollPosition = prizeIndex * (itemWidth + 50) * 4 - containerWidth / 2 + itemWidth / 2;
                 tapeContent.style.transition = 'transform 1.5s cubic-bezier(0.2, 0.8, 0.3, 1)';
                 tapeContent.style.transform = `translateX(-${Math.max(0, scrollPosition)}px)`;
 
