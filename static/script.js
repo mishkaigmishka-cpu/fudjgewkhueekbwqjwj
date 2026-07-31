@@ -44,16 +44,16 @@ const CASE_PRICES = {
 };
 
 const CASE_STYLES = {
-    'free': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(46,204,113,0.6)', titleColor: '#2ecc71', itemColor: '#6bcbff', highlightColor: '#ffd700', glowColor: 'rgba(46,204,113,0.3)', shadowColor: 'rgba(46,204,113,0.5)', icon: '🎁', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(46,204,113,0.08), transparent 70%)' },
-    'mud': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(142,68,173,0.6)', titleColor: '#8e44ad', itemColor: '#c39bd3', highlightColor: '#ff6b6b', glowColor: 'rgba(142,68,173,0.3)', shadowColor: 'rgba(142,68,173,0.5)', icon: '🟫', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(142,68,173,0.08), transparent 70%)' },
-    'wood': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(211,84,0,0.6)', titleColor: '#d35400', itemColor: '#f39c12', highlightColor: '#ffd700', glowColor: 'rgba(211,84,0,0.3)', shadowColor: 'rgba(211,84,0,0.5)', icon: '🌳', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(211,84,0,0.08), transparent 70%)' },
-    'stone': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(127,140,141,0.6)', titleColor: '#7f8c8d', itemColor: '#bdc3c7', highlightColor: '#ffd700', glowColor: 'rgba(127,140,141,0.3)', shadowColor: 'rgba(127,140,141,0.5)', icon: '🪨', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(127,140,141,0.08), transparent 70%)' },
-    'bronze': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(205,127,50,0.6)', titleColor: '#cd7f32', itemColor: '#f0c27f', highlightColor: '#ffd700', glowColor: 'rgba(205,127,50,0.3)', shadowColor: 'rgba(205,127,50,0.5)', icon: '🥉', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(205,127,50,0.08), transparent 70%)' },
-    'silver': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(189,195,199,0.6)', titleColor: '#bdc3c7', itemColor: '#ecf0f1', highlightColor: '#ffd700', glowColor: 'rgba(189,195,199,0.3)', shadowColor: 'rgba(189,195,199,0.5)', icon: '🔘', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(189,195,199,0.08), transparent 70%)' },
-    'gold': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(241,196,15,0.6)', titleColor: '#f1c40f', itemColor: '#f9e79f', highlightColor: '#ffd700', glowColor: 'rgba(241,196,15,0.4)', shadowColor: 'rgba(241,196,15,0.6)', icon: '👑', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(241,196,15,0.1), transparent 70%)' },
-    'diamond': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(52,152,219,0.6)', titleColor: '#3498db', itemColor: '#85c1e9', highlightColor: '#00d4ff', glowColor: 'rgba(52,152,219,0.3)', shadowColor: 'rgba(52,152,219,0.5)', icon: '💎', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(52,152,219,0.08), transparent 70%)' },
-    'netherite': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(44,62,80,0.6)', titleColor: '#e74c3c', itemColor: '#f1948a', highlightColor: '#ff6b35', glowColor: 'rgba(231,76,60,0.3)', shadowColor: 'rgba(231,76,60,0.5)', icon: '🔥', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(231,76,60,0.08), transparent 70%)' },
-    'bedrock': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(52,73,94,0.6)', titleColor: '#5d6d7e', itemColor: '#aeb6bf', highlightColor: '#ffd700', glowColor: 'rgba(52,73,94,0.4)', shadowColor: 'rgba(52,73,94,0.6)', icon: '⛏️', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(52,73,94,0.1), transparent 70%)' }
+    'free': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(46,204,113,0.7)', titleColor: '#2ecc71', itemColor: '#6bcbff', highlightColor: '#ffd700', glowColor: 'rgba(46,204,113,0.3)', shadowColor: 'rgba(46,204,113,0.5)', icon: '🎁', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(46,204,113,0.08), transparent 70%)' },
+    'mud': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(142,68,173,0.7)', titleColor: '#8e44ad', itemColor: '#c39bd3', highlightColor: '#ff6b6b', glowColor: 'rgba(142,68,173,0.3)', shadowColor: 'rgba(142,68,173,0.5)', icon: '🟫', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(142,68,173,0.08), transparent 70%)' },
+    'wood': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(211,84,0,0.7)', titleColor: '#d35400', itemColor: '#f39c12', highlightColor: '#ffd700', glowColor: 'rgba(211,84,0,0.3)', shadowColor: 'rgba(211,84,0,0.5)', icon: '🌳', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(211,84,0,0.08), transparent 70%)' },
+    'stone': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(127,140,141,0.7)', titleColor: '#7f8c8d', itemColor: '#bdc3c7', highlightColor: '#ffd700', glowColor: 'rgba(127,140,141,0.3)', shadowColor: 'rgba(127,140,141,0.5)', icon: '🪨', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(127,140,141,0.08), transparent 70%)' },
+    'bronze': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(205,127,50,0.7)', titleColor: '#cd7f32', itemColor: '#f0c27f', highlightColor: '#ffd700', glowColor: 'rgba(205,127,50,0.3)', shadowColor: 'rgba(205,127,50,0.5)', icon: '🥉', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(205,127,50,0.08), transparent 70%)' },
+    'silver': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(189,195,199,0.7)', titleColor: '#bdc3c7', itemColor: '#ecf0f1', highlightColor: '#ffd700', glowColor: 'rgba(189,195,199,0.3)', shadowColor: 'rgba(189,195,199,0.5)', icon: '🔘', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(189,195,199,0.08), transparent 70%)' },
+    'gold': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(241,196,15,0.7)', titleColor: '#f1c40f', itemColor: '#f9e79f', highlightColor: '#ffd700', glowColor: 'rgba(241,196,15,0.4)', shadowColor: 'rgba(241,196,15,0.6)', icon: '👑', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(241,196,15,0.1), transparent 70%)' },
+    'diamond': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(52,152,219,0.7)', titleColor: '#3498db', itemColor: '#85c1e9', highlightColor: '#00d4ff', glowColor: 'rgba(52,152,219,0.3)', shadowColor: 'rgba(52,152,219,0.5)', icon: '💎', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(52,152,219,0.08), transparent 70%)' },
+    'netherite': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(44,62,80,0.7)', titleColor: '#e74c3c', itemColor: '#f1948a', highlightColor: '#ff6b35', glowColor: 'rgba(231,76,60,0.3)', shadowColor: 'rgba(231,76,60,0.5)', icon: '🔥', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(231,76,60,0.08), transparent 70%)' },
+    'bedrock': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(52,73,94,0.7)', titleColor: '#5d6d7e', itemColor: '#aeb6bf', highlightColor: '#ffd700', glowColor: 'rgba(52,73,94,0.4)', shadowColor: 'rgba(52,73,94,0.6)', icon: '⛏️', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(52,73,94,0.1), transparent 70%)' }
 };
 
 function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
@@ -164,15 +164,15 @@ function showFullScreenTape(type, isOpening) {
     }
 
     const title = document.createElement('div');
-    title.style.cssText = `font-size:24px; font-weight:800; color:${style.titleColor}; margin-bottom:16px; text-transform:uppercase; letter-spacing:3px; text-shadow:0 0 40px ${style.glowColor};`;
+    title.style.cssText = `font-size:28px; font-weight:800; color:${style.titleColor}; margin-bottom:16px; text-transform:uppercase; letter-spacing:4px; text-shadow:0 0 40px ${style.glowColor};`;
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
     const tapeWrapper = document.createElement('div');
     tapeWrapper.style.cssText = `
-        flex: 6;
-        width: 90%;
-        max-width: 500px;
+        flex: 7;
+        width: 95%;
+        max-width: 600px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -184,12 +184,12 @@ function showFullScreenTape(type, isOpening) {
     arrowTop.id = 'arrowTop';
     arrowTop.style.cssText = `
         color: ${style.highlightColor};
-        font-size: 36px;
+        font-size: 44px;
         line-height: 1;
         text-shadow: 0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}40;
         transition: all 0.15s ease;
-        margin-bottom: 4px;
-        opacity: 0.9;
+        margin-bottom: 6px;
+        opacity: 1;
     `;
     arrowTop.textContent = '▼';
 
@@ -197,12 +197,12 @@ function showFullScreenTape(type, isOpening) {
     tapeTrack.style.cssText = `
         width: 100%;
         overflow: hidden;
-        background: rgba(255,255,255,0.03);
-        border-radius: 20px;
+        background: rgba(255,255,255,0.04);
+        border-radius: 24px;
         border: ${style.border};
-        box-shadow: 0 0 60px ${style.glowColor};
-        padding: 16px 0;
-        min-height: 180px;
+        box-shadow: 0 0 80px ${style.glowColor};
+        padding: 24px 0;
+        min-height: 220px;
         position: relative;
     `;
 
@@ -210,11 +210,11 @@ function showFullScreenTape(type, isOpening) {
     tapeContent.id = 'tapeContent';
     tapeContent.style.cssText = `
         display: flex;
-        gap: 50px;
+        gap: 60px;
         white-space: nowrap;
-        font-size: 44px;
+        font-size: 56px;
         font-weight: 900;
-        padding: 0 16px;
+        padding: 0 20px;
         will-change: transform;
         transition: none;
         width: auto;
@@ -224,14 +224,14 @@ function showFullScreenTape(type, isOpening) {
     for (let repeat = 0; repeat < 8; repeat++) {
         prizes.forEach((p, index) => {
             const isLarge = p > 1000;
-            const fontSize = isLarge ? '38px' : '44px';
-            allItems.push(`<span class="prize-item" data-index="${index}" data-value="${p}" style="color:${style.itemColor}; transition: none; font-size: ${fontSize}; text-shadow: 0 0 15px ${style.glowColor}; padding: 6px 10px; display: inline-block; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.06);">${p}⭐</span>`);
+            const fontSize = isLarge ? '48px' : '56px';
+            allItems.push(`<span class="prize-item" data-index="${index}" data-value="${p}" style="color:${style.itemColor}; transition: none; font-size: ${fontSize}; text-shadow: 0 0 20px ${style.glowColor}; padding: 8px 14px; display: inline-block; flex-shrink: 0; border-right: 2px solid rgba(255,255,255,0.08);">${p}⭐</span>`);
         });
     }
     tapeContent.innerHTML = allItems.join('');
 
-    const itemWidth = 120;
-    const gap = 50;
+    const itemWidth = 140;
+    const gap = 60;
     const oneRepeatWidth = prizes.length * (itemWidth + gap);
 
     const animKey = `scrollTape_${type}_${Date.now()}`;
@@ -255,12 +255,12 @@ function showFullScreenTape(type, isOpening) {
     arrowBottom.id = 'arrowBottom';
     arrowBottom.style.cssText = `
         color: ${style.highlightColor};
-        font-size: 36px;
+        font-size: 44px;
         line-height: 1;
         text-shadow: 0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}40;
         transition: all 0.15s ease;
-        margin-top: 4px;
-        opacity: 0.9;
+        margin-top: 6px;
+        opacity: 1;
     `;
     arrowBottom.textContent = '▲';
 
@@ -270,7 +270,7 @@ function showFullScreenTape(type, isOpening) {
     tapeContainer.appendChild(tapeWrapper);
 
     const bottomSection = document.createElement('div');
-    bottomSection.style.cssText = `flex:2.5; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; width:100%; padding-top:16px;`;
+    bottomSection.style.cssText = `flex:2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; width:100%; padding-top:16px;`;
     const btnContainer = document.createElement('div');
     btnContainer.style.cssText = `display:flex; gap:16px; flex-wrap:wrap; justify-content:center;`;
 
@@ -280,15 +280,15 @@ function showFullScreenTape(type, isOpening) {
         background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
         color: #fff;
         border: none;
-        padding: 16px 44px;
-        border-radius: 18px;
-        font-size: 20px;
+        padding: 18px 50px;
+        border-radius: 20px;
+        font-size: 22px;
         font-weight: 700;
         cursor: pointer;
         transition: all 0.2s;
-        box-shadow: 0 4px 35px ${style.shadowColor};
+        box-shadow: 0 4px 40px ${style.shadowColor};
         text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        min-width: 180px;
+        min-width: 200px;
     `;
     openBtn.onclick = function() {
         checkBalance(type).then(canOpen => { if (!canOpen) return; startFinalSpin(type); });
@@ -301,13 +301,13 @@ function showFullScreenTape(type, isOpening) {
         background: rgba(255,255,255,0.08);
         color: #fff;
         border: none;
-        padding: 16px 44px;
-        border-radius: 18px;
-        font-size: 20px;
+        padding: 18px 50px;
+        border-radius: 20px;
+        font-size: 22px;
         font-weight: 700;
         cursor: pointer;
         transition: all 0.2s;
-        min-width: 180px;
+        min-width: 200px;
     `;
     closeBtn.onclick = function() { closeTape(); };
     btnContainer.appendChild(closeBtn);
@@ -349,29 +349,32 @@ function startFinalSpin(type) {
     
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
 
-    // ===== БЫСТРЫЙ СТАРТ (0.15с) =====
+    // ===== БЫСТРЫЙ СТАРТ =====
     tapeContent.style.animationDuration = '0.15s';
     tapeContent.style.animationTimingFunction = 'linear';
     
     let duration = 0.15;
-    const maxDuration = 6.0;
+    const maxDuration = 7.0;
     let steps = 0;
-    const maxSteps = 100;
+    const maxSteps = 140;
 
     if (_spinInterval) clearInterval(_spinInterval);
     _spinInterval = setInterval(() => {
         steps++;
         
-        // ===== 3 ЭТАПА ЗАМЕДЛЕНИЯ =====
+        // ===== 4 ЭТАПА ЗАМЕДЛЕНИЯ =====
         if (duration < maxDuration) {
-            if (steps < 30) {
-                // ЭТАП 1: быстро (0–3 сек)
-                duration += 0.06;
-            } else if (steps < 60) {
-                // ЭТАП 2: среднее замедление (3–6 сек)
-                duration += 0.025;
+            if (steps < 25) {
+                // ЭТАП 1: быстро (0–2.5 сек)
+                duration += 0.07;
+            } else if (steps < 50) {
+                // ЭТАП 2: среднее (2.5–5 сек)
+                duration += 0.035;
+            } else if (steps < 80) {
+                // ЭТАП 3: медленно (5–8 сек)
+                duration += 0.018;
             } else {
-                // ЭТАП 3: очень медленно (6–10 сек)
+                // ЭТАП 4: очень медленно (8–10 сек)
                 duration += 0.008;
             }
             if (duration > maxDuration) duration = maxDuration;
@@ -386,25 +389,25 @@ function startFinalSpin(type) {
         allItems.forEach(el => {
             el.style.color = style.itemColor;
             el.style.textShadow = `0 0 15px ${style.glowColor}`;
-            el.style.transition = 'all 0.06s ease';
+            el.style.transition = 'all 0.05s ease';
         });
 
         if (target) {
             target.style.color = '#FFFFFF';
-            target.style.textShadow = `0 0 25px ${style.highlightColor}, 0 0 50px ${style.highlightColor}40`;
-            target.style.transition = 'all 0.06s ease';
+            target.style.textShadow = `0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}40`;
+            target.style.transition = 'all 0.05s ease';
         }
 
         // ===== СТРЕЛКА =====
         const arrowTop = document.getElementById('arrowTop');
         const arrowBottom = document.getElementById('arrowBottom');
         if (arrowTop && arrowBottom && target) {
-            arrowTop.style.transform = 'translateY(4px)';
-            arrowBottom.style.transform = 'translateY(-4px)';
+            arrowTop.style.transform = 'translateY(5px)';
+            arrowBottom.style.transform = 'translateY(-5px)';
             setTimeout(() => {
                 arrowTop.style.transform = 'translateY(0)';
                 arrowBottom.style.transform = 'translateY(0)';
-            }, 40);
+            }, 30);
         }
 
         // ===== ОСТАНОВКА =====
@@ -438,25 +441,25 @@ function startFinalSpin(type) {
                 if (arrowTop) {
                     arrowTop.style.color = '#FFFFFF';
                     arrowTop.style.textShadow = `0 0 60px ${style.highlightColor}`;
-                    arrowTop.style.transform = 'scale(1.3)';
+                    arrowTop.style.transform = 'scale(1.4)';
                     arrowTop.style.transition = 'all 0.5s ease';
                 }
                 if (arrowBottom) {
                     arrowBottom.style.color = '#FFFFFF';
                     arrowBottom.style.textShadow = `0 0 60px ${style.highlightColor}`;
-                    arrowBottom.style.transform = 'scale(1.3)';
+                    arrowBottom.style.transform = 'scale(1.4)';
                     arrowBottom.style.transition = 'all 0.5s ease';
                 }
 
                 const containerWidth = tapeContainer.querySelector('.tape-track')?.offsetWidth || 400;
-                const itemWidth = 120;
-                const gap = 50;
+                const itemWidth = 140;
+                const gap = 60;
                 const scrollPosition = prizeIndex * (itemWidth + gap) * 4 - containerWidth / 2 + itemWidth / 2;
                 tapeContent.style.transform = `translateX(-${Math.max(0, scrollPosition)}px)`;
 
                 setTimeout(() => {
                     tapeContent.innerHTML = `
-                        <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900; transition: all 0.5s ease;">
+                        <span style="color:${style.highlightColor}; font-size:100px; text-shadow: 0 0 80px ${style.highlightColor}, 0 0 160px ${style.highlightColor}, 0 0 240px ${style.highlightColor}80; font-weight:900; transition: all 0.5s ease;">
                             ${_currentPrize}⭐
                         </span>
                     `;
@@ -472,7 +475,7 @@ function startFinalSpin(type) {
                 }, 1500);
             } else {
                 tapeContent.innerHTML = `
-                    <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900;">
+                    <span style="color:${style.highlightColor}; font-size:100px; text-shadow: 0 0 80px ${style.highlightColor}, 0 0 160px ${style.highlightColor}, 0 0 240px ${style.highlightColor}80; font-weight:900;">
                         ${_currentPrize}⭐
                     </span>
                 `;
@@ -484,7 +487,7 @@ function startFinalSpin(type) {
                 }, 1200);
             }
         }
-    }, 35);
+    }, 30);
 }
 
 async function openCaseReal(type, finalPrize) {
