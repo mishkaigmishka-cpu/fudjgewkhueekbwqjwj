@@ -5,13 +5,14 @@ import time
 import threading
 import os
 from flask import Flask, request, jsonify, send_from_directory
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice, PreCheckoutQuery
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice, PreCheckoutQuery, WebAppInfo
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 if not TOKEN:
     raise ValueError("TELEGRAM_TOKEN не установлен!")
 
 ADMIN_ID = 7819642052
+BOT_USERNAME = "Randevucase_bot"
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
@@ -40,65 +41,15 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS invited (
 )''')
 conn.commit()
 
-cursor.execute('''CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    text TEXT,
-    reward INTEGER,
-    active INTEGER DEFAULT 1
-)''')
-conn.commit()
-
-if not cursor.execute("SELECT * FROM tasks").fetchall():
-    default_tasks = [("Подпишись на канал", 5), ("Пригласи 3 друзей", 10), ("Открой 5 кейсов", 15)]
-    for text, reward in default_tasks:
-        cursor.execute("INSERT INTO tasks (text, reward) VALUES (?, ?)", (text, reward))
-    conn.commit()
-
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
 
 CASE_RANGES = {
-    "free": {
-        "common": (1, 1),
-        "rare": (2, 2),
-        "epic": (3, 3),
-        "legendary": (100, 100),
-        "legendary_chance": 0.0001
-    },
-    "wood": {
-        "common": (20, 30),
-        "rare": (30, 40),
-        "epic": (40, 60),
-        "legendary": (200, 200),
-        "legendary_chance": 0.0001
-    },
-    "silver": {
-        "common": (40, 60),
-        "rare": (60, 80),
-        "epic": (80, 120),
-        "legendary": (500, 500),
-        "legendary_chance": 0.0001
-    },
-    "gold": {
-        "common": (150, 200),
-        "rare": (200, 300),
-        "epic": (300, 500),
-        "legendary": (1000, 1000),
-        "legendary_chance": 0.0001
-    },
-    "diamond": {
-        "common": (350, 500),
-        "rare": (500, 800),
-        "epic": (800, 1200),
-        "legendary": (2000, 2000),
-        "legendary_chance": 0.0001
-    },
-    "netherite": {
-        "common": (1000, 2000),
-        "rare": (2000, 4000),
-        "epic": (4000, 8000),
-        "legendary": (25000, 25000),
-        "legendary_chance": 0.0001
-    }
+    "free": {"common": (1, 1), "rare": (2, 2), "epic": (3, 3), "legendary": (100, 100), "legendary_chance": 0.0001},
+    "wood": {"common": (20, 30), "rare": (30, 40), "epic": (40, 60), "legendary": (200, 200), "legendary_chance": 0.0001},
+    "silver": {"common": (40, 60), "rare": (60, 80), "epic": (80, 120), "legendary": (500, 500), "legendary_chance": 0.0001},
+    "gold": {"common": (150, 200), "rare": (200, 300), "epic": (300, 500), "legendary": (1000, 1000), "legendary_chance": 0.0001},
+    "diamond": {"common": (350, 500), "rare": (500, 800), "epic": (800, 1200), "legendary": (2000, 2000), "legendary_chance": 0.0001},
+    "netherite": {"common": (1000, 2000), "rare": (2000, 4000), "epic": (4000, 8000), "legendary": (25000, 25000), "legendary_chance": 0.0001}
 }
 
 def get_prize(case_type):
@@ -162,7 +113,6 @@ def add_invited(inviter_id, invited_id):
     cursor.execute("INSERT OR IGNORE INTO invited (inviter_id, invited_id) VALUES (?, ?)", (inviter_id, invited_id))
     conn.commit()
 
-# === ПРОМОКОД ===
 PROMO_CODE = "RANDEVU50"
 
 @bot.message_handler(commands=['start'])
@@ -201,36 +151,39 @@ def start(msg):
             pass
 
     update_user(uid, username=username)
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("🎮 Открыть приложение", url="https://randevu-bot-production.up.railway.app"))
-    bot.send_message(msg.chat.id, "Добро пожаловать в RANDEVU! Нажми на кнопку, чтобы открыть кейсы.", reply_markup=kb)
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(InlineKeyboardButton("🎮 Открыть приложение", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
+    kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
+    bot.send_message(msg.chat.id, "Добро пожаловать в RANDEVU!", reply_markup=kb)
 
-# === ОБРАБОТЧИК ПРОМОКОДА ===
-@bot.message_handler(commands=['promo'])
-def promo_handler(msg):
+@bot.callback_query_handler(func=lambda call: call.data == "topup")
+def topup_callback(call):
+    bot.answer_callback_query(call.id)
+    bot.send_message(call.message.chat.id, "💳 Введите сумму пополнения (от 50 до 5000⭐):")
+    bot.register_next_step_handler(call.message, process_topup_amount)
+
+def process_topup_amount(msg):
     uid = msg.from_user.id
-    args = msg.text.split()
-    if len(args) < 2:
-        bot.reply_to(msg, "❌ Введи промокод: /promo RANDEVU50")
+    try:
+        amount = int(msg.text.strip())
+    except:
+        bot.reply_to(msg, "❌ Введите число!")
         return
-    
-    code = args[1]
-    if code != PROMO_CODE:
-        bot.reply_to(msg, "❌ Неверный промокод!")
+
+    if amount < 50 or amount > 5000:
+        bot.reply_to(msg, "❌ Сумма должна быть от 50 до 5000⭐!")
         return
-    
-    user = get_user(uid)
-    if not user:
-        bot.reply_to(msg, "Напиши /start")
-        return
-    
-    if user[9] == 1:
-        bot.reply_to(msg, "❌ Ты уже использовал промокод!")
-        return
-    
-    new_bal = user[1] + 50
-    update_user(uid, balance=new_bal, promo_used=1)
-    bot.reply_to(msg, f"✅ Промокод активирован! Ты получил 50⭐")
+
+    bot.send_invoice(
+        chat_id=uid,
+        title=f"Пополнение на {amount}⭐",
+        description=f"Ты получишь {amount} внутриигровых звёзд.",
+        invoice_payload=f"stars_{uid}_{int(time.time())}",
+        provider_token="",
+        currency="XTR",
+        prices=[LabeledPrice(label=f"{amount} Stars", amount=amount)],
+        start_parameter="buy_stars"
+    )
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def handle_pre_checkout(query):
@@ -244,7 +197,29 @@ def handle_payment(message):
     if user:
         new_bal = user[1] + amount
         update_user(uid, balance=new_bal)
-        bot.send_message(uid, f"✅ Пополнено на {amount}⭐")
+        bot.send_message(uid, f"✅ Пополнено на {amount}⭐\n💰 Новый баланс: {new_bal}⭐")
+
+@bot.message_handler(commands=['promo'])
+def promo_handler(msg):
+    uid = msg.from_user.id
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Введи промокод: /promo RANDEVU50")
+        return
+    code = args[1]
+    if code != PROMO_CODE:
+        bot.reply_to(msg, "❌ Неверный промокод!")
+        return
+    user = get_user(uid)
+    if not user:
+        bot.reply_to(msg, "Напиши /start")
+        return
+    if user[9] == 1:
+        bot.reply_to(msg, "❌ Ты уже использовал промокод!")
+        return
+    new_bal = user[1] + 50
+    update_user(uid, balance=new_bal, promo_used=1)
+    bot.reply_to(msg, f"✅ Промокод активирован! Ты получил 50⭐")
 
 @bot.message_handler(commands=['add_ad'])
 def add_ad(msg):
@@ -339,29 +314,6 @@ def withdraw_request():
     username = user[8] or "Неизвестный"
     try:
         bot.send_message(ADMIN_ID, f"💸 НОВАЯ ЗАЯВКА НА ВЫВОД!\n\n👤 Пользователь: @{username} (ID: {user_id})\n⭐ Сумма: {amount} звёзд\n💰 Баланс пользователя: {user[1]}⭐")
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/buy_stars', methods=['POST'])
-def buy_stars():
-    try:
-        data = request.get_json()
-        user_id = data.get('user_id')
-        amount = data.get('amount')
-        user = get_user(user_id)
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        bot.send_invoice(
-            chat_id=user_id,
-            title=f"Пополнение на {amount}⭐",
-            description=f"Ты получишь {amount} внутриигровых звёзд.",
-            invoice_payload=f"stars_{user_id}_{int(time.time())}",
-            provider_token="",
-            currency="XTR",
-            prices=[LabeledPrice(label=f"{amount} Stars", amount=amount)],
-            start_parameter="buy_stars"
-        )
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
