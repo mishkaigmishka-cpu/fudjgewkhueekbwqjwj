@@ -9,6 +9,7 @@ let lastOpenedCase = null;
 let _tapeInterval = null;
 let _currentPrize = null;
 let _isOpening = false;
+let _tapeContainer = null;
 
 // ===== НАГРАДЫ ДЛЯ ЛЕНТЫ =====
 const CASE_PRIZES = {
@@ -92,6 +93,8 @@ async function checkBalance(type) {
 // ===== ПРЕДПРОСМОТР ЛЕНТЫ =====
 function previewCase(type) {
     if (_isOpening) return;
+    // Полностью очищаем старую ленту
+    closeTape();
     showFullScreenTape(type, false);
 }
 
@@ -105,22 +108,33 @@ function openCaseDirect(type) {
             _isOpening = false;
             return;
         }
+        closeTape();
         showFullScreenTape(type, true);
     });
+}
+
+function closeTape() {
+    if (_tapeInterval) {
+        clearInterval(_tapeInterval);
+        _tapeInterval = null;
+    }
+    if (_tapeContainer) {
+        _tapeContainer.remove();
+        _tapeContainer = null;
+    }
+    _isOpening = false;
 }
 
 function showFullScreenTape(type, isOpening) {
     const prizes = getPrizes(type);
     const style = getStyle(type);
     
-    const oldTape = document.getElementById('tapeContainer');
-    if (oldTape) {
-        if (_tapeInterval) clearInterval(_tapeInterval);
-        oldTape.remove();
-    }
+    // Удаляем старую ленту полностью
+    closeTape();
     
     const tapeContainer = document.createElement('div');
     tapeContainer.id = 'tapeContainer';
+    _tapeContainer = tapeContainer;
     tapeContainer.style.cssText = `
         position: fixed;
         top: 0;
@@ -205,17 +219,19 @@ function showFullScreenTape(type, isOpening) {
     
     const animKey = `scrollTape_${type}_${Date.now()}`;
     
-    if (!document.getElementById(`tapeStyle_${type}`)) {
-        const styleTag = document.createElement('style');
-        styleTag.id = `tapeStyle_${type}`;
-        styleTag.textContent = `
-            @keyframes ${animKey} {
-                0% { transform: translateX(0); }
-                100% { transform: translateX(-${100 / 8}%); }
-            }
-        `;
-        document.head.appendChild(styleTag);
-    }
+    // Удаляем старый стиль, чтобы анимация перезапустилась
+    const oldStyle = document.getElementById(`tapeStyle_${type}`);
+    if (oldStyle) oldStyle.remove();
+    
+    const styleTag = document.createElement('style');
+    styleTag.id = `tapeStyle_${type}`;
+    styleTag.textContent = `
+        @keyframes ${animKey} {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-${100 / 8}%); }
+        }
+    `;
+    document.head.appendChild(styleTag);
     
     tapeContent.style.animation = `${animKey} 10s linear infinite`;
     tapeContent.style.animationTimingFunction = 'linear';
@@ -269,7 +285,6 @@ function showFullScreenTape(type, isOpening) {
         this.style.boxShadow = `0 4px 40px ${style.shadowColor}`;
     };
     openBtn.onclick = function() {
-        // Проверяем баланс при нажатии
         checkBalance(type).then(canOpen => {
             if (!canOpen) {
                 return;
@@ -297,9 +312,7 @@ function showFullScreenTape(type, isOpening) {
     closeBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.15)'; };
     closeBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.08)'; };
     closeBtn.onclick = function() {
-        if (_tapeInterval) clearInterval(_tapeInterval);
-        tapeContainer.remove();
-        _isOpening = false;
+        closeTape();
     };
     
     btnContainer.appendChild(closeBtn);
@@ -355,10 +368,13 @@ function startFinalSpin(type) {
     btns.forEach(btn => btn.remove());
     
     const tapeContent = document.getElementById('tapeContent');
-    tapeContent.style.animationDuration = '0.4s';
+    // Ускоряем ленту
+    tapeContent.style.animationDuration = '0.3s';
     
+    // ===== ВЫБИРАЕМ НАГРАДУ ОДИН РАЗ =====
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
     
+    // ===== УВЕЛИЧИВАЕМ ВРЕМЯ ДО 4 СЕКУНД =====
     setTimeout(() => {
         tapeContent.style.animation = 'none';
         tapeContent.innerHTML = `
@@ -373,12 +389,14 @@ function startFinalSpin(type) {
             el.style.transform = 'scale(1)';
         });
         
+        // ===== ОТПРАВЛЯЕМ ТУ ЖЕ НАГРАДУ НА СЕРВЕР =====
         setTimeout(() => {
             tapeContainer.remove();
+            _tapeContainer = null;
             _isOpening = false;
             openCaseReal(type, _currentPrize);
-        }, 1200);
-    }, 2000);
+        }, 1500);
+    }, 4000); // 4 секунды анимации открытия
 }
 
 async function openCaseReal(type, finalPrize) {
@@ -399,6 +417,7 @@ async function openCaseReal(type, finalPrize) {
         const resultDiv = document.getElementById('result');
         document.getElementById('prizeDisplay').textContent = '🎁';
         document.getElementById('prizeName').textContent = 'Ты выиграл!';
+        // ===== ПОКАЗЫВАЕМ ТУ ЖЕ НАГРАДУ =====
         document.getElementById('prizeValue').textContent = '⭐ ' + data.prize;
         
         if (data.ad) {
