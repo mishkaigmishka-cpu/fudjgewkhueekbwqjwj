@@ -13,7 +13,6 @@ let _tapeContainer = null;
 let _spinInterval = null;
 let _spinCounter = 0;
 
-// ===== НАГРАДЫ ДЛЯ ЛЕНТЫ (ТОЛЬКО ТО, ЧТО ВЫПАДАЕТ) =====
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
     'mud': [1, 2, 3, 4, 5, 6, 7, 10, 12, 14, 16, 20, 22, 24, 27, 30, 35, 40, 50, 500],
@@ -27,21 +26,11 @@ const CASE_PRIZES = {
     'bedrock': [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 2600, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000]
 };
 
-// ===== СКОРОСТЬ ПРОКРУТКИ ДЛЯ КАЖДОГО КЕЙСА =====
 const CASE_SPEED = {
-    'free': 10,
-    'mud': 10,
-    'wood': 10,
-    'stone': 10,
-    'bronze': 10,
-    'silver': 10,
-    'gold': 10,
-    'diamond': 14,
-    'netherite': 16,
-    'bedrock': 18
+    'free': 10, 'mud': 10, 'wood': 10, 'stone': 10, 'bronze': 10, 'silver': 10, 'gold': 10,
+    'diamond': 14, 'netherite': 16, 'bedrock': 18
 };
 
-// ===== СТИЛИ ДЛЯ КАЖДОГО КЕЙСА =====
 const CASE_STYLES = {
     'free': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(46,204,113,0.6)', titleColor: '#2ecc71', itemColor: '#6bcbff', highlightColor: '#ffd700', glowColor: 'rgba(46,204,113,0.3)', shadowColor: 'rgba(46,204,113,0.5)', icon: '🎁', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(46,204,113,0.08), transparent 70%)' },
     'mud': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(142,68,173,0.6)', titleColor: '#8e44ad', itemColor: '#c39bd3', highlightColor: '#ff6b6b', glowColor: 'rgba(142,68,173,0.3)', shadowColor: 'rgba(142,68,173,0.5)', icon: '🟫', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(142,68,173,0.08), transparent 70%)' },
@@ -55,17 +44,9 @@ const CASE_STYLES = {
     'bedrock': { bg: 'rgba(0,0,0,0.95)', border: '2px solid rgba(52,73,94,0.6)', titleColor: '#5d6d7e', itemColor: '#aeb6bf', highlightColor: '#ffd700', glowColor: 'rgba(52,73,94,0.4)', shadowColor: 'rgba(52,73,94,0.6)', icon: '⛏️', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(52,73,94,0.1), transparent 70%)' }
 };
 
-function getPrizes(type) {
-    return CASE_PRIZES[type] || [1, 10, 100];
-}
-
-function getStyle(type) {
-    return CASE_STYLES[type] || CASE_STYLES['free'];
-}
-
-function getSpeed(type) {
-    return CASE_SPEED[type] || 10;
-}
+function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
+function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
+function getSpeed(type) { return CASE_SPEED[type] || 10; }
 
 async function loadBalance() {
     try {
@@ -119,30 +100,17 @@ function previewCase(type) {
 function openCaseDirect(type) {
     if (_isOpening) return;
     _isOpening = true;
-    
     checkBalance(type).then(canOpen => {
-        if (!canOpen) {
-            _isOpening = false;
-            return;
-        }
+        if (!canOpen) { _isOpening = false; return; }
         closeTape();
         showFullScreenTape(type, true);
     });
 }
 
 function closeTape() {
-    if (_tapeInterval) {
-        clearInterval(_tapeInterval);
-        _tapeInterval = null;
-    }
-    if (_spinInterval) {
-        clearInterval(_spinInterval);
-        _spinInterval = null;
-    }
-    if (_tapeContainer) {
-        _tapeContainer.remove();
-        _tapeContainer = null;
-    }
+    if (_tapeInterval) { clearInterval(_tapeInterval); _tapeInterval = null; }
+    if (_spinInterval) { clearInterval(_spinInterval); _spinInterval = null; }
+    if (_tapeContainer) { _tapeContainer.remove(); _tapeContainer = null; }
     _isOpening = false;
     _spinCounter = 0;
 }
@@ -151,9 +119,8 @@ function showFullScreenTape(type, isOpening) {
     const prizes = getPrizes(type);
     const style = getStyle(type);
     const speed = getSpeed(type);
-    
     closeTape();
-    
+
     const tapeContainer = document.createElement('div');
     tapeContainer.id = 'tapeContainer';
     _tapeContainer = tapeContainer;
@@ -175,49 +142,58 @@ function showFullScreenTape(type, isOpening) {
         border: none;
         animation: fadeIn 0.3s ease;
     `;
-    
+
     if (!document.getElementById('tapeFadeStyle')) {
         const fadeStyle = document.createElement('style');
         fadeStyle.id = 'tapeFadeStyle';
-        fadeStyle.textContent = `
-            @keyframes fadeIn {
-                from { opacity: 0; transform: scale(0.95); }
-                to { opacity: 1; transform: scale(1); }
-            }
-        `;
+        fadeStyle.textContent = `@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }`;
         document.head.appendChild(fadeStyle);
     }
-    
+
     const title = document.createElement('div');
-    title.style.cssText = `
-        font-size: 24px;
-        font-weight: 800;
-        color: ${style.titleColor};
-        margin-bottom: 16px;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-        text-shadow: 0 0 40px ${style.glowColor};
-    `;
+    title.style.cssText = `font-size:24px; font-weight:800; color:${style.titleColor}; margin-bottom:16px; text-transform:uppercase; letter-spacing:3px; text-shadow:0 0 40px ${style.glowColor};`;
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
-    
+
     const tapeWrapper = document.createElement('div');
     tapeWrapper.style.cssText = `
         flex: 6;
         width: 90%;
         max-width: 500px;
         display: flex;
+        flex-direction: column;
         align-items: center;
+        justify-content: center;
+        position: relative;
+    `;
+
+    // ===== СТРЕЛКИ =====
+    const arrowTop = document.createElement('div');
+    arrowTop.id = 'arrowTop';
+    arrowTop.style.cssText = `
+        color: ${style.highlightColor};
+        font-size: 36px;
+        line-height: 1;
+        text-shadow: 0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}40;
+        transition: all 0.15s ease;
+        margin-bottom: 4px;
+        opacity: 0.9;
+    `;
+    arrowTop.textContent = '▲';
+
+    const tapeTrack = document.createElement('div');
+    tapeTrack.style.cssText = `
+        width: 100%;
         overflow: hidden;
         background: rgba(255,255,255,0.03);
         border-radius: 20px;
         border: ${style.border};
         box-shadow: 0 0 60px ${style.glowColor};
-        padding: 20px 0;
-        min-height: 220px;
+        padding: 16px 0;
+        min-height: 180px;
         position: relative;
     `;
-    
+
     const tapeContent = document.createElement('div');
     tapeContent.id = 'tapeContent';
     tapeContent.style.cssText = `
@@ -230,7 +206,7 @@ function showFullScreenTape(type, isOpening) {
         will-change: transform;
         transition: none;
     `;
-    
+
     let allItems = [];
     for (let repeat = 0; repeat < 8; repeat++) {
         prizes.forEach((p, index) => {
@@ -240,48 +216,42 @@ function showFullScreenTape(type, isOpening) {
         });
     }
     tapeContent.innerHTML = allItems.join('');
-    
+
     const animKey = `scrollTape_${type}_${Date.now()}`;
-    
     const oldStyle = document.getElementById(`tapeStyle_${type}`);
     if (oldStyle) oldStyle.remove();
-    
     const styleTag = document.createElement('style');
     styleTag.id = `tapeStyle_${type}`;
-    styleTag.textContent = `
-        @keyframes ${animKey} {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-${100 / 8}%); }
-        }
-    `;
+    styleTag.textContent = `@keyframes ${animKey} { 0% { transform: translateX(0); } 100% { transform: translateX(-${100 / 8}%); } }`;
     document.head.appendChild(styleTag);
-    
+
     tapeContent.style.animation = `${animKey} ${speed}s linear infinite`;
     tapeContent.style.animationTimingFunction = 'linear';
-    
-    tapeWrapper.appendChild(tapeContent);
+    tapeTrack.appendChild(tapeContent);
+
+    const arrowBottom = document.createElement('div');
+    arrowBottom.id = 'arrowBottom';
+    arrowBottom.style.cssText = `
+        color: ${style.highlightColor};
+        font-size: 36px;
+        line-height: 1;
+        text-shadow: 0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}40;
+        transition: all 0.15s ease;
+        margin-top: 4px;
+        opacity: 0.9;
+    `;
+    arrowBottom.textContent = '▼';
+
+    tapeWrapper.appendChild(arrowTop);
+    tapeWrapper.appendChild(tapeTrack);
+    tapeWrapper.appendChild(arrowBottom);
     tapeContainer.appendChild(tapeWrapper);
-    
+
     const bottomSection = document.createElement('div');
-    bottomSection.style.cssText = `
-        flex: 2.5;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 14px;
-        width: 100%;
-        padding-top: 16px;
-    `;
-    
+    bottomSection.style.cssText = `flex:2.5; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; width:100%; padding-top:16px;`;
     const btnContainer = document.createElement('div');
-    btnContainer.style.cssText = `
-        display: flex;
-        gap: 16px;
-        flex-wrap: wrap;
-        justify-content: center;
-    `;
-    
+    btnContainer.style.cssText = `display:flex; gap:16px; flex-wrap:wrap; justify-content:center;`;
+
     const openBtn = document.createElement('button');
     openBtn.textContent = `🎲 Открыть ${style.icon}`;
     openBtn.style.cssText = `
@@ -298,22 +268,11 @@ function showFullScreenTape(type, isOpening) {
         text-shadow: 0 2px 10px rgba(0,0,0,0.3);
         min-width: 180px;
     `;
-    openBtn.onmouseover = function() { 
-        this.style.transform = 'scale(1.05)';
-        this.style.boxShadow = `0 6px 45px ${style.shadowColor}`;
-    };
-    openBtn.onmouseout = function() { 
-        this.style.transform = 'scale(1)';
-        this.style.boxShadow = `0 4px 35px ${style.shadowColor}`;
-    };
     openBtn.onclick = function() {
-        checkBalance(type).then(canOpen => {
-            if (!canOpen) return;
-            startFinalSpin(type);
-        });
+        checkBalance(type).then(canOpen => { if (!canOpen) return; startFinalSpin(type); });
     };
     btnContainer.appendChild(openBtn);
-    
+
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '🔙 Назад';
     closeBtn.style.cssText = `
@@ -328,21 +287,14 @@ function showFullScreenTape(type, isOpening) {
         transition: all 0.2s;
         min-width: 180px;
     `;
-    closeBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.15)'; };
-    closeBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.08)'; };
-    closeBtn.onclick = function() {
-        closeTape();
-    };
-    
+    closeBtn.onclick = function() { closeTape(); };
     btnContainer.appendChild(closeBtn);
     bottomSection.appendChild(btnContainer);
     tapeContainer.appendChild(bottomSection);
-    
     document.body.appendChild(tapeContainer);
-    
+
     let activeIndex = 0;
     const totalItems = prizes.length;
-    
     _tapeInterval = setInterval(() => {
         document.querySelectorAll('.prize-item').forEach(el => {
             el.style.color = style.itemColor;
@@ -350,139 +302,133 @@ function showFullScreenTape(type, isOpening) {
             el.style.transform = 'scale(1)';
             el.style.transition = 'all 0.3s ease';
         });
-        
         const idx = activeIndex % totalItems;
         const target = document.querySelector(`.prize-item[data-index="${idx}"]`);
         if (target) {
-            const isLarge = parseInt(target.dataset.value) > 1000;
             target.style.color = '#FFFFFF';
-            target.style.textShadow = `
-                0 0 30px ${style.highlightColor},
-                0 0 60px ${style.highlightColor},
-                0 0 90px ${style.highlightColor}80
-            `;
+            target.style.textShadow = `0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}, 0 0 90px ${style.highlightColor}80`;
             target.style.transform = 'scale(1.4)';
             target.style.fontWeight = '900';
             target.style.transition = 'all 0.25s ease';
         }
         activeIndex++;
     }, 450);
-    
     tapeContainer._highlightInterval = _tapeInterval;
 }
 
-// ===== ГЛАВНОЕ ИЗМЕНЕНИЕ — ПЛАВНАЯ АНИМАЦИЯ =====
 function startFinalSpin(type) {
     const prizes = getPrizes(type);
     const style = getStyle(type);
     const tapeContainer = document.getElementById('tapeContainer');
     if (!tapeContainer) return;
-    
-    if (_tapeInterval) {
-        clearInterval(_tapeInterval);
-        _tapeInterval = null;
-    }
-    
-    // Убираем кнопки
+
+    if (_tapeInterval) { clearInterval(_tapeInterval); _tapeInterval = null; }
     const btns = tapeContainer.querySelectorAll('button');
     btns.forEach(btn => btn.remove());
-    
+
     const tapeContent = document.getElementById('tapeContent');
-    
-    // ===== 1. ВЫБИРАЕМ НАГРАДУ (ОДИН РАЗ) =====
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
-    
-    // ===== 2. ПЛАВНО ЗАМЕДЛЯЕМ ЛЕНТУ =====
-    // Сначала ускоряем
-    tapeContent.style.animationDuration = '0.3s';
-    
-    // Через 1 секунду начинаем замедлять
-    setTimeout(() => {
-        tapeContent.style.animationDuration = '1.5s';
-        tapeContent.style.animationTimingFunction = 'ease-out';
-    }, 1000);
-    
-    // ===== 3. ЧЕРЕЗ 4 СЕКУНДЫ ОСТАНАВЛИВАЕМ =====
-    setTimeout(() => {
-        tapeContent.style.animation = 'none';
-        
-        // ===== 4. НАХОДИМ ВЫПАВШУЮ НАГРАДУ В ЛЕНТЕ =====
+
+    tapeContent.style.animationDuration = '0.25s';
+    tapeContent.style.animationTimingFunction = 'linear';
+
+    let steps = 0;
+    const maxSteps = 12;
+    let currentSpeed = 0.25;
+
+    if (_spinInterval) clearInterval(_spinInterval);
+    _spinInterval = setInterval(() => {
+        steps++;
+        currentSpeed += 0.15;
+        tapeContent.style.animationDuration = currentSpeed + 's';
+        if (steps > 4) tapeContent.style.animationTimingFunction = 'ease-out';
+
         const allItems = document.querySelectorAll('.prize-item');
-        let targetItem = null;
-        let targetIndex = -1;
-        
-        allItems.forEach((el, idx) => {
-            const val = parseInt(el.dataset.value);
-            if (val === _currentPrize && targetIndex === -1) {
-                targetItem = el;
-                targetIndex = idx;
-            }
+        const randomIdx = Math.floor(Math.random() * prizes.length);
+        const target = document.querySelector(`.prize-item[data-index="${randomIdx}"]`);
+
+        allItems.forEach(el => {
+            el.style.color = style.itemColor;
+            el.style.textShadow = `0 0 15px ${style.glowColor}`;
+            el.style.transform = 'scale(1)';
+            el.style.transition = 'all 0.15s ease';
         });
-        
-        // ===== 5. ПЛАВНО СКРОЛЛИМ К ЦЕНТРУ =====
-        if (targetItem && targetIndex !== -1) {
-            // Сбрасываем подсветку у всех
-            allItems.forEach(el => {
-                el.style.color = style.itemColor;
-                el.style.textShadow = `0 0 15px ${style.glowColor}`;
-                el.style.transform = 'scale(1)';
-                el.style.transition = 'all 0.3s ease';
-            });
-            
-            // Подсвечиваем выпавшую
-            targetItem.style.color = '#FFFFFF';
-            targetItem.style.textShadow = `
-                0 0 40px ${style.highlightColor},
-                0 0 80px ${style.highlightColor},
-                0 0 120px ${style.highlightColor}80
-            `;
-            targetItem.style.transform = 'scale(1.8)';
-            targetItem.style.transition = 'all 0.5s ease';
-            
-            // Скроллим к центру
-            const containerWidth = tapeContainer.querySelector('.tape-wrapper')?.offsetWidth || 400;
-            const itemWidth = 120;
-            const scrollPosition = targetIndex * itemWidth * 4 - containerWidth / 2 + itemWidth / 2;
-            
-            tapeContent.style.transition = 'transform 1.8s cubic-bezier(0.25, 0.1, 0.15, 1)';
-            tapeContent.style.transform = `translateX(-${Math.max(0, scrollPosition)}px)`;
-            
-            // ===== 6. ПОКАЗЫВАЕМ РЕЗУЛЬТАТ =====
+
+        if (target) {
+            target.style.color = '#FFFFFF';
+            target.style.textShadow = `0 0 20px ${style.highlightColor}, 0 0 40px ${style.highlightColor}40`;
+            target.style.transform = 'scale(1.15)';
+            target.style.transition = 'all 0.15s ease';
+        }
+
+        const arrowTop = document.getElementById('arrowTop');
+        const arrowBottom = document.getElementById('arrowBottom');
+        if (arrowTop && arrowBottom && target) {
+            arrowTop.style.transform = 'translateY(-4px)';
+            arrowBottom.style.transform = 'translateY(4px)';
             setTimeout(() => {
-                tapeContent.innerHTML = `
-                    <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900; transition: all 0.5s ease;">
-                        ${_currentPrize}⭐
-                    </span>
-                `;
-                
+                arrowTop.style.transform = 'translateY(0)';
+                arrowBottom.style.transform = 'translateY(0)';
+            }, 150);
+        }
+
+        if (steps >= maxSteps) {
+            clearInterval(_spinInterval);
+            _spinInterval = null;
+            tapeContent.style.animation = 'none';
+
+            const prizeIndex = prizes.indexOf(_currentPrize);
+            const targetItem = document.querySelector(`.prize-item[data-index="${prizeIndex}"]`);
+
+            if (targetItem) {
+                document.querySelectorAll('.prize-item').forEach(el => {
+                    el.style.color = style.itemColor;
+                    el.style.textShadow = `0 0 15px ${style.glowColor}`;
+                    el.style.transform = 'scale(1)';
+                    el.style.transition = 'all 0.3s ease';
+                });
+                targetItem.style.color = '#FFFFFF';
+                targetItem.style.textShadow = `0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80`;
+                targetItem.style.transform = 'scale(1.8)';
+                targetItem.style.transition = 'all 0.5s ease';
+
+                const arrowTop = document.getElementById('arrowTop');
+                const arrowBottom = document.getElementById('arrowBottom');
+                if (arrowTop) { arrowTop.style.color = '#FFFFFF'; arrowTop.style.textShadow = `0 0 40px ${style.highlightColor}`; arrowTop.style.transform = 'scale(1.2)'; }
+                if (arrowBottom) { arrowBottom.style.color = '#FFFFFF'; arrowBottom.style.textShadow = `0 0 40px ${style.highlightColor}`; arrowBottom.style.transform = 'scale(1.2)'; }
+
+                const containerWidth = tapeContainer.querySelector('.tape-track')?.offsetWidth || 400;
+                const itemWidth = 120;
+                const scrollPosition = prizeIndex * itemWidth * 4 - containerWidth / 2 + itemWidth / 2;
+                tapeContent.style.transition = 'transform 1.5s cubic-bezier(0.2, 0.8, 0.3, 1)';
+                tapeContent.style.transform = `translateX(-${Math.max(0, scrollPosition)}px)`;
+
+                setTimeout(() => {
+                    tapeContent.innerHTML = `<span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900; transition: all 0.5s ease;">${_currentPrize}⭐</span>`;
+                    if (arrowTop) arrowTop.style.display = 'none';
+                    if (arrowBottom) arrowBottom.style.display = 'none';
+                    setTimeout(() => {
+                        tapeContainer.remove();
+                        _tapeContainer = null;
+                        _isOpening = false;
+                        openCaseReal(type, _currentPrize);
+                    }, 1200);
+                }, 1500);
+            } else {
+                tapeContent.innerHTML = `<span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900;">${_currentPrize}⭐</span>`;
                 setTimeout(() => {
                     tapeContainer.remove();
                     _tapeContainer = null;
                     _isOpening = false;
-                    // ===== 7. ОТПРАВЛЯЕМ ТУ ЖЕ НАГРАДУ =====
                     openCaseReal(type, _currentPrize);
                 }, 1200);
-            }, 1800);
-        } else {
-            // Fallback
-            tapeContent.innerHTML = `
-                <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900;">
-                    ${_currentPrize}⭐
-                </span>
-            `;
-            setTimeout(() => {
-                tapeContainer.remove();
-                _tapeContainer = null;
-                _isOpening = false;
-                openCaseReal(type, _currentPrize);
-            }, 1200);
+            }
         }
-    }, 4000);
+    }, 300);
 }
 
 async function openCaseReal(type, finalPrize) {
     lastOpenedCase = type;
-    
     try {
         const res = await fetch('/open_case', {
             method: 'POST',
@@ -490,38 +436,24 @@ async function openCaseReal(type, finalPrize) {
             body: JSON.stringify({ user_id, case_type: type })
         });
         const data = await res.json();
-        if (data.error) {
-            tg.showAlert('❌ ' + data.error);
-            return;
-        }
-        
+        if (data.error) { tg.showAlert('❌ ' + data.error); return; }
+
         const resultDiv = document.getElementById('result');
         document.getElementById('prizeDisplay').textContent = '🎁';
         document.getElementById('prizeName').textContent = 'Ты выиграл!';
-        // ===== ПОКАЗЫВАЕМ ТУ ЖЕ НАГРАДУ =====
         document.getElementById('prizeValue').textContent = '⭐ ' + data.prize;
-        
-        if (data.ad) {
-            document.getElementById('adText').textContent = data.ad;
-            document.getElementById('adBlock').style.display = 'block';
-        } else {
-            document.getElementById('adBlock').style.display = 'none';
-        }
+
+        if (data.ad) { document.getElementById('adText').textContent = data.ad; document.getElementById('adBlock').style.display = 'block'; } 
+        else { document.getElementById('adBlock').style.display = 'none'; }
         resultDiv.classList.add('show');
         loadBalance();
         document.getElementById('againBtn').style.display = 'inline-block';
-    } catch(e) {
-        tg.showAlert('❌ Ошибка открытия кейса');
-    }
+    } catch(e) { tg.showAlert('❌ Ошибка открытия кейса'); }
 }
 
 function openAgain() {
     closeResult();
-    if (lastOpenedCase) {
-        setTimeout(() => {
-            openCaseDirect(lastOpenedCase);
-        }, 300);
-    }
+    if (lastOpenedCase) { setTimeout(() => { openCaseDirect(lastOpenedCase); }, 300); }
 }
 
 function closeResult() {
@@ -535,39 +467,27 @@ function showProfile() {
     document.getElementById('profileScreen').style.display = 'block';
     loadBalance();
 }
-
 function showMain() {
     document.getElementById('profileScreen').style.display = 'none';
     document.getElementById('mainScreen').style.display = 'block';
 }
-
 function showInvite() {
     document.querySelector('.profile-card').style.display = 'none';
     document.getElementById('inviteSection').style.display = 'block';
 }
-
 function hideInvite() {
     document.querySelector('.profile-card').style.display = 'block';
     document.getElementById('inviteSection').style.display = 'none';
 }
-
 function copyInvite() {
     const link = 'https://t.me/Randevucase_bot?start=' + user_id;
-    navigator.clipboard.writeText(link).then(() => {
-        tg.showAlert('✅ Ссылка скопирована!');
-    }).catch(() => {
-        tg.showAlert('❌ Не удалось скопировать');
-    });
+    navigator.clipboard.writeText(link).then(() => { tg.showAlert('✅ Ссылка скопирована!'); }).catch(() => { tg.showAlert('❌ Не удалось скопировать'); });
 }
-
 function showWithdraw() {
     const amount = prompt('Введите количество звёзд (мин. 1000⭐):');
     if (amount === null) return;
     const num = parseInt(amount);
-    if (isNaN(num) || num < 1000) {
-        tg.showAlert('❌ Минимум 1000⭐');
-        return;
-    }
+    if (isNaN(num) || num < 1000) { tg.showAlert('❌ Минимум 1000⭐'); return; }
     fetch('/withdraw_request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -575,11 +495,8 @@ function showWithdraw() {
     })
     .then(res => res.json())
     .then(data => {
-        if (data.success) {
-            tg.showAlert('✅ Заявка отправлена! Админ свяжется с вами.');
-        } else {
-            tg.showAlert('❌ ' + data.error);
-        }
+        if (data.success) { tg.showAlert('✅ Заявка отправлена! Админ свяжется с вами.'); } 
+        else { tg.showAlert('❌ ' + data.error); }
     })
     .catch(() => tg.showAlert('❌ Ошибка соединения'));
 }
