@@ -420,6 +420,15 @@ def home():
 def static_files(path):
     return send_from_directory('static', path)
 
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return ''
+    return '', 400
+
 @app.route('/check_balance', methods=['POST'])
 def check_balance():
     data = request.get_json()
@@ -531,7 +540,8 @@ def withdraw_request():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
-    print("✅ БОТ ЗАПУЩЕН")
-    threading.Thread(target=bot.polling, kwargs={'none_stop': True}).start()
+    print("✅ БОТ ЗАПУЩЕН (ВЕБ-ХУК)")
+    bot.remove_webhook()
+    bot.set_webhook(url="https://randevu-bot-production.up.railway.app/webhook")
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
