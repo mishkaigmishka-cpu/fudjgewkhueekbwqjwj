@@ -50,118 +50,118 @@ CASE_RANGES = {
         "epic": (5, 10),
         "legendary": (100, 100),
         "jackpot": (1000, 1000),
-        "common_chance": 0.5999,
-        "rare_chance": 0.2999,
+        "common_chance": 0.599,
+        "rare_chance": 0.299,
         "epic_chance": 0.0999,
         "legendary_chance": 0.0001,
-        "jackpot_chance": 0.000000001
+        "jackpot_chance": 0.00000001
     },
     "mud": {
-        "common": (1, 3),
-        "rare": (3, 5),
-        "epic": (5, 7),
+        "common": (1, 7),
+        "rare": (10, 14),
+        "epic": (16, 40),
         "legendary": (50, 50),
         "jackpot": (500, 500),
-        "common_chance": 0.1499,
-        "rare_chance": 0.65,
-        "epic_chance": 0.19999,
-        "legendary_chance": 0.00000001,
-        "jackpot_chance": 0.000000001
+        "common_chance": 0.7,
+        "rare_chance": 0.25,
+        "epic_chance": 0.0499,
+        "legendary_chance": 0.001,
+        "jackpot_chance": 0.00000001
     },
     "wood": {
-        "common": (1, 5),
-        "rare": (5, 10),
-        "epic": (10, 15),
+        "common": (2, 10),
+        "rare": (12, 15),
+        "epic": (20, 500),
         "legendary": (1000, 1000),
         "jackpot": (10000, 10000),
-        "common_chance": 0.2499,
-        "rare_chance": 0.6499,
-        "epic_chance": 0.0999,
-        "legendary_chance": 0.00000001,
+        "common_chance": 0.6,
+        "rare_chance": 0.3,
+        "epic_chance": 0.099,
+        "legendary_chance": 0.00001,
         "jackpot_chance": 0.000000001
     },
     "stone": {
-        "common": (10, 15),
-        "rare": (15, 23),
-        "epic": (23, 35),
+        "common": (11, 19),
+        "rare": (21, 25),
+        "epic": (30, 1000),
         "legendary": (2500, 2500),
-        "jackpot": (25000, 25000),
-        "common_chance": 0.2499,
-        "rare_chance": 0.6499,
-        "epic_chance": 0.0999,
-        "legendary_chance": 0.000001,
+        "common_chance": 0.6,
+        "rare_chance": 0.3,
+        "epic_chance": 0.099,
+        "legendary_chance": 0.00001,
         "jackpot_chance": 0.000000001
     },
     "bronze": {
         "common": (20, 30),
-        "rare": (30, 50),
-        "epic": (50, 75),
-        "legendary": (5000, 5000),
-        "jackpot": (50000, 50000),
-        "common_chance": 0.2499,
+        "rare": (35, 50),
+        "epic": (55, 100),
+        "legendary": (222, 2000),
+        "jackpot": (5000, 5000),
+        "common_chance": 0.25,
         "rare_chance": 0.6499,
-        "epic_chance": 0.09999999,
-        "legendary_chance": 0.000000001,
+        "epic_chance": 0.09999,
+        "legendary_chance": 0.000001,
         "jackpot_chance": 0.000000001
     },
     "silver": {
         "common": (40, 70),
         "rare": (70, 100),
         "epic": (100, 150),
-        "legendary": (10000, 10000),
-        "jackpot": (100000, 100000),
-        "common_chance": 0.2499,
-        "rare_chance": 0.6749,
+        "legendary": (200, 5000),
+        "jackpot": (10000, 10000),
+        "common_chance": 0.25,
+        "rare_chance": 0.6745,
         "epic_chance": 0.0749,
-        "legendary_chance": 0.000000001,
-        "jackpot_chance": 0.000000001
+        "legendary_chance": 0.0005,
+        "jackpot_chance": 0.00000001
     },
     "gold": {
-        "common": (75, 150),
-        "rare": (150, 250),
-        "epic": (250, 400),
-        "legendary": (25000, 25000),
-        "jackpot": (250000, 250000),
+        "common": (75, 100),
+        "rare": (150, 251),
+        "epic": (300, 777),
+        "legendary": (999, 12500),
+        "jackpot": (25000, 25000),
         "common_chance": 0.2499,
         "rare_chance": 0.6749,
-        "epic_chance": 0.0749,
-        "legendary_chance": 0.00000001,
-        "jackpot_chance": 0.000000001
+        "epic_chance": 0.07,
+        "legendary_chance": 0.005,
+        "jackpot_chance": 0.00000001
     },
     "diamond": {
-        "common": (299, 349),
-        "rare": (349, 500),
-        "epic": (500, 1000),
-        "legendary": (50000, 50000),
-        "jackpot": (500000, 500000),
-        "common_chance": 0.2749,
-        "rare_chance": 0.6499,
-        "epic_chance": 0.0749,
-        "legendary_chance": 0.00000001,
-        "jackpot_chance": 0.000000001
+        "common": (250, 333),
+        "rare": (350, 505),
+        "epic": (1000, 2222),
+        "legendary": (1000, 25000),
+        "jackpot": (50000, 50000),
+        "common_chance": 0.2499,
+        "rare_chance": 0.6749,
+        "epic_chance": 0.07,
+        "legendary_chance": 0.005,
+        "jackpot_chance": 0.00000001
     },
     "netherite": {
-        "common": (500, 750),
-        "rare": (750, 1000),
-        "epic": (1000, 1500),
-        "legendary": (100000, 100000),
-        "jackpot": (1000000, 1000000),
-        "common_chance": 0.7,
-        "rare_chance": 0.25,
-        "epic_chance": 0.04999,
-        "legendary_chance": 0.000001,
-        "jackpot_chance": 0.000000001
+        "common": (500, 600),
+        "rare": (650, 850),
+        "epic": (900, 1500),
+        "legendary": (2000, 20000),
+        "jackpot": (25000, 25000),
+        "common_chance": 0.2499,
+        "rare_chance": 0.6749,
+        "epic_chance": 0.07,
+        "legendary_chance": 0.005,
+        "jackpot_chance": 0.00000001
     },
     "bedrock": {
-        "common": (250, 2500),
-        "rare": (2500, 5000),
-        "epic": (250000, 250000),
-        "legendary": (2500000, 2500000),
-        "common_chance": 0.99999,
-        "rare_chance": 0.0000001,
-        "epic_chance": 0.000001,
-        "legendary_chance": 0.000000001,
-        "jackpot_chance": 0.000000001
+        "common": (1000, 1400),
+        "rare": (1600, 2400),
+        "epic": (2500, 3500),
+        "legendary": (4000, 30000),
+        "jackpot": (50000, 50000),
+        "common_chance": 0.25,
+        "rare_chance": 0.6745,
+        "epic_chance": 0.0749,
+        "legendary_chance": 0.0045,
+        "jackpot_chance": 0.00000001
     }
 }
 
@@ -169,19 +169,6 @@ def get_prize(case_type):
     data = CASE_RANGES[case_type]
     rnd = random.random()
     
-    if case_type == "mud":
-        if rnd < data["jackpot_chance"]:
-            return random.randint(data["jackpot"][0], data["jackpot"][1])
-        elif rnd < data["jackpot_chance"] + data["legendary_chance"]:
-            return random.randint(data["legendary"][0], data["legendary"][1])
-        elif rnd < data["common_chance"]:
-            return random.randint(data["common"][0], data["common"][1])
-        elif rnd < data["common_chance"] + data["rare_chance"]:
-            return random.randint(data["rare"][0], data["rare"][1])
-        else:
-            return random.randint(data["epic"][0], data["epic"][1])
-    
-    # Остальные кейсы
     if rnd < data["jackpot_chance"]:
         return random.randint(data["jackpot"][0], data["jackpot"][1])
     elif rnd < data["jackpot_chance"] + data["legendary_chance"]:
@@ -281,25 +268,26 @@ def topup_callback(call):
     bot.answer_callback_query(call.id)
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("🔙 Назад", callback_data="cancel_topup"))
-    bot.send_message(
+    msg = bot.send_message(
         call.message.chat.id,
         "💳 Введите сумму пополнения (от 50 до 5000⭐):",
         reply_markup=kb
     )
-    bot.register_next_step_handler(call.message, process_topup_amount)
+    bot.register_next_step_handler(msg, process_topup_amount, msg.message_id)
 
-def process_topup_amount(msg):
-    uid = msg.from_user.id
+def process_topup_amount(message, msg_id):
+    uid = message.from_user.id
     try:
-        amount = int(msg.text.strip())
+        amount = int(message.text.strip())
     except:
-        bot.reply_to(msg, "❌ Введите число!")
+        bot.edit_message_text("❌ Введите число!", chat_id=uid, message_id=msg_id)
         return
 
     if amount < 50 or amount > 5000:
-        bot.reply_to(msg, "❌ Сумма должна быть от 50 до 5000⭐!")
+        bot.edit_message_text("❌ Сумма должна быть от 50 до 5000⭐!", chat_id=uid, message_id=msg_id)
         return
 
+    bot.edit_message_text("💰 Ожидайте оплаты...", chat_id=uid, message_id=msg_id)
     bot.send_invoice(
         chat_id=uid,
         title=f"Пополнение на {amount}⭐",
