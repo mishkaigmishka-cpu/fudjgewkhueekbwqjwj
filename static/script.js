@@ -346,13 +346,13 @@ function startFinalSpin(type) {
     // ===== ВЫБИРАЕМ НАГРАДУ ИЗ ТЕХ, ЧТО В РУЛЕТКЕ =====
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
 
-    // ===== БЫСТРЫЙ СТАРТ =====
-    tapeContent.style.animationDuration = '0.3s';
+    // ===== БЫСТРЫЙ СТАРТ (0.2С) =====
+    tapeContent.style.animationDuration = '0.2s';
     tapeContent.style.animationTimingFunction = 'linear';
 
     let steps = 0;
-    const maxSteps = 20;
-    let currentSpeed = 0.3;
+    const maxSteps = 14;
+    let currentSpeed = 0.2;
 
     if (_spinInterval) clearInterval(_spinInterval);
     _spinInterval = setInterval(() => {
@@ -360,18 +360,18 @@ function startFinalSpin(type) {
         
         // ===== ПЛАВНОЕ УВЕЛИЧЕНИЕ ВРЕМЕНИ (ЗАМЕДЛЕНИЕ) =====
         let increment;
-        if (steps < 6) {
-            increment = 0.08;
-        } else if (steps < 12) {
-            increment = 0.15;
+        if (steps <= 4) {
+            increment = 0.06;
+        } else if (steps <= 8) {
+            increment = 0.12;
         } else {
-            increment = 0.25;
+            increment = 0.20;
         }
         
         currentSpeed += increment;
         tapeContent.style.animationDuration = currentSpeed + 's';
         
-        if (steps > 8) {
+        if (steps > 4) {
             tapeContent.style.animationTimingFunction = 'ease-out';
         }
 
@@ -383,13 +383,13 @@ function startFinalSpin(type) {
         allItems.forEach(el => {
             el.style.color = style.itemColor;
             el.style.textShadow = `0 0 15px ${style.glowColor}`;
-            el.style.transition = 'all 0.2s ease';
+            el.style.transition = 'all 0.15s ease';
         });
 
         if (target) {
             target.style.color = '#FFFFFF';
-            target.style.textShadow = `0 0 20px ${style.highlightColor}, 0 0 40px ${style.highlightColor}40`;
-            target.style.transition = 'all 0.2s ease';
+            target.style.textShadow = `0 0 25px ${style.highlightColor}, 0 0 50px ${style.highlightColor}40`;
+            target.style.transition = 'all 0.15s ease';
         }
 
         // ===== СТРЕЛКИ =====
@@ -401,7 +401,7 @@ function startFinalSpin(type) {
             setTimeout(() => {
                 arrowTop.style.transform = 'translateY(0)';
                 arrowBottom.style.transform = 'translateY(0)';
-            }, 150);
+            }, 100);
         }
 
         // ===== ОСТАНОВКА =====
@@ -409,8 +409,9 @@ function startFinalSpin(type) {
             clearInterval(_spinInterval);
             _spinInterval = null;
             
+            // ===== РЕЗКАЯ ОСТАНОВКА (КАК В STANDOFF) =====
             tapeContent.style.animation = 'none';
-            tapeContent.style.transition = 'transform 2s cubic-bezier(0.25, 0.1, 0.15, 1)';
+            tapeContent.style.transition = 'transform 1.2s cubic-bezier(0.2, 0.9, 0.3, 1)';
 
             const prizeIndex = prizes.indexOf(_currentPrize);
             const targetItem = document.querySelector(`.prize-item[data-index="${prizeIndex}"]`);
@@ -419,27 +420,27 @@ function startFinalSpin(type) {
                 document.querySelectorAll('.prize-item').forEach(el => {
                     el.style.color = style.itemColor;
                     el.style.textShadow = `0 0 15px ${style.glowColor}`;
-                    el.style.transition = 'all 0.5s ease';
+                    el.style.transition = 'all 0.3s ease';
                 });
+                
+                // ===== ЯРКАЯ ПОДСВЕТКА ВЫИГРЫША =====
                 targetItem.style.color = '#FFFFFF';
                 targetItem.style.textShadow = `
                     0 0 60px ${style.highlightColor},
                     0 0 120px ${style.highlightColor},
                     0 0 200px ${style.highlightColor}80
                 `;
-                targetItem.style.transition = 'all 0.6s ease';
+                targetItem.style.transition = 'all 0.4s ease';
 
                 const arrowTop = document.getElementById('arrowTop');
                 const arrowBottom = document.getElementById('arrowBottom');
                 if (arrowTop) {
                     arrowTop.style.color = '#FFFFFF';
                     arrowTop.style.textShadow = `0 0 40px ${style.highlightColor}`;
-                    arrowTop.style.transition = 'all 0.5s ease';
                 }
                 if (arrowBottom) {
                     arrowBottom.style.color = '#FFFFFF';
                     arrowBottom.style.textShadow = `0 0 40px ${style.highlightColor}`;
-                    arrowBottom.style.transition = 'all 0.5s ease';
                 }
 
                 const containerWidth = tapeContainer.querySelector('.tape-track')?.offsetWidth || 400;
@@ -450,7 +451,7 @@ function startFinalSpin(type) {
 
                 setTimeout(() => {
                     tapeContent.innerHTML = `
-                        <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900; transition: all 0.5s ease;">
+                        <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900; transition: all 0.4s ease;">
                             ${_currentPrize}⭐
                         </span>
                     `;
@@ -462,8 +463,8 @@ function startFinalSpin(type) {
                         _tapeContainer = null;
                         _isOpening = false;
                         openCaseReal(type, _currentPrize);
-                    }, 1200);
-                }, 1800);
+                    }, 1000);
+                }, 1200);
             } else {
                 tapeContent.innerHTML = `
                     <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900;">
@@ -475,10 +476,10 @@ function startFinalSpin(type) {
                     _tapeContainer = null;
                     _isOpening = false;
                     openCaseReal(type, _currentPrize);
-                }, 1200);
+                }, 1000);
             }
         }
-    }, 250);
+    }, 200);
 }
 
 async function openCaseReal(type, finalPrize) {
