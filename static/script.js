@@ -10,7 +10,8 @@ let _tapeInterval = null;
 let _currentPrize = null;
 let _isOpening = false;
 let _tapeContainer = null;
-let _spinTimeout = null;
+let _spinInterval = null;
+let _spinCounter = 0;
 
 // ===== НАГРАДЫ ДЛЯ ЛЕНТЫ (ТОЛЬКО ТО, ЧТО ВЫПАДАЕТ) =====
 const CASE_PRIZES = {
@@ -35,9 +36,9 @@ const CASE_SPEED = {
     'bronze': 10,
     'silver': 10,
     'gold': 10,
-    'diamond': 14,    // медленнее
-    'netherite': 16,  // ещё медленнее
-    'bedrock': 18     // самый медленный
+    'diamond': 14,
+    'netherite': 16,
+    'bedrock': 18
 };
 
 // ===== СТИЛИ ДЛЯ КАЖДОГО КЕЙСА =====
@@ -134,15 +135,16 @@ function closeTape() {
         clearInterval(_tapeInterval);
         _tapeInterval = null;
     }
-    if (_spinTimeout) {
-        clearTimeout(_spinTimeout);
-        _spinTimeout = null;
+    if (_spinInterval) {
+        clearInterval(_spinInterval);
+        _spinInterval = null;
     }
     if (_tapeContainer) {
         _tapeContainer.remove();
         _tapeContainer = null;
     }
     _isOpening = false;
+    _spinCounter = 0;
 }
 
 function showFullScreenTape(type, isOpening) {
@@ -199,7 +201,6 @@ function showFullScreenTape(type, isOpening) {
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
     
-    // ===== УМЕНЬШАЕМ РАЗМЕР ЛЕНТЫ НА 15% =====
     const tapeWrapper = document.createElement('div');
     tapeWrapper.style.cssText = `
         flex: 6;
@@ -233,10 +234,9 @@ function showFullScreenTape(type, isOpening) {
     let allItems = [];
     for (let repeat = 0; repeat < 8; repeat++) {
         prizes.forEach((p, index) => {
-            // ===== АККУРАТНАЯ ПОДСВЕТКА ДЛЯ БОЛЬШИХ ЧИСЕЛ =====
             const isLarge = p > 1000;
             const fontSize = isLarge ? '38px' : '44px';
-            allItems.push(`<span class="prize-item" data-index="${index}" style="color:${style.itemColor}; transition: none; font-size: ${fontSize}; text-shadow: 0 0 15px ${style.glowColor}; padding: 6px 10px; display: inline-block; flex-shrink: 0;">${p}⭐</span>`);
+            allItems.push(`<span class="prize-item" data-index="${index}" data-value="${p}" style="color:${style.itemColor}; transition: none; font-size: ${fontSize}; text-shadow: 0 0 15px ${style.glowColor}; padding: 6px 10px; display: inline-block; flex-shrink: 0;">${p}⭐</span>`);
         });
     }
     tapeContent.innerHTML = allItems.join('');
@@ -256,7 +256,6 @@ function showFullScreenTape(type, isOpening) {
     `;
     document.head.appendChild(styleTag);
     
-    // ===== СКОРОСТЬ ПРОКРУТКИ =====
     tapeContent.style.animation = `${animKey} ${speed}s linear infinite`;
     tapeContent.style.animationTimingFunction = 'linear';
     
@@ -341,7 +340,6 @@ function showFullScreenTape(type, isOpening) {
     
     document.body.appendChild(tapeContainer);
     
-    // ===== ПОДСВЕТКА В ЦЕНТРЕ ЭКРАНА =====
     let activeIndex = 0;
     const totalItems = prizes.length;
     
@@ -356,7 +354,7 @@ function showFullScreenTape(type, isOpening) {
         const idx = activeIndex % totalItems;
         const target = document.querySelector(`.prize-item[data-index="${idx}"]`);
         if (target) {
-            const isLarge = parseInt(target.textContent) > 1000;
+            const isLarge = parseInt(target.dataset.value) > 1000;
             target.style.color = '#FFFFFF';
             target.style.textShadow = `
                 0 0 30px ${style.highlightColor},
@@ -373,6 +371,7 @@ function showFullScreenTape(type, isOpening) {
     tapeContainer._highlightInterval = _tapeInterval;
 }
 
+// ===== ГЛАВНОЕ ИЗМЕНЕНИЕ — ПЛАВНАЯ АНИМАЦИЯ =====
 function startFinalSpin(type) {
     const prizes = getPrizes(type);
     const style = getStyle(type);
@@ -384,91 +383,101 @@ function startFinalSpin(type) {
         _tapeInterval = null;
     }
     
+    // Убираем кнопки
     const btns = tapeContainer.querySelectorAll('button');
     btns.forEach(btn => btn.remove());
     
     const tapeContent = document.getElementById('tapeContent');
-    tapeContent.style.animationDuration = '0.3s';
     
-    // ===== ВЫБИРАЕМ НАГРАДУ ИЗ ЛЕНТЫ =====
+    // ===== 1. ВЫБИРАЕМ НАГРАДУ (ОДИН РАЗ) =====
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
     
-    // ===== ПЛАВНАЯ ОСТАНОВКА С ПОДСВЕТКОЙ ПО ЦЕНТРУ =====
-    let counter = 0;
-    const maxSteps = 20;
+    // ===== 2. ПЛАВНО ЗАМЕДЛЯЕМ ЛЕНТУ =====
+    // Сначала ускоряем
+    tapeContent.style.animationDuration = '0.3s';
     
-    _spinTimeout = setInterval(() => {
-        counter++;
-        // Подсвечиваем случайный элемент в центре
+    // Через 1 секунду начинаем замедлять
+    setTimeout(() => {
+        tapeContent.style.animationDuration = '1.5s';
+        tapeContent.style.animationTimingFunction = 'ease-out';
+    }, 1000);
+    
+    // ===== 3. ЧЕРЕЗ 4 СЕКУНДЫ ОСТАНАВЛИВАЕМ =====
+    setTimeout(() => {
+        tapeContent.style.animation = 'none';
+        
+        // ===== 4. НАХОДИМ ВЫПАВШУЮ НАГРАДУ В ЛЕНТЕ =====
         const allItems = document.querySelectorAll('.prize-item');
-        allItems.forEach(el => {
-            el.style.color = style.itemColor;
-            el.style.textShadow = `0 0 15px ${style.glowColor}`;
-            el.style.transform = 'scale(1)';
+        let targetItem = null;
+        let targetIndex = -1;
+        
+        allItems.forEach((el, idx) => {
+            const val = parseInt(el.dataset.value);
+            if (val === _currentPrize && targetIndex === -1) {
+                targetItem = el;
+                targetIndex = idx;
+            }
         });
         
-        const randomIdx = Math.floor(Math.random() * prizes.length);
-        const target = document.querySelector(`.prize-item[data-index="${randomIdx}"]`);
-        if (target) {
-            target.style.color = '#FFFFFF';
-            target.style.textShadow = `
+        // ===== 5. ПЛАВНО СКРОЛЛИМ К ЦЕНТРУ =====
+        if (targetItem && targetIndex !== -1) {
+            // Сбрасываем подсветку у всех
+            allItems.forEach(el => {
+                el.style.color = style.itemColor;
+                el.style.textShadow = `0 0 15px ${style.glowColor}`;
+                el.style.transform = 'scale(1)';
+                el.style.transition = 'all 0.3s ease';
+            });
+            
+            // Подсвечиваем выпавшую
+            targetItem.style.color = '#FFFFFF';
+            targetItem.style.textShadow = `
                 0 0 40px ${style.highlightColor},
                 0 0 80px ${style.highlightColor},
                 0 0 120px ${style.highlightColor}80
             `;
-            target.style.transform = 'scale(1.5)';
-        }
-        
-        if (counter >= maxSteps) {
-            clearInterval(_spinTimeout);
-            _spinTimeout = null;
+            targetItem.style.transform = 'scale(1.8)';
+            targetItem.style.transition = 'all 0.5s ease';
             
-            // ===== ФИНАЛЬНАЯ ОСТАНОВКА =====
-            tapeContent.style.animation = 'none';
+            // Скроллим к центру
+            const containerWidth = tapeContainer.querySelector('.tape-wrapper')?.offsetWidth || 400;
+            const itemWidth = 120;
+            const scrollPosition = targetIndex * itemWidth * 4 - containerWidth / 2 + itemWidth / 2;
             
-            // Находим индекс выпавшей награды
-            const prizeIndex = prizes.indexOf(_currentPrize);
-            const targetItem = document.querySelector(`.prize-item[data-index="${prizeIndex}"]`);
+            tapeContent.style.transition = 'transform 1.8s cubic-bezier(0.25, 0.1, 0.15, 1)';
+            tapeContent.style.transform = `translateX(-${Math.max(0, scrollPosition)}px)`;
             
-            if (targetItem) {
-                // Плавно скроллим к выпавшей награде
-                const containerWidth = tapeContainer.querySelector('.tape-wrapper')?.offsetWidth || 400;
-                const itemWidth = 120;
-                const scrollPosition = prizeIndex * itemWidth * 4 - containerWidth / 2;
-                
-                tapeContent.style.transform = `translateX(-${scrollPosition}px)`;
-                tapeContent.style.transition = 'transform 1.5s ease-in-out';
-                
-                setTimeout(() => {
-                    tapeContent.innerHTML = `
-                        <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900; transition: all 0.5s ease;">
-                            ${_currentPrize}⭐
-                        </span>
-                    `;
-                    
-                    setTimeout(() => {
-                        tapeContainer.remove();
-                        _tapeContainer = null;
-                        _isOpening = false;
-                        openCaseReal(type, _currentPrize);
-                    }, 1200);
-                }, 1500);
-            } else {
-                // fallback
+            // ===== 6. ПОКАЗЫВАЕМ РЕЗУЛЬТАТ =====
+            setTimeout(() => {
                 tapeContent.innerHTML = `
-                    <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900;">
+                    <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900; transition: all 0.5s ease;">
                         ${_currentPrize}⭐
                     </span>
                 `;
+                
                 setTimeout(() => {
                     tapeContainer.remove();
                     _tapeContainer = null;
                     _isOpening = false;
+                    // ===== 7. ОТПРАВЛЯЕМ ТУ ЖЕ НАГРАДУ =====
                     openCaseReal(type, _currentPrize);
                 }, 1200);
-            }
+            }, 1800);
+        } else {
+            // Fallback
+            tapeContent.innerHTML = `
+                <span style="color:${style.highlightColor}; font-size:80px; text-shadow: 0 0 60px ${style.highlightColor}, 0 0 120px ${style.highlightColor}, 0 0 200px ${style.highlightColor}80; font-weight:900;">
+                    ${_currentPrize}⭐
+                </span>
+            `;
+            setTimeout(() => {
+                tapeContainer.remove();
+                _tapeContainer = null;
+                _isOpening = false;
+                openCaseReal(type, _currentPrize);
+            }, 1200);
         }
-    }, 200);
+    }, 4000);
 }
 
 async function openCaseReal(type, finalPrize) {
@@ -489,6 +498,7 @@ async function openCaseReal(type, finalPrize) {
         const resultDiv = document.getElementById('result');
         document.getElementById('prizeDisplay').textContent = '🎁';
         document.getElementById('prizeName').textContent = 'Ты выиграл!';
+        // ===== ПОКАЗЫВАЕМ ТУ ЖЕ НАГРАДУ =====
         document.getElementById('prizeValue').textContent = '⭐ ' + data.prize;
         
         if (data.ad) {
