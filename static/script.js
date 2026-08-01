@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ТОЛЬКО ВПЕРЁД, 5.25С, БОЛЬШАЯ ЛЕНТА) =====
+// ===== ПРЕДПРОСМОТР (ТОЛЬКО ВПЕРЁД, 7.875С, БОЛЬШАЯ ЛЕНТА) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -157,7 +157,6 @@ function showPreviewTape(type) {
         document.head.appendChild(fadeStyle);
     }
 
-    // ===== НАЗВАНИЕ ВВЕРХУ =====
     const title = document.createElement('div');
     title.style.cssText = `
         font-size: 24px;
@@ -173,7 +172,6 @@ function showPreviewTape(type) {
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
-    // ===== БАЛАНС =====
     const balanceDisplay = document.createElement('div');
     balanceDisplay.style.cssText = `
         position: absolute;
@@ -193,7 +191,6 @@ function showPreviewTape(type) {
     balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
     tapeContainer.appendChild(balanceDisplay);
 
-    // ===== БОЛЬШАЯ ЛЕНТА =====
     const viewport = document.createElement('div');
     viewport.style.cssText = `
         width: 95%;
@@ -212,7 +209,6 @@ function showPreviewTape(type) {
     const cardGap = 8;
     const totalItems = prizes.length;
     const oneSetWidth = totalItems * (cardWidth + cardGap);
-    const totalWidth = oneSetWidth * 3;
 
     const track = document.createElement('div');
     track.id = 'track';
@@ -221,7 +217,7 @@ function showPreviewTape(type) {
         gap: ${cardGap}px;
         padding: 20px 0;
         will-change: transform;
-        animation: scrollTapeForward 5.25s linear infinite;
+        animation: scrollTapeForward 7.875s linear infinite;
         position: relative;
         top: 15px;
     `;
@@ -268,7 +264,6 @@ function showPreviewTape(type) {
 
     tapeContainer.appendChild(viewport);
 
-    // ===== КНОПКИ ВНИЗУ =====
     const bottomSection = document.createElement('div');
     bottomSection.style.cssText = `
         display: flex;
@@ -360,7 +355,7 @@ function showPreviewTape(type) {
     document.body.appendChild(tapeContainer);
 }
 
-// ===== ОТКРЫТИЕ КЕЙСА =====
+// ===== ОТКРЫТИЕ КЕЙСА (С ИНДЕКСОМ И УМЕНЬШЕННЫМИ ПОЛЯМИ) =====
 function openCaseDirect(type) {
     if (_isOpening) return;
     _isOpening = true;
@@ -524,11 +519,19 @@ function startFinalSpin(type) {
         return;
     }
 
-    const cardWidth = 140;
-    const cardGap = 10;
+    // ===== УМЕНЬШЕННЫЕ ПОЛЯ =====
+    const cardWidth = 120;
+    const cardGap = 6;
     const totalCardWidth = cardWidth + cardGap;
     const totalCards = 60;
     const winPosition = 40;
+
+    const prizeIndex = prizes.indexOf(targetPrize);
+    if (prizeIndex === -1) {
+        tg.showAlert('❌ Ошибка: награда не найдена в списке');
+        closeTape();
+        return;
+    }
 
     let cards = [];
     for (let i = 0; i < totalCards; i++) {
@@ -540,16 +543,16 @@ function startFinalSpin(type) {
             value = prizes[randomIndex];
         }
         const isLarge = value > 1000;
-        const fontSize = isLarge ? '24px' : '30px';
+        const fontSize = isLarge ? '22px' : '28px';
         cards.push(`<div class="card" data-value="${value}" style="
             width: ${cardWidth}px;
-            height: 160px;
+            height: 150px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             background: rgba(255,255,255,0.04);
-            border-radius: 14px;
+            border-radius: 12px;
             border: 1px solid rgba(255,255,255,0.06);
             font-size: ${fontSize};
             font-weight: 700;
@@ -564,7 +567,7 @@ function startFinalSpin(type) {
     const viewportWidth = viewport.offsetWidth || 700;
     const centerOffset = viewportWidth / 2;
     const shift = (winPosition * totalCardWidth) - centerOffset + (cardWidth / 2);
-    const noise = Math.floor(Math.random() * 60) - 30;
+    const noise = Math.floor(Math.random() * 40) - 20;
     const finalShift = shift + noise;
 
     track.style.transform = `translateX(-${finalShift}px)`;
