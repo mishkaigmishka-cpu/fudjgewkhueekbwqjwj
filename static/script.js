@@ -6,12 +6,12 @@ if (!user_id) {
 }
 
 let lastOpenedCase = null;
-let _tapeInterval = null;
 let _currentPrize = null;
 let _isOpening = false;
 let _tapeContainer = null;
 let _rafId = null;
 let _startTime = null;
+let _highlightIndex = 0;
 
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
@@ -147,13 +147,12 @@ function openCaseDirect(type) {
             showFullScreenTape(type, true);
             setTimeout(() => {
                 startFinalSpin(type);
-            }, 300);
+            }, 400);
         });
     });
 }
 
 function closeTape() {
-    if (_tapeInterval) { clearInterval(_tapeInterval); _tapeInterval = null; }
     if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
     if (_tapeContainer) { _tapeContainer.remove(); _tapeContainer = null; }
     _isOpening = false;
@@ -307,7 +306,6 @@ function showFullScreenTape(type, isOpening) {
     const btnContainer = document.createElement('div');
     btnContainer.style.cssText = `display:flex; gap:16px; flex-wrap:wrap; justify-content:center;`;
 
-    // ===== КНОПКА «ОТКРЫТЬ» ВСЕГДА (НО ЗАПУСКАЕТ ТОЛЬКО С `_currentPrize`) =====
     const userBalance = parseInt(document.getElementById('balance').textContent.replace('⭐ ', ''));
     const hasEnough = userBalance >= price;
 
@@ -338,7 +336,7 @@ function showFullScreenTape(type, isOpening) {
                     showFullScreenTape(type, true);
                     setTimeout(() => {
                         startFinalSpin(type);
-                    }, 300);
+                    }, 400);
                 });
             });
         };
@@ -380,24 +378,7 @@ function showFullScreenTape(type, isOpening) {
     tapeContainer.appendChild(bottomSection);
     document.body.appendChild(tapeContainer);
 
-    let activeIndex = 0;
-    const totalItems = prizes.length;
-    _tapeInterval = setInterval(() => {
-        document.querySelectorAll('.prize-item').forEach(el => {
-            el.style.color = style.itemColor;
-            el.style.textShadow = `0 0 15px ${style.glowColor}`;
-            el.style.transition = 'all 0.3s ease';
-        });
-        const idx = activeIndex % totalItems;
-        const target = document.querySelector(`.prize-item[data-index="${idx}"]`);
-        if (target) {
-            target.style.color = '#FFFFFF';
-            target.style.textShadow = `0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}, 0 0 90px ${style.highlightColor}80`;
-            target.style.transition = 'all 0.25s ease';
-        }
-        activeIndex++;
-    }, 450);
-    tapeContainer._highlightInterval = _tapeInterval;
+    _highlightIndex = 0;
 }
 
 function startFinalSpin(type) {
@@ -406,13 +387,11 @@ function startFinalSpin(type) {
     const tapeContainer = document.getElementById('tapeContainer');
     if (!tapeContainer) return;
 
-    if (_tapeInterval) { clearInterval(_tapeInterval); _tapeInterval = null; }
     const btns = tapeContainer.querySelectorAll('button');
     btns.forEach(btn => btn.remove());
 
     const tapeContent = document.getElementById('tapeContent');
     
-    // ===== ИСПОЛЬЗУЕМ `_currentPrize`, КОТОРЫЙ БЫЛ ПОЛУЧЕН ОТ СЕРВЕРА =====
     const targetPrize = _currentPrize;
     if (targetPrize === null) {
         tg.showAlert('❌ Ошибка: награда не получена');
@@ -427,54 +406,65 @@ function startFinalSpin(type) {
         return;
     }
 
+    // ===== БЫСТРЫЙ СТАРТ =====
     tapeContent.style.animationDuration = '0.15s';
     tapeContent.style.animationTimingFunction = 'linear';
     
-    const maxDuration = 6.0;
-    const totalTime = 8000;
+    const maxDuration = 5.0;
+    const totalTime = 7000;
     _startTime = performance.now();
+    let lastHighlightTime = 0;
 
     function animateSpin(timestamp) {
         if (!_startTime) _startTime = timestamp;
         const elapsed = timestamp - _startTime;
         const progress = Math.min(elapsed / totalTime, 1);
         
+        // ===== ПЛАВНОЕ ЗАМЕДЛЕНИЕ (easeOutCubic) =====
         const eased = 1 - Math.pow(1 - progress, 3);
         const currentDuration = 0.15 + (maxDuration - 0.15) * eased;
         tapeContent.style.animationDuration = currentDuration + 's';
         
-        const allItems = document.querySelectorAll('.prize-item');
-        const randomIdx = Math.floor(Math.random() * prizes.length);
-        const target = document.querySelector(`.prize-item[data-index="${randomIdx}"]`);
+        // ===== ПОДСВЕТКА (каждые 60мс) =====
+        if (timestamp - lastHighlightTime > 60) {
+            lastHighlightTime = timestamp;
+            
+            const allItems = document.querySelectorAll('.prize-item');
+            const randomIdx = Math.floor(Math.random() * prizes.length);
+            const target = document.querySelector(`.prize-item[data-index="${randomIdx}"]`);
 
-        allItems.forEach(el => {
-            el.style.color = style.itemColor;
-            el.style.textShadow = `0 0 15px ${style.glowColor}`;
-            el.style.transition = 'all 0.05s ease';
-        });
+            allItems.forEach(el => {
+                el.style.color = style.itemColor;
+                el.style.textShadow = `0 0 15px ${style.glowColor}`;
+                el.style.transition = 'all 0.05s ease';
+            });
 
-        if (target) {
-            target.style.color = '#FFFFFF';
-            target.style.textShadow = `0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}40`;
-            target.style.transition = 'all 0.05s ease';
+            if (target) {
+                target.style.color = '#FFFFFF';
+                target.style.textShadow = `0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}40`;
+                target.style.transition = 'all 0.05s ease';
+            }
+
+            // ===== СТРЕЛКА =====
+            const arrowTop = document.getElementById('arrowTop');
+            const arrowBottom = document.getElementById('arrowBottom');
+            if (arrowTop && arrowBottom && target) {
+                arrowTop.style.transform = 'translateY(5px)';
+                arrowBottom.style.transform = 'translateY(-5px)';
+                setTimeout(() => {
+                    arrowTop.style.transform = 'translateY(0)';
+                    arrowBottom.style.transform = 'translateY(0)';
+                }, 30);
+            }
         }
 
-        const arrowTop = document.getElementById('arrowTop');
-        const arrowBottom = document.getElementById('arrowBottom');
-        if (arrowTop && arrowBottom && target) {
-            arrowTop.style.transform = 'translateY(5px)';
-            arrowBottom.style.transform = 'translateY(-5px)';
-            setTimeout(() => {
-                arrowTop.style.transform = 'translateY(0)';
-                arrowBottom.style.transform = 'translateY(0)';
-            }, 30);
-        }
-
+        // ===== ОСТАНОВКА =====
         if (progress < 1) {
             _rafId = requestAnimationFrame(animateSpin);
         } else {
             _rafId = null;
             
+            // ===== ФИНАЛ — ОСТАНАВЛИВАЕМСЯ СТРОГО НА ВЫИГРЫШЕ =====
             tapeContent.style.animation = 'none';
             tapeContent.style.transition = 'transform 1.2s cubic-bezier(0.1, 0.95, 0.2, 1)';
 
@@ -554,10 +544,15 @@ function startFinalSpin(type) {
 async function openCaseReal(type, finalPrize) {
     lastOpenedCase = type;
     try {
+        // ===== ОТПРАВЛЯЕМ НАГРАДУ НА СЕРВЕР =====
         const res = await fetch('/open_case', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, case_type: type })
+            body: JSON.stringify({ 
+                user_id, 
+                case_type: type,
+                prize: finalPrize  // <-- ПЕРЕДАЁМ НАГРАДУ
+            })
         });
         const data = await res.json();
         if (data.error) {
