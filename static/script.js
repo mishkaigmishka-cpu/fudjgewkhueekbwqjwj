@@ -121,40 +121,14 @@ async function fetchRealPrize(type) {
     }
 }
 
+// ===== СТАРЫЙ ПРЕДПРОСМОТР (ВЕРТИКАЛЬНЫЙ СПИСОК) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
-    showFullScreenTape(type, false);
+    showPreviewTape(type);
 }
 
-function openCaseDirect(type) {
-    if (_isOpening) return;
-    _isOpening = true;
-    
-    checkBalance(type).then(canOpen => {
-        if (!canOpen) { _isOpening = false; return; }
-        
-        fetchRealPrize(type).then(prize => {
-            if (prize === null) {
-                _isOpening = false;
-                return;
-            }
-            _currentPrize = prize;
-            closeTape();
-            showFullScreenTape(type, true);
-            setTimeout(() => {
-                startFinalSpin(type);
-            }, 300);
-        });
-    });
-}
-
-function closeTape() {
-    if (_tapeContainer) { _tapeContainer.remove(); _tapeContainer = null; }
-    _isOpening = false;
-}
-
-function showFullScreenTape(type, isOpening) {
+function showPreviewTape(type) {
     const prizes = getPrizes(type);
     const style = getStyle(type);
     const price = getPrice(type);
@@ -189,7 +163,6 @@ function showFullScreenTape(type, isOpening) {
         document.head.appendChild(fadeStyle);
     }
 
-    // ===== ЗАГОЛОВОК =====
     const title = document.createElement('div');
     title.style.cssText = `
         font-size: 22px;
@@ -204,53 +177,54 @@ function showFullScreenTape(type, isOpening) {
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
-    // ===== ОКНО ПРОСМОТРА =====
-    const viewport = document.createElement('div');
-    viewport.style.cssText = `
+    // ===== ВЕРТИКАЛЬНЫЙ СПИСОК =====
+    const leftPanel = document.createElement('div');
+    leftPanel.style.cssText = `
         width: 90%;
-        max-width: 700px;
-        overflow: hidden;
-        position: relative;
+        max-width: 400px;
+        height: 55%;
+        overflow-y: auto;
+        background: rgba(255,255,255,0.03);
         border-radius: 16px;
         border: 1px solid rgba(255,255,255,0.06);
-        background: rgba(0,0,0,0.3);
-        height: 200px;
-        margin: 0 auto;
-        flex-shrink: 0;
-    `;
-
-    // ===== СТРЕЛКА (МАРКЕР) =====
-    const marker = document.createElement('div');
-    marker.style.cssText = `
-        position: absolute;
-        top: -10px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 40px;
-        color: ${style.highlightColor};
-        text-shadow: 0 0 30px ${style.highlightColor};
-        z-index: 10;
-        pointer-events: none;
-        line-height: 1;
-    `;
-    marker.textContent = '▼';
-    viewport.appendChild(marker);
-
-    // ===== ЛЕНТА =====
-    const track = document.createElement('div');
-    track.id = 'track';
-    track.style.cssText = `
-        display: flex;
-        gap: 8px;
-        padding: 16px 0;
-        will-change: transform;
-        transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1);
-        width: auto;
+        padding: 8px 0;
         position: relative;
-        top: 20px;
     `;
-    viewport.appendChild(track);
-    tapeContainer.appendChild(viewport);
+
+    const listContainer = document.createElement('div');
+    listContainer.id = 'listContainer';
+    listContainer.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 0 12px;
+    `;
+
+    let listItems = [];
+    prizes.forEach((p, index) => {
+        const isLarge = p > 1000;
+        const fontSize = isLarge ? '16px' : '20px';
+        listItems.push(`<div class="list-item" data-index="${index}" data-value="${p}" style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            font-size: ${fontSize};
+            font-weight: 700;
+            color: ${style.itemColor};
+            text-shadow: 0 0 15px ${style.glowColor};
+            border-left: 3px solid transparent;
+            height: 48px;
+            min-height: 48px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            letter-spacing: 0.5px;
+        ">${p}⭐</div>`);
+    });
+    listContainer.innerHTML = listItems.join('');
+    leftPanel.appendChild(listContainer);
+    tapeContainer.appendChild(leftPanel);
 
     // ===== КНОПКИ =====
     const bottomSection = document.createElement('div');
@@ -297,18 +271,7 @@ function showFullScreenTape(type, isOpening) {
             this.style.boxShadow = `0 4px 30px ${style.shadowColor}`;
         };
         openBtn.onclick = function() {
-            checkBalance(type).then(canOpen => {
-                if (!canOpen) return;
-                fetchRealPrize(type).then(prize => {
-                    if (prize === null) return;
-                    _currentPrize = prize;
-                    closeTape();
-                    showFullScreenTape(type, true);
-                    setTimeout(() => {
-                        startFinalSpin(type);
-                    }, 300);
-                });
-            });
+            openCaseDirect(type);
         };
         btnContainer.appendChild(openBtn);
     } else {
@@ -348,25 +311,170 @@ function showFullScreenTape(type, isOpening) {
     btnContainer.appendChild(closeBtn);
     bottomSection.appendChild(btnContainer);
 
-    if (!isOpening) {
-        const previewLabel = document.createElement('div');
-        previewLabel.textContent = '👀 Предпросмотр наград';
-        previewLabel.style.cssText = `
-            color: ${style.titleColor};
-            font-size: 14px;
-            font-weight: 500;
-            opacity: 0.5;
-            text-align: center;
-            letter-spacing: 1px;
-            margin-top: 4px;
-        `;
-        bottomSection.appendChild(previewLabel);
+    const previewLabel = document.createElement('div');
+    previewLabel.textContent = '👀 Предпросмотр наград';
+    previewLabel.style.cssText = `
+        color: ${style.titleColor};
+        font-size: 14px;
+        font-weight: 500;
+        opacity: 0.5;
+        text-align: center;
+        letter-spacing: 1px;
+        margin-top: 4px;
+    `;
+    bottomSection.appendChild(previewLabel);
+
+    tapeContainer.appendChild(bottomSection);
+    document.body.appendChild(tapeContainer);
+}
+
+// ===== ОТКРЫТИЕ КЕЙСА (РУЛЕТКА) =====
+function openCaseDirect(type) {
+    if (_isOpening) return;
+    _isOpening = true;
+    
+    checkBalance(type).then(canOpen => {
+        if (!canOpen) { _isOpening = false; return; }
+        
+        fetchRealPrize(type).then(prize => {
+            if (prize === null) {
+                _isOpening = false;
+                return;
+            }
+            _currentPrize = prize;
+            closeTape();
+            showRouletteTape(type);
+            setTimeout(() => {
+                startFinalSpin(type);
+            }, 300);
+        });
+    });
+}
+
+function showRouletteTape(type) {
+    const prizes = getPrizes(type);
+    const style = getStyle(type);
+    closeTape();
+
+    const tapeContainer = document.createElement('div');
+    tapeContainer.id = 'tapeContainer';
+    _tapeContainer = tapeContainer;
+    tapeContainer.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: ${style.bg};
+        background-image: ${style.bgGradient};
+        backdrop-filter: blur(30px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+        padding: 20px;
+        border: none;
+        animation: fadeIn 0.3s ease;
+    `;
+
+    if (!document.getElementById('tapeFadeStyle')) {
+        const fadeStyle = document.createElement('style');
+        fadeStyle.id = 'tapeFadeStyle';
+        fadeStyle.textContent = `@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }`;
+        document.head.appendChild(fadeStyle);
     }
+
+    const title = document.createElement('div');
+    title.style.cssText = `
+        font-size: 22px;
+        font-weight: 800;
+        color: ${style.titleColor};
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        text-shadow: 0 0 40px ${style.glowColor};
+        text-align: center;
+    `;
+    title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
+    tapeContainer.appendChild(title);
+
+    // ===== ОКНО ПРОСМОТРА =====
+    const viewport = document.createElement('div');
+    viewport.style.cssText = `
+        width: 90%;
+        max-width: 700px;
+        overflow: hidden;
+        position: relative;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.06);
+        background: rgba(0,0,0,0.3);
+        height: 150px;
+        margin: 0 auto;
+        flex-shrink: 0;
+    `;
+
+    // ===== СТРЕЛКА =====
+    const marker = document.createElement('div');
+    marker.style.cssText = `
+        position: absolute;
+        top: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 36px;
+        color: ${style.highlightColor};
+        text-shadow: 0 0 30px ${style.highlightColor};
+        z-index: 10;
+        pointer-events: none;
+        line-height: 1;
+    `;
+    marker.textContent = '▼';
+    viewport.appendChild(marker);
+
+    // ===== ЛЕНТА =====
+    const track = document.createElement('div');
+    track.id = 'track';
+    track.style.cssText = `
+        display: flex;
+        gap: 8px;
+        padding: 16px 0;
+        will-change: transform;
+        transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1);
+        width: auto;
+        position: relative;
+        top: 10px;
+    `;
+    viewport.appendChild(track);
+    tapeContainer.appendChild(viewport);
+
+    // ===== ЗАГРУЗКА =====
+    const bottomSection = document.createElement('div');
+    bottomSection.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        width: 100%;
+        padding: 16px 0 8px 0;
+        flex-shrink: 0;
+    `;
+
+    const loadingLabel = document.createElement('div');
+    loadingLabel.textContent = '🎰 Открытие...';
+    loadingLabel.style.cssText = `
+        color: ${style.titleColor};
+        font-size: 16px;
+        font-weight: 600;
+        opacity: 0.6;
+        text-align: center;
+        letter-spacing: 1px;
+    `;
+    bottomSection.appendChild(loadingLabel);
 
     tapeContainer.appendChild(bottomSection);
     document.body.appendChild(tapeContainer);
 
-    // Сохраняем ссылки
     tapeContainer._track = track;
     tapeContainer._viewport = viewport;
     tapeContainer._marker = marker;
@@ -380,7 +488,6 @@ function startFinalSpin(type) {
 
     const track = tapeContainer._track;
     const viewport = tapeContainer._viewport;
-    const marker = tapeContainer._marker;
 
     const targetPrize = _currentPrize;
     if (targetPrize === null) {
@@ -394,7 +501,7 @@ function startFinalSpin(type) {
     const cardGap = 8;
     const totalCardWidth = cardWidth + cardGap;
     const totalCards = 60;
-    const winPosition = 40; // 40-я позиция — выигрыш
+    const winPosition = 40;
 
     let cards = [];
     for (let i = 0; i < totalCards; i++) {
@@ -402,7 +509,6 @@ function startFinalSpin(type) {
         if (i === winPosition) {
             value = targetPrize;
         } else {
-            // Случайный мусор
             const randomIndex = Math.floor(Math.random() * prizes.length);
             value = prizes[randomIndex];
         }
@@ -410,7 +516,7 @@ function startFinalSpin(type) {
         const fontSize = isLarge ? '22px' : '28px';
         cards.push(`<div class="card" data-value="${value}" style="
             width: ${cardWidth}px;
-            height: 120px;
+            height: 110px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
@@ -433,18 +539,18 @@ function startFinalSpin(type) {
     const centerOffset = viewportWidth / 2;
     const shift = (winPosition * totalCardWidth) - centerOffset + (cardWidth / 2);
 
-    // ===== 3. ДОБАВЛЯЕМ СЛУЧАЙНЫЙ ШУМ =====
-    const noise = Math.floor(Math.random() * 60) - 30; // -30 .. +30
+    // ===== 3. ШУМ =====
+    const noise = Math.floor(Math.random() * 60) - 30;
     const finalShift = shift + noise;
 
-    // ===== 4. ЗАПУСКАЕМ АНИМАЦИЮ =====
+    // ===== 4. ЗАПУСК =====
     track.style.transform = `translateX(-${finalShift}px)`;
 
-    // ===== 5. ОБРАБАТЫВАЕМ ОКОНЧАНИЕ =====
+    // ===== 5. ОКОНЧАНИЕ =====
     const onFinish = () => {
         track.removeEventListener('transitionend', onFinish);
 
-        // ===== ПОДСВЕТКА ВЫИГРЫША =====
+        // Подсветка
         const cards = track.querySelectorAll('.card');
         cards.forEach(el => {
             el.style.background = 'rgba(255,255,255,0.04)';
@@ -461,7 +567,7 @@ function startFinalSpin(type) {
             winCard.style.textShadow = `0 0 30px ${style.highlightColor}`;
         }
 
-        // ===== ВСПЫШКА =====
+        // Вспышка
         const flash = document.createElement('div');
         flash.style.cssText = `
             position: fixed;
@@ -487,19 +593,25 @@ function startFinalSpin(type) {
 
         setTimeout(() => flash.remove(), 700);
 
-        // ===== ПОКАЗЫВАЕМ РЕЗУЛЬТАТ =====
+        // ===== МОДАЛЬНОЕ ОКНО =====
         setTimeout(() => {
             const resultDiv = document.getElementById('result');
-            document.getElementById('prizeDisplay').textContent = '🎁';
-            document.getElementById('prizeName').textContent = 'Ты выиграл!';
-            document.getElementById('prizeValue').textContent = '⭐ ' + targetPrize;
-            resultDiv.classList.add('show');
+            const prizeDisplay = document.getElementById('prizeDisplay');
+            const prizeName = document.getElementById('prizeName');
+            const prizeValue = document.getElementById('prizeValue');
+            const againBtn = document.getElementById('againBtn');
+            
+            if (prizeDisplay) prizeDisplay.textContent = '🎁';
+            if (prizeName) prizeName.textContent = 'Ты выиграл!';
+            if (prizeValue) prizeValue.textContent = '⭐ ' + targetPrize;
+            
+            if (resultDiv) resultDiv.classList.add('show');
+            
             loadBalance();
-            document.getElementById('againBtn').style.display = 'inline-block';
+            if (againBtn) againBtn.style.display = 'inline-block';
 
-            // Отправляем награду на сервер
             openCaseReal(type, targetPrize);
-        }, 800);
+        }, 300);
     };
 
     track.addEventListener('transitionend', onFinish);
@@ -527,6 +639,11 @@ async function openCaseReal(type, finalPrize) {
     }
 }
 
+function closeTape() {
+    if (_tapeContainer) { _tapeContainer.remove(); _tapeContainer = null; }
+    _isOpening = false;
+}
+
 function openAgain() {
     closeResult();
     if (lastOpenedCase) {
@@ -537,9 +654,13 @@ function openAgain() {
 }
 
 function closeResult() {
-    document.getElementById('result').classList.remove('show');
-    document.getElementById('againBtn').style.display = 'none';
-    document.getElementById('adBlock').style.display = 'none';
+    const resultDiv = document.getElementById('result');
+    const againBtn = document.getElementById('againBtn');
+    const adBlock = document.getElementById('adBlock');
+    
+    if (resultDiv) resultDiv.classList.remove('show');
+    if (againBtn) againBtn.style.display = 'none';
+    if (adBlock) adBlock.style.display = 'none';
 }
 
 function showProfile() {
