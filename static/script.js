@@ -1,6 +1,3 @@
-[SWILL]**ВОТ ПОЛНЫЙ ИСПРАВЛЕННЫЙ `script.js` — ПРЕДПРОСМОТР ПОКАЗЫВАЕТ ВСЕ НАГРАДЫ, АНИМАЦИЯ БЕЗ ЗАЦИКЛИВАНИЯ.**
-
-```javascript
 const tg = window.Telegram.WebApp;
 const user_id = tg.initDataUnsafe?.user?.id || 0;
 
@@ -826,4 +823,3 @@ function showWithdraw() {
 
 loadBalance();
 tg.ready();
-```
