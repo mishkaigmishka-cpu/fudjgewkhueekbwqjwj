@@ -750,10 +750,19 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
                 if (data.error) {
                     tg.showAlert('❌ ' + data.error);
                 } else {
-                    loadBalance();
-                    const balanceEl = resultContainer.querySelector('div[style*="position: absolute"]');
-                    if (balanceEl) {
-                        balanceEl.textContent = `💰 ${document.getElementById('balance').textContent}`;
+                    // ===== ПРЯМОЕ ОБНОВЛЕНИЕ БАЛАНСА =====
+                    const balanceEl = document.getElementById('balance');
+                    const balanceValueEl = document.getElementById('balanceValue');
+                    const profileBalanceEl = document.getElementById('profileBalance');
+                    
+                    if (balanceEl) balanceEl.textContent = '⭐ ' + data.new_balance;
+                    if (balanceValueEl) balanceValueEl.textContent = data.new_balance + ' ⭐';
+                    if (profileBalanceEl) profileBalanceEl.textContent = data.new_balance;
+                    
+                    // Обновляем баланс в контейнере результата
+                    const balanceDisplayEl = resultContainer.querySelector('div[style*="position: absolute"]');
+                    if (balanceDisplayEl) {
+                        balanceDisplayEl.textContent = `💰 ⭐ ${data.new_balance}`;
                     }
                 }
             } catch(e) {
