@@ -186,7 +186,7 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    // ===== ЛЕНТА =====
+    // ===== ЛЕНТА (СКОРОСТЬ УВЕЛИЧЕНА В 1.8 РАЗА: 12 / 1.8 = 6.7с) =====
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
@@ -194,7 +194,7 @@ function showPreviewTape(type) {
         gap: 8px;
         padding: 16px 0;
         will-change: transform;
-        animation: scrollTape 12s linear infinite;
+        animation: scrollTape 6.7s linear infinite;
         width: auto;
         position: relative;
         top: 10px;
@@ -405,7 +405,6 @@ function showRouletteTape(type) {
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
-    // ===== ОКНО ПРОСМОТРА =====
     const viewport = document.createElement('div');
     viewport.style.cssText = `
         width: 90%;
@@ -420,7 +419,6 @@ function showRouletteTape(type) {
         flex-shrink: 0;
     `;
 
-    // ===== СТРЕЛКА =====
     const marker = document.createElement('div');
     marker.style.cssText = `
         position: absolute;
@@ -437,7 +435,6 @@ function showRouletteTape(type) {
     marker.textContent = '▼';
     viewport.appendChild(marker);
 
-    // ===== ЛЕНТА =====
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
@@ -453,7 +450,6 @@ function showRouletteTape(type) {
     viewport.appendChild(track);
     tapeContainer.appendChild(viewport);
 
-    // ===== ЗАГРУЗКА =====
     const bottomSection = document.createElement('div');
     bottomSection.style.cssText = `
         display: flex;
@@ -544,83 +540,97 @@ function startFinalSpin(type) {
     const viewportWidth = viewport.offsetWidth || 700;
     const centerOffset = viewportWidth / 2;
     const shift = (winPosition * totalCardWidth) - centerOffset + (cardWidth / 2);
-
-    // ===== 3. ШУМ =====
     const noise = Math.floor(Math.random() * 60) - 30;
     const finalShift = shift + noise;
 
-    // ===== 4. ЗАПУСК =====
+    // ===== 3. ЗАПУСК =====
     track.style.transform = `translateX(-${finalShift}px)`;
 
-    // ===== 5. ОКОНЧАНИЕ =====
+    // ===== 4. FALLBACK: ЕСЛИ transitionend НЕ СРАБОТАЕТ =====
+    let finished = false;
+
     const onFinish = () => {
+        if (finished) return;
+        finished = true;
         track.removeEventListener('transitionend', onFinish);
-
-        // Подсветка
-        const cards = track.querySelectorAll('.card');
-        cards.forEach(el => {
-            el.style.background = 'rgba(255,255,255,0.04)';
-            el.style.border = '1px solid rgba(255,255,255,0.06)';
-            el.style.color = style.itemColor;
-            el.style.textShadow = `0 0 20px ${style.glowColor}`;
-        });
-
-        const winCard = cards[winPosition];
-        if (winCard) {
-            winCard.style.background = 'rgba(255,215,0,0.15)';
-            winCard.style.border = `2px solid ${style.highlightColor}`;
-            winCard.style.color = '#FFFFFF';
-            winCard.style.textShadow = `0 0 30px ${style.highlightColor}`;
-        }
-
-        // Вспышка
-        const flash = document.createElement('div');
-        flash.style.cssText = `
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(circle at center, rgba(255,215,0,0.6), rgba(255,255,255,0.2), transparent 70%);
-            z-index: 1000;
-            pointer-events: none;
-            animation: flashOut 0.6s ease-out forwards;
-        `;
-        document.body.appendChild(flash);
-
-        if (!document.getElementById('flashStyle')) {
-            const flashStyle = document.createElement('style');
-            flashStyle.id = 'flashStyle';
-            flashStyle.textContent = `
-                @keyframes flashOut {
-                    0% { opacity: 1; transform: scale(0.8); }
-                    100% { opacity: 0; transform: scale(1.6); }
-                }
-            `;
-            document.head.appendChild(flashStyle);
-        }
-
-        setTimeout(() => flash.remove(), 700);
-
-        // ===== МОДАЛЬНОЕ ОКНО =====
-        setTimeout(() => {
-            const resultDiv = document.getElementById('result');
-            const prizeDisplay = document.getElementById('prizeDisplay');
-            const prizeName = document.getElementById('prizeName');
-            const prizeValue = document.getElementById('prizeValue');
-            const againBtn = document.getElementById('againBtn');
-            
-            if (prizeDisplay) prizeDisplay.textContent = '🎁';
-            if (prizeName) prizeName.textContent = 'Ты выиграл!';
-            if (prizeValue) prizeValue.textContent = '⭐ ' + targetPrize;
-            
-            if (resultDiv) resultDiv.classList.add('show');
-            
-            loadBalance();
-            if (againBtn) againBtn.style.display = 'inline-block';
-
-            openCaseReal(type, targetPrize);
-        }, 300);
+        showResult(targetPrize, style, track, winPosition);
     };
 
     track.addEventListener('transitionend', onFinish);
+
+    // Если через 7 секунд событие не сработало — принудительно показываем результат
+    setTimeout(() => {
+        if (!finished) {
+            finished = true;
+            track.removeEventListener('transitionend', onFinish);
+            showResult(targetPrize, style, track, winPosition);
+        }
+    }, 7000);
+}
+
+function showResult(targetPrize, style, track, winPosition) {
+    // Подсветка
+    const cards = track.querySelectorAll('.card');
+    cards.forEach(el => {
+        el.style.background = 'rgba(255,255,255,0.04)';
+        el.style.border = '1px solid rgba(255,255,255,0.06)';
+        el.style.color = style.itemColor;
+        el.style.textShadow = `0 0 20px ${style.glowColor}`;
+    });
+
+    const winCard = cards[winPosition];
+    if (winCard) {
+        winCard.style.background = 'rgba(255,215,0,0.15)';
+        winCard.style.border = `2px solid ${style.highlightColor}`;
+        winCard.style.color = '#FFFFFF';
+        winCard.style.textShadow = `0 0 30px ${style.highlightColor}`;
+    }
+
+    // Вспышка
+    const flash = document.createElement('div');
+    flash.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: radial-gradient(circle at center, rgba(255,215,0,0.6), rgba(255,255,255,0.2), transparent 70%);
+        z-index: 1000;
+        pointer-events: none;
+        animation: flashOut 0.6s ease-out forwards;
+    `;
+    document.body.appendChild(flash);
+
+    if (!document.getElementById('flashStyle')) {
+        const flashStyle = document.createElement('style');
+        flashStyle.id = 'flashStyle';
+        flashStyle.textContent = `
+            @keyframes flashOut {
+                0% { opacity: 1; transform: scale(0.8); }
+                100% { opacity: 0; transform: scale(1.6); }
+            }
+        `;
+        document.head.appendChild(flashStyle);
+    }
+
+    setTimeout(() => flash.remove(), 700);
+
+    // ===== МОДАЛЬНОЕ ОКНО =====
+    setTimeout(() => {
+        const resultDiv = document.getElementById('result');
+        const prizeDisplay = document.getElementById('prizeDisplay');
+        const prizeName = document.getElementById('prizeName');
+        const prizeValue = document.getElementById('prizeValue');
+        const againBtn = document.getElementById('againBtn');
+        
+        if (prizeDisplay) prizeDisplay.textContent = '🎁';
+        if (prizeName) prizeName.textContent = 'Ты выиграл!';
+        if (prizeValue) prizeValue.textContent = '⭐ ' + targetPrize;
+        
+        if (resultDiv) resultDiv.classList.add('show');
+        
+        loadBalance();
+        if (againBtn) againBtn.style.display = 'inline-block';
+
+        openCaseReal(type, targetPrize);
+    }, 300);
 }
 
 async function openCaseReal(type, finalPrize) {
