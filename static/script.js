@@ -193,7 +193,7 @@ function showPreviewTape(type) {
     const viewport = document.createElement('div');
     viewport.style.cssText = `
         width: 95%;
-        max-width: 1000px;
+        max-width: 1200px;
         overflow: hidden;
         position: relative;
         border-radius: 16px;
@@ -204,11 +204,11 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    const cardWidth = 100;
-    const cardGap = 6;
+    const cardWidth = 70;
+    const cardGap = 4;
     const totalItems = prizes.length;
     const totalWidth = totalItems * (cardWidth + cardGap);
-    const viewportWidth = 1000;
+    const viewportWidth = 1200;
     const shift = totalWidth - viewportWidth + 20;
 
     const track = document.createElement('div');
@@ -226,7 +226,7 @@ function showPreviewTape(type) {
     let cards = [];
     prizes.forEach((p, index) => {
         const isLarge = p > 1000;
-        const fontSize = isLarge ? '16px' : '20px';
+        const fontSize = isLarge ? '12px' : '14px';
         cards.push(`<div class="card" data-value="${p}" style="
             width: ${cardWidth}px;
             height: 110px;
@@ -235,13 +235,14 @@ function showPreviewTape(type) {
             align-items: center;
             justify-content: center;
             background: rgba(255,255,255,0.04);
-            border-radius: 12px;
+            border-radius: 8px;
             border: 1px solid rgba(255,255,255,0.06);
             font-size: ${fontSize};
             font-weight: 700;
             color: ${style.itemColor};
             text-shadow: 0 0 20px ${style.glowColor};
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 0 2px;
         ">${p}⭐</div>`);
     });
     track.innerHTML = cards.join('');
