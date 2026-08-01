@@ -23,11 +23,6 @@ const CASE_PRIZES = {
     'bedrock': [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 2600, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000]
 };
 
-const CASE_SPEED = {
-    'free': 15, 'mud': 15, 'wood': 15, 'stone': 15, 'bronze': 15, 'silver': 15, 'gold': 15,
-    'diamond': 17, 'netherite': 19, 'bedrock': 21
-};
-
 const CASE_PRICES = {
     'free': 0,
     'mud': 5,
@@ -56,7 +51,6 @@ const CASE_STYLES = {
 
 function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
-function getSpeed(type) { return CASE_SPEED[type] || 15; }
 function getPrice(type) { return CASE_PRICES[type] || 0; }
 
 async function loadBalance() {
@@ -121,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== СТАРЫЙ ПРЕДПРОСМОТР (ВЕРТИКАЛЬНЫЙ СПИСОК) =====
+// ===== ПРЕДПРОСМОТР (ГОРИЗОНТАЛЬНАЯ ЛЕНТА, БЕСКОНЕЧНАЯ АНИМАЦИЯ) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -177,54 +171,76 @@ function showPreviewTape(type) {
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
-    // ===== ВЕРТИКАЛЬНЫЙ СПИСОК =====
-    const leftPanel = document.createElement('div');
-    leftPanel.style.cssText = `
+    // ===== ОКНО ПРОСМОТРА =====
+    const viewport = document.createElement('div');
+    viewport.style.cssText = `
         width: 90%;
-        max-width: 400px;
-        height: 55%;
-        overflow-y: auto;
-        background: rgba(255,255,255,0.03);
+        max-width: 700px;
+        overflow: hidden;
+        position: relative;
         border-radius: 16px;
         border: 1px solid rgba(255,255,255,0.06);
-        padding: 8px 0;
-        position: relative;
+        background: rgba(0,0,0,0.3);
+        height: 150px;
+        margin: 0 auto;
+        flex-shrink: 0;
     `;
 
-    const listContainer = document.createElement('div');
-    listContainer.id = 'listContainer';
-    listContainer.style.cssText = `
+    // ===== ЛЕНТА =====
+    const track = document.createElement('div');
+    track.id = 'track';
+    track.style.cssText = `
         display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 0 12px;
+        gap: 8px;
+        padding: 16px 0;
+        will-change: transform;
+        animation: scrollTape 12s linear infinite;
+        width: auto;
+        position: relative;
+        top: 10px;
     `;
 
-    let listItems = [];
-    prizes.forEach((p, index) => {
-        const isLarge = p > 1000;
-        const fontSize = isLarge ? '16px' : '20px';
-        listItems.push(`<div class="list-item" data-index="${index}" data-value="${p}" style="
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 10px 14px;
-            background: rgba(255,255,255,0.02);
-            border-radius: 8px;
-            font-size: ${fontSize};
-            font-weight: 700;
-            color: ${style.itemColor};
-            text-shadow: 0 0 15px ${style.glowColor};
-            border-left: 3px solid transparent;
-            height: 48px;
-            min-height: 48px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            letter-spacing: 0.5px;
-        ">${p}⭐</div>`);
-    });
-    listContainer.innerHTML = listItems.join('');
-    leftPanel.appendChild(listContainer);
-    tapeContainer.appendChild(leftPanel);
+    // ===== ЗАПОЛНЯЕМ ЛЕНТУ (2 ПОВТОРА) =====
+    let cards = [];
+    for (let repeat = 0; repeat < 2; repeat++) {
+        prizes.forEach((p, index) => {
+            const isLarge = p > 1000;
+            const fontSize = isLarge ? '22px' : '28px';
+            cards.push(`<div class="card" data-value="${p}" style="
+                width: 130px;
+                height: 110px;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(255,255,255,0.04);
+                border-radius: 12px;
+                border: 1px solid rgba(255,255,255,0.06);
+                font-size: ${fontSize};
+                font-weight: 700;
+                color: ${style.itemColor};
+                text-shadow: 0 0 20px ${style.glowColor};
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            ">${p}⭐</div>`);
+        });
+    }
+    track.innerHTML = cards.join('');
+    viewport.appendChild(track);
+
+    // ===== СТИЛЬ АНИМАЦИИ =====
+    if (!document.getElementById('previewScrollStyle')) {
+        const scrollStyle = document.createElement('style');
+        scrollStyle.id = 'previewScrollStyle';
+        scrollStyle.textContent = `
+            @keyframes scrollTape {
+                0% { transform: translateX(0); }
+                100% { transform: translateX(-50%); }
+            }
+        `;
+        document.head.appendChild(scrollStyle);
+    }
+
+    tapeContainer.appendChild(viewport);
 
     // ===== КНОПКИ =====
     const bottomSection = document.createElement('div');
@@ -262,14 +278,6 @@ function showPreviewTape(type) {
             text-shadow: 0 2px 10px rgba(0,0,0,0.3);
             min-width: 170px;
         `;
-        openBtn.onmouseover = function() {
-            this.style.transform = 'scale(1.04)';
-            this.style.boxShadow = `0 6px 40px ${style.shadowColor}`;
-        };
-        openBtn.onmouseout = function() {
-            this.style.transform = 'scale(1)';
-            this.style.boxShadow = `0 4px 30px ${style.shadowColor}`;
-        };
         openBtn.onclick = function() {
             openCaseDirect(type);
         };
@@ -305,8 +313,6 @@ function showPreviewTape(type) {
         transition: all 0.2s;
         min-width: 170px;
     `;
-    closeBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.12)'; };
-    closeBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.06)'; };
     closeBtn.onclick = function() { closeTape(); };
     btnContainer.appendChild(closeBtn);
     bottomSection.appendChild(btnContainer);
