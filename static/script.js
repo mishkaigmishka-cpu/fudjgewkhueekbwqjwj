@@ -211,7 +211,6 @@ function showFullScreenTape(type, isOpening) {
         position: relative;
     `;
 
-    // ===== СТРЕЛКИ (БЕЗ АНИМАЦИИ) =====
     const arrowTop = document.createElement('div');
     arrowTop.id = 'arrowTop';
     arrowTop.style.cssText = `
@@ -402,12 +401,11 @@ function startFinalSpin(type) {
         return;
     }
 
-    // ===== НАЧАЛЬНАЯ СКОРОСТЬ =====
     tapeContent.style.animationDuration = '0.2s';
     tapeContent.style.animationTimingFunction = 'linear';
     
-    const maxDuration = 7.0;     // ЕЩЁ МЕДЛЕННЕЕ В КОНЦЕ
-    const totalTime = 10000;     // 10 СЕКУНД
+    const maxDuration = 7.0;
+    const totalTime = 10000;
     _startTime = performance.now();
     let lastHighlightTime = 0;
 
@@ -416,12 +414,10 @@ function startFinalSpin(type) {
         const elapsed = timestamp - _startTime;
         const progress = Math.min(elapsed / totalTime, 1);
         
-        // ===== ОЧЕНЬ ПЛАВНОЕ ЗАМЕДЛЕНИЕ (easeOutQuint) =====
         const eased = 1 - Math.pow(1 - progress, 5);
         const currentDuration = 0.2 + (maxDuration - 0.2) * eased;
         tapeContent.style.animationDuration = currentDuration + 's';
         
-        // ===== ПОДСВЕТКА (каждые 80мс) =====
         if (timestamp - lastHighlightTime > 80) {
             lastHighlightTime = timestamp;
             
@@ -440,8 +436,6 @@ function startFinalSpin(type) {
                 target.style.textShadow = `0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}40`;
                 target.style.transition = 'all 0.1s ease';
             }
-
-            // ===== СТРЕЛКИ НЕ ДВИГАЮТСЯ =====
         }
 
         if (progress < 1) {
@@ -528,7 +522,6 @@ function startFinalSpin(type) {
 async function openCaseReal(type, finalPrize) {
     lastOpenedCase = type;
     try {
-        // ===== ОТПРАВЛЯЕМ НАГРАДУ НА СЕРВЕР =====
         const res = await fetch('/open_case', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
