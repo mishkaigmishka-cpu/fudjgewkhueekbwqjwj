@@ -546,9 +546,9 @@ async function openCaseReal(type, finalPrize) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                user_id, 
+                user_id: user_id, 
                 case_type: type,
-                prize: _currentPrize  // <-- ГЛАВНОЕ ИСПРАВЛЕНИЕ
+                prize: _currentPrize
             })
         });
         const data = await res.json();
