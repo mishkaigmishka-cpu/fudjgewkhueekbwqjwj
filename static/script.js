@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, 3 НАБОРА, БЕЗ ЗАЦИКЛИВАНИЯ) =====
+// ===== ПРЕДПРОСМОТР (2 НАБОРА, ПЛАВНЫЙ ПЕРЕХОД) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -185,7 +185,6 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    // ===== ЛЕНТА (3 НАБОРА ДЛЯ БЕСКОНЕЧНОСТИ) =====
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
@@ -220,7 +219,7 @@ function showPreviewTape(type) {
         ">${p}⭐</div>`);
     });
     const firstSet = cards.join('');
-    track.innerHTML = firstSet + firstSet + firstSet;
+    track.innerHTML = firstSet + firstSet;
 
     viewport.appendChild(track);
 
@@ -230,7 +229,7 @@ function showPreviewTape(type) {
         scrollStyle.textContent = `
             @keyframes scrollTapeInfinite {
                 0% { transform: translateX(0); }
-                100% { transform: translateX(-33.33%); }
+                100% { transform: translateX(-50%); }
             }
         `;
         document.head.appendChild(scrollStyle);
