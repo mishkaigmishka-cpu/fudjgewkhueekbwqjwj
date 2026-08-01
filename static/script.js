@@ -13,16 +13,17 @@ let _tapeContainer = null;
 let _rafId = null;
 let _startTime = null;
 
+// ===== ВСЕ ВОЗМОЖНЫЕ НАГРАДЫ (ОБНОВЛЕНЫ) =====
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
-    'mud': [1, 2, 3, 4, 5, 6, 7, 10, 12, 14, 16, 20, 22, 24, 27, 30, 35, 40, 50, 500],
+    'mud': [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 16, 18, 20, 22, 24, 27, 50, 500],
     'wood': [2, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15, 20, 50, 100, 500, 1000, 10000],
     'stone': [11, 13, 15, 16, 17, 18, 19, 21, 23, 24, 25, 30, 50, 100, 250, 500, 1000, 2500, 25000],
     'bronze': [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 100, 222, 333, 444, 555, 1000, 1500, 2000, 5000],
     'silver': [40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 200, 250, 333, 444, 555, 666, 777, 888, 999, 1488, 2011, 5000, 10000],
     'gold': [75, 100, 150, 169, 190, 220, 251, 300, 400, 500, 777, 999, 1000, 2000, 5000, 10000, 12500, 25000],
     'diamond': [250, 300, 333, 350, 444, 505, 1000, 1488, 2222, 2500, 5000, 10000, 12500, 25000, 50000],
-    'netherite': [500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 10000, 15000, 20000, 25000],
+    'netherite': [500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 1500, 2000, 2500, 3000, 3200, 3500, 4000, 5000, 10000, 15000, 20000, 25000],
     'bedrock': [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 2600, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000]
 };
 
@@ -105,6 +106,25 @@ async function checkBalance(type) {
     }
 }
 
+async function fetchRealPrize(type) {
+    try {
+        const res = await fetch('/get_prize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ case_type: type })
+        });
+        const data = await res.json();
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
+            return null;
+        }
+        return data.prize;
+    } catch(e) {
+        tg.showAlert('❌ Ошибка получения награды');
+        return null;
+    }
+}
+
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -114,10 +134,19 @@ function previewCase(type) {
 function openCaseDirect(type) {
     if (_isOpening) return;
     _isOpening = true;
+    
     checkBalance(type).then(canOpen => {
         if (!canOpen) { _isOpening = false; return; }
-        closeTape();
-        showFullScreenTape(type, true);
+        
+        fetchRealPrize(type).then(prize => {
+            if (prize === null) {
+                _isOpening = false;
+                return;
+            }
+            _currentPrize = prize;
+            closeTape();
+            showFullScreenTape(type, true);
+        });
     });
 }
 
@@ -276,26 +305,39 @@ function showFullScreenTape(type, isOpening) {
     const btnContainer = document.createElement('div');
     btnContainer.style.cssText = `display:flex; gap:16px; flex-wrap:wrap; justify-content:center;`;
 
-    const openBtn = document.createElement('button');
-    openBtn.textContent = `🎲 Открыть (${price}⭐)`;
-    openBtn.style.cssText = `
-        background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
-        color: #fff;
-        border: none;
-        padding: 18px 50px;
-        border-radius: 20px;
-        font-size: 22px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s;
-        box-shadow: 0 4px 40px ${style.shadowColor};
-        text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        min-width: 200px;
-    `;
-    openBtn.onclick = function() {
-        checkBalance(type).then(canOpen => { if (!canOpen) return; startFinalSpin(type); });
-    };
-    btnContainer.appendChild(openBtn);
+    if (isOpening) {
+        const openBtn = document.createElement('button');
+        openBtn.textContent = `🎲 Открыть (${price}⭐)`;
+        openBtn.style.cssText = `
+            background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
+            color: #fff;
+            border: none;
+            padding: 18px 50px;
+            border-radius: 20px;
+            font-size: 22px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 40px ${style.shadowColor};
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            min-width: 200px;
+        `;
+        openBtn.onclick = function() {
+            startFinalSpin(type);
+        };
+        btnContainer.appendChild(openBtn);
+    } else {
+        const previewLabel = document.createElement('div');
+        previewLabel.textContent = '👀 Предпросмотр наград';
+        previewLabel.style.cssText = `
+            color: ${style.titleColor};
+            font-size: 18px;
+            font-weight: 600;
+            opacity: 0.7;
+            text-align: center;
+        `;
+        bottomSection.appendChild(previewLabel);
+    }
 
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '🔙 Назад';
@@ -349,31 +391,30 @@ function startFinalSpin(type) {
 
     const tapeContent = document.getElementById('tapeContent');
     
-    _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
+    const targetPrize = _currentPrize;
+    const prizeIndex = prizes.indexOf(targetPrize);
+    if (prizeIndex === -1) {
+        tg.showAlert('❌ Ошибка: награда не найдена в списке');
+        closeTape();
+        return;
+    }
 
-    // ===== НАЧАЛЬНАЯ СКОРОСТЬ =====
     tapeContent.style.animationDuration = '0.15s';
     tapeContent.style.animationTimingFunction = 'linear';
     
     const maxDuration = 6.0;
-    const totalTime = 8000; // 8 секунд
+    const totalTime = 8000;
     _startTime = performance.now();
 
-    // ===== ПЛАВНАЯ АНИМАЦИЯ ЧЕРЕЗ requestAnimationFrame =====
     function animateSpin(timestamp) {
         if (!_startTime) _startTime = timestamp;
         const elapsed = timestamp - _startTime;
         const progress = Math.min(elapsed / totalTime, 1);
         
-        // ===== КРИВАЯ ЗАМЕДЛЕНИЯ (easeOutCubic) =====
-        // Сначала быстро, потом плавно замедляется
         const eased = 1 - Math.pow(1 - progress, 3);
-        
-        // Текущая скорость: от 0.15 до maxDuration
         const currentDuration = 0.15 + (maxDuration - 0.15) * eased;
         tapeContent.style.animationDuration = currentDuration + 's';
         
-        // ===== ПОДСВЕТКА (каждый кадр) =====
         const allItems = document.querySelectorAll('.prize-item');
         const randomIdx = Math.floor(Math.random() * prizes.length);
         const target = document.querySelector(`.prize-item[data-index="${randomIdx}"]`);
@@ -390,7 +431,6 @@ function startFinalSpin(type) {
             target.style.transition = 'all 0.05s ease';
         }
 
-        // ===== СТРЕЛКА =====
         const arrowTop = document.getElementById('arrowTop');
         const arrowBottom = document.getElementById('arrowBottom');
         if (arrowTop && arrowBottom && target) {
@@ -402,17 +442,14 @@ function startFinalSpin(type) {
             }, 30);
         }
 
-        // ===== ОСТАНОВКА =====
         if (progress < 1) {
             _rafId = requestAnimationFrame(animateSpin);
         } else {
             _rafId = null;
             
-            // ===== ФИНАЛ =====
             tapeContent.style.animation = 'none';
             tapeContent.style.transition = 'transform 1.2s cubic-bezier(0.1, 0.95, 0.2, 1)';
 
-            const prizeIndex = prizes.indexOf(_currentPrize);
             const targetItem = document.querySelector(`.prize-item[data-index="${prizeIndex}"]`);
 
             if (targetItem) {
@@ -454,7 +491,7 @@ function startFinalSpin(type) {
                 setTimeout(() => {
                     tapeContent.innerHTML = `
                         <span style="color:${style.highlightColor}; font-size:100px; text-shadow: 0 0 80px ${style.highlightColor}, 0 0 160px ${style.highlightColor}, 0 0 240px ${style.highlightColor}80; font-weight:900; transition: all 0.5s ease;">
-                            ${_currentPrize}⭐
+                            ${targetPrize}⭐
                         </span>
                     `;
                     if (arrowTop) arrowTop.style.display = 'none';
@@ -464,20 +501,20 @@ function startFinalSpin(type) {
                         tapeContainer.remove();
                         _tapeContainer = null;
                         _isOpening = false;
-                        openCaseReal(type, _currentPrize);
+                        openCaseReal(type, targetPrize);
                     }, 1200);
                 }, 1500);
             } else {
                 tapeContent.innerHTML = `
                     <span style="color:${style.highlightColor}; font-size:100px; text-shadow: 0 0 80px ${style.highlightColor}, 0 0 160px ${style.highlightColor}, 0 0 240px ${style.highlightColor}80; font-weight:900;">
-                        ${_currentPrize}⭐
+                        ${targetPrize}⭐
                     </span>
                 `;
                 setTimeout(() => {
                     tapeContainer.remove();
                     _tapeContainer = null;
                     _isOpening = false;
-                    openCaseReal(type, _currentPrize);
+                    openCaseReal(type, targetPrize);
                 }, 1200);
             }
         }
@@ -495,24 +532,37 @@ async function openCaseReal(type, finalPrize) {
             body: JSON.stringify({ user_id, case_type: type })
         });
         const data = await res.json();
-        if (data.error) { tg.showAlert('❌ ' + data.error); return; }
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
+            return;
+        }
 
         const resultDiv = document.getElementById('result');
         document.getElementById('prizeDisplay').textContent = '🎁';
         document.getElementById('prizeName').textContent = 'Ты выиграл!';
         document.getElementById('prizeValue').textContent = '⭐ ' + data.prize;
 
-        if (data.ad) { document.getElementById('adText').textContent = data.ad; document.getElementById('adBlock').style.display = 'block'; } 
-        else { document.getElementById('adBlock').style.display = 'none'; }
+        if (data.ad) {
+            document.getElementById('adText').textContent = data.ad;
+            document.getElementById('adBlock').style.display = 'block';
+        } else {
+            document.getElementById('adBlock').style.display = 'none';
+        }
         resultDiv.classList.add('show');
         loadBalance();
         document.getElementById('againBtn').style.display = 'inline-block';
-    } catch(e) { tg.showAlert('❌ Ошибка открытия кейса'); }
+    } catch(e) {
+        tg.showAlert('❌ Ошибка открытия кейса');
+    }
 }
 
 function openAgain() {
     closeResult();
-    if (lastOpenedCase) { setTimeout(() => { openCaseDirect(lastOpenedCase); }, 300); }
+    if (lastOpenedCase) {
+        setTimeout(() => {
+            openCaseDirect(lastOpenedCase);
+        }, 300);
+    }
 }
 
 function closeResult() {
@@ -540,13 +590,20 @@ function hideInvite() {
 }
 function copyInvite() {
     const link = 'https://t.me/Randevucase_bot?start=' + user_id;
-    navigator.clipboard.writeText(link).then(() => { tg.showAlert('✅ Ссылка скопирована!'); }).catch(() => { tg.showAlert('❌ Не удалось скопировать'); });
+    navigator.clipboard.writeText(link).then(() => {
+        tg.showAlert('✅ Ссылка скопирована!');
+    }).catch(() => {
+        tg.showAlert('❌ Не удалось скопировать');
+    });
 }
 function showWithdraw() {
     const amount = prompt('Введите количество звёзд (мин. 1000⭐):');
     if (amount === null) return;
     const num = parseInt(amount);
-    if (isNaN(num) || num < 1000) { tg.showAlert('❌ Минимум 1000⭐'); return; }
+    if (isNaN(num) || num < 1000) {
+        tg.showAlert('❌ Минимум 1000⭐');
+        return;
+    }
     fetch('/withdraw_request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -554,8 +611,11 @@ function showWithdraw() {
     })
     .then(res => res.json())
     .then(data => {
-        if (data.success) { tg.showAlert('✅ Заявка отправлена! Админ свяжется с вами.'); } 
-        else { tg.showAlert('❌ ' + data.error); }
+        if (data.success) {
+            tg.showAlert('✅ Заявка отправлена! Админ свяжется с вами.');
+        } else {
+            tg.showAlert('❌ ' + data.error);
+        }
     })
     .catch(() => tg.showAlert('❌ Ошибка соединения'));
 }
