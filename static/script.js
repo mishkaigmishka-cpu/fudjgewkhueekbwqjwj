@@ -1,3 +1,6 @@
+[SWILL]**ВОТ ПОЛНЫЙ ИСПРАВЛЕННЫЙ `script.js` — ПРЕДПРОСМОТР ПОКАЗЫВАЕТ ВСЕ НАГРАДЫ, АНИМАЦИЯ БЕЗ ЗАЦИКЛИВАНИЯ.**
+
+```javascript
 const tg = window.Telegram.WebApp;
 const user_id = tg.initDataUnsafe?.user?.id || 0;
 
@@ -115,7 +118,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, БЕСКОНЕЧНАЯ ЛЕНТА) =====
+// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, 3 НАБОРА, БЕЗ ЗАЦИКЛИВАНИЯ) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -185,6 +188,7 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
+    // ===== ЛЕНТА (3 НАБОРА ДЛЯ БЕСКОНЕЧНОСТИ) =====
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
@@ -219,7 +223,7 @@ function showPreviewTape(type) {
         ">${p}⭐</div>`);
     });
     const firstSet = cards.join('');
-    track.innerHTML = firstSet + firstSet;
+    track.innerHTML = firstSet + firstSet + firstSet;
 
     viewport.appendChild(track);
 
@@ -229,7 +233,7 @@ function showPreviewTape(type) {
         scrollStyle.textContent = `
             @keyframes scrollTapeInfinite {
                 0% { transform: translateX(0); }
-                100% { transform: translateX(-50%); }
+                100% { transform: translateX(-33.33%); }
             }
         `;
         document.head.appendChild(scrollStyle);
@@ -558,7 +562,6 @@ function startFinalSpin(type) {
 }
 
 function showResultAndClaim(type, targetPrize, style, track, winPosition) {
-    // Подсветка выигрыша
     const cards = track.querySelectorAll('.card');
     cards.forEach(el => {
         el.style.background = 'rgba(255,255,255,0.04)';
@@ -823,3 +826,4 @@ function showWithdraw() {
 
 loadBalance();
 tg.ready();
+```
