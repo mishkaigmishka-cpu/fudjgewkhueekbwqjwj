@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (СКОРОСТЬ УВЕЛИЧЕНА В 2 РАЗА: 6.7 / 2 = 3.35с) =====
+// ===== ПРЕДПРОСМОТР (СКОРОСТЬ УВЕЛИЧЕНА В 3 РАЗА: 3.35 / 3 = 1.1с) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -192,7 +192,7 @@ function showPreviewTape(type) {
         gap: 8px;
         padding: 16px 0;
         will-change: transform;
-        animation: scrollTape 3.35s linear infinite;
+        animation: scrollTape 1.1s linear infinite;
         width: auto;
         position: relative;
         top: 10px;
@@ -643,7 +643,16 @@ async function openCaseReal(type, finalPrize) {
 }
 
 function closeTape() {
-    if (_tapeContainer) { _tapeContainer.remove(); _tapeContainer = null; }
+    if (_tapeContainer) {
+        // Останавливаем анимацию перед удалением
+        const track = _tapeContainer.querySelector('#track');
+        if (track) {
+            track.style.animation = 'none';
+            track.style.transition = 'none';
+        }
+        _tapeContainer.remove();
+        _tapeContainer = null;
+    }
     _isOpening = false;
 }
 
@@ -668,7 +677,6 @@ function closeResult() {
     if (againBtn) againBtn.style.display = 'none';
     if (adBlock) adBlock.style.display = 'none';
     
-    // Очищаем содержимое, чтобы при следующем открытии не было старых данных
     if (prizeDisplay) prizeDisplay.textContent = '';
     if (prizeName) prizeName.textContent = '';
     if (prizeValue) prizeValue.textContent = '';
