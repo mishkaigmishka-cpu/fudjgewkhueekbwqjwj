@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, БЕСКОНЕЧНАЯ ЛЕНТА) =====
+// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, БЕСКОНЕЧНАЯ ЛЕНТА, СКОРОСТЬ 1.1С) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -185,7 +185,7 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    // ===== ВСЕ НАГРАДЫ (3 ПОВТОРА ДЛЯ БЕСКОНЕЧНОСТИ) =====
+    // ===== БЕСКОНЕЧНАЯ ЛЕНТА (3 ПОВТОРА, СКОРОСТЬ 1.1С) =====
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
@@ -193,7 +193,7 @@ function showPreviewTape(type) {
         gap: 8px;
         padding: 16px 0;
         will-change: transform;
-        animation: scrollTapeInfinite 2.2s linear infinite;
+        animation: scrollTapeInfinite 1.1s linear infinite;
         width: auto;
         position: relative;
         top: 10px;
@@ -559,7 +559,7 @@ function startFinalSpin(type) {
     }, 7000);
 }
 
-// ===== КРАСИВАЯ ВСПЫШКА С ВЫИГРЫШЕМ (ЧЕРЕЗ 0.3С) =====
+// ===== ВСПЫШКА С ВЫИГРЫШЕМ + КНОПКИ =====
 function showResultAndClaim(type, targetPrize, style, track, winPosition) {
     // Подсветка выигрыша
     const cards = track.querySelectorAll('.card');
@@ -578,80 +578,126 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         winCard.style.textShadow = `0 0 30px ${style.highlightColor}`;
     }
 
-    // ===== КРАСИВАЯ ВСПЫШКА =====
+    // ===== ВСПЫШКА С ВЫИГРЫШЕМ (БЕЗ АНИМАЦИИ) =====
     setTimeout(() => {
-        // Золотая вспышка с текстом
-        const flashOverlay = document.createElement('div');
-        flashOverlay.style.cssText = `
+        // Создаём контейнер для результата
+        const resultContainer = document.createElement('div');
+        resultContainer.id = 'resultContainer';
+        resultContainer.style.cssText = `
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(circle at center, rgba(255,215,0,0.8), rgba(255,215,0,0.2), transparent 60%);
-            z-index: 1000;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(20px);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            animation: flashGold 0.6s ease-out forwards;
-            pointer-events: none;
+            z-index: 1000;
+            padding: 30px;
+            animation: fadeIn 0.3s ease;
         `;
 
+        // Текст выигрыша
         const winText = document.createElement('div');
         winText.style.cssText = `
-            font-size: 52px;
+            font-size: 64px;
             font-weight: 900;
             color: #FFD700;
-            text-shadow: 0 0 40px rgba(255,215,0,0.8), 0 0 80px rgba(255,215,0,0.4), 0 4px 20px rgba(0,0,0,0.3);
-            animation: winPulse 0.8s ease-out forwards;
+            text-shadow: 0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,215,0,0.3);
+            margin-bottom: 10px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             text-align: center;
-            letter-spacing: 2px;
         `;
-        winText.innerHTML = `🎉 ${targetPrize} ⭐`;
+        winText.textContent = `⭐ ${targetPrize}`;
 
         const subText = document.createElement('div');
         subText.style.cssText = `
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 600;
             color: #FFF8E7;
-            text-shadow: 0 0 20px rgba(255,215,0,0.4);
-            margin-top: 8px;
-            animation: winPulse 0.8s ease-out forwards;
-            opacity: 0.9;
+            text-shadow: 0 0 20px rgba(255,215,0,0.3);
+            margin-bottom: 30px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         `;
         subText.textContent = 'Ты выиграл!';
 
-        flashOverlay.appendChild(winText);
-        flashOverlay.appendChild(subText);
-        document.body.appendChild(flashOverlay);
+        // ===== КНОПКИ =====
+        const btnContainer = document.createElement('div');
+        btnContainer.style.cssText = `
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        `;
 
-        // Стили для анимации
-        if (!document.getElementById('flashGoldStyle')) {
-            const flashStyle = document.createElement('style');
-            flashStyle.id = 'flashGoldStyle';
-            flashStyle.textContent = `
-                @keyframes flashGold {
-                    0% { opacity: 0; transform: scale(0.8); }
-                    30% { opacity: 1; transform: scale(1.1); }
-                    70% { opacity: 1; transform: scale(1); }
-                    100% { opacity: 0; transform: scale(1.2); }
-                }
-                @keyframes winPulse {
-                    0% { opacity: 0; transform: scale(0.5); }
-                    30% { opacity: 1; transform: scale(1.2); }
-                    60% { transform: scale(1); }
-                    100% { opacity: 1; transform: scale(1); }
-                }
-            `;
-            document.head.appendChild(flashStyle);
-        }
+        // Кнопка "Открыть ещё" с ценой
+        const price = getPrice(type);
+        const againBtn = document.createElement('button');
+        againBtn.textContent = `🎲 Открыть ещё (${price}⭐)`;
+        againBtn.style.cssText = `
+            background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
+            color: #fff;
+            border: none;
+            padding: 14px 36px;
+            border-radius: 14px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 30px ${style.shadowColor};
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            min-width: 160px;
+        `;
+        againBtn.onmouseover = function() {
+            this.style.transform = 'scale(1.05)';
+            this.style.boxShadow = `0 6px 40px ${style.shadowColor}`;
+        };
+        againBtn.onmouseout = function() {
+            this.style.transform = 'scale(1)';
+            this.style.boxShadow = `0 4px 30px ${style.shadowColor}`;
+        };
+        againBtn.onclick = function() {
+            resultContainer.remove();
+            // Закрываем рулетку и открываем заново
+            closeTape();
+            setTimeout(() => {
+                openCaseDirect(type);
+            }, 300);
+        };
 
-        // Удаляем вспышку через 0.8с
-        setTimeout(() => {
-            flashOverlay.remove();
-        }, 800);
+        // Кнопка "Назад"
+        const backBtn = document.createElement('button');
+        backBtn.textContent = '🔙 Назад';
+        backBtn.style.cssText = `
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 14px 36px;
+            border-radius: 14px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 160px;
+        `;
+        backBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.15)'; };
+        backBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.08)'; };
+        backBtn.onclick = function() {
+            resultContainer.remove();
+            closeTape();
+            // Возвращаемся на главный экран
+            showMain();
+        };
 
-        // ===== НАЧИСЛЕНИЕ НАГРАДЫ =====
+        btnContainer.appendChild(againBtn);
+        btnContainer.appendChild(backBtn);
+
+        resultContainer.appendChild(winText);
+        resultContainer.appendChild(subText);
+        resultContainer.appendChild(btnContainer);
+        document.body.appendChild(resultContainer);
+
+        // Начисление награды
         setTimeout(async () => {
             try {
                 const res = await fetch('/open_case', {
@@ -672,14 +718,9 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
             } catch(e) {
                 tg.showAlert('❌ Ошибка при открытии кейса');
             }
-            
-            // Закрываем рулетку
-            setTimeout(() => {
-                closeTape();
-            }, 1500);
         }, 300);
 
-    }, 300); // <-- УСКОРЕНО ДО 0.3С
+    }, 300);
 }
 
 function closeTape() {
@@ -693,15 +734,6 @@ function closeTape() {
         _tapeContainer = null;
     }
     _isOpening = false;
-}
-
-function openAgain() {
-    closeResult();
-    if (lastOpenedCase) {
-        setTimeout(() => {
-            openCaseDirect(lastOpenedCase);
-        }, 300);
-    }
 }
 
 function closeResult() {
