@@ -373,7 +373,6 @@ def open_case():
             wait = int((7200 - (time.time() - user[4])) // 60)
             return jsonify({'error': f'Жди {wait} мин'}), 400
         
-        # ===== ИСПОЛЬЗУЕМ НАГРАДУ ОТ КЛИЕНТА =====
         if prize_from_client is not None:
             prize = prize_from_client
         else:
