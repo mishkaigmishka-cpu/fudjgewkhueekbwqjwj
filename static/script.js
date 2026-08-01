@@ -145,6 +145,9 @@ function openCaseDirect(type) {
             _currentPrize = prize;
             closeTape();
             showFullScreenTape(type, true);
+            setTimeout(() => {
+                startFinalSpin(type);
+            }, 300);
         });
     });
 }
@@ -304,7 +307,7 @@ function showFullScreenTape(type, isOpening) {
     const btnContainer = document.createElement('div');
     btnContainer.style.cssText = `display:flex; gap:16px; flex-wrap:wrap; justify-content:center;`;
 
-    // ===== КНОПКА «ОТКРЫТЬ» ВСЕГДА (ЕСЛИ ХВАТАЕТ БАЛАНСА) =====
+    // ===== КНОПКА «ОТКРЫТЬ» ВСЕГДА (НО ЗАПУСКАЕТ ТОЛЬКО С `_currentPrize`) =====
     const userBalance = parseInt(document.getElementById('balance').textContent.replace('⭐ ', ''));
     const hasEnough = userBalance >= price;
 
@@ -326,7 +329,6 @@ function showFullScreenTape(type, isOpening) {
             min-width: 200px;
         `;
         openBtn.onclick = function() {
-            // Проверяем баланс и запускаем открытие
             checkBalance(type).then(canOpen => {
                 if (!canOpen) return;
                 fetchRealPrize(type).then(prize => {
@@ -334,10 +336,9 @@ function showFullScreenTape(type, isOpening) {
                     _currentPrize = prize;
                     closeTape();
                     showFullScreenTape(type, true);
-                    // Запускаем анимацию через небольшую задержку
                     setTimeout(() => {
                         startFinalSpin(type);
-                    }, 500);
+                    }, 300);
                 });
             });
         };
@@ -411,7 +412,14 @@ function startFinalSpin(type) {
 
     const tapeContent = document.getElementById('tapeContent');
     
+    // ===== ИСПОЛЬЗУЕМ `_currentPrize`, КОТОРЫЙ БЫЛ ПОЛУЧЕН ОТ СЕРВЕРА =====
     const targetPrize = _currentPrize;
+    if (targetPrize === null) {
+        tg.showAlert('❌ Ошибка: награда не получена');
+        closeTape();
+        return;
+    }
+    
     const prizeIndex = prizes.indexOf(targetPrize);
     if (prizeIndex === -1) {
         tg.showAlert('❌ Ошибка: награда не найдена в списке');
