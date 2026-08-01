@@ -53,6 +53,23 @@ function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
 function getPrice(type) { return CASE_PRICES[type] || 0; }
 
+// ===== ФУНКЦИЯ ОБНОВЛЕНИЯ БАЛАНСА В ИКОНКЕ =====
+function updateBalanceDisplay() {
+    const balanceEl = document.getElementById('balance');
+    const balanceValueEl = document.getElementById('balanceValue');
+    const profileBalanceEl = document.getElementById('profileBalance');
+    const balanceFromHeader = document.getElementById('balance')?.textContent || '⭐ 0';
+    
+    // Обновляем все элементы баланса
+    if (balanceEl) {
+        const currentBalance = balanceEl.textContent.replace('⭐ ', '');
+        // Обновляем иконку баланса в хедере (она уже обновится через loadBalance)
+    }
+    // Принудительно вызываем loadBalance для синхронизации
+    loadBalance();
+}
+
+// ===== ОБНОВЛЯЕМ loadBalance, ЧТОБЫ ОНА ОБНОВЛЯЛА ВСЕ ЭЛЕМЕНТЫ =====
 async function loadBalance() {
     try {
         const res = await fetch('/get_balance', {
@@ -62,13 +79,27 @@ async function loadBalance() {
         });
         const data = await res.json();
         if (data.balance !== undefined) {
-            document.getElementById('balance').textContent = '⭐ ' + data.balance;
-            document.getElementById('balanceValue').textContent = data.balance + ' ⭐';
-            document.getElementById('profileBalance').textContent = data.balance;
-            document.getElementById('profileCases').textContent = data.total_cases;
-            document.getElementById('profileStatus').textContent = data.status;
-            document.getElementById('profileRefs').textContent = data.refs;
-            document.getElementById('inviteLink').value = 'https://t.me/Randevucase_bot?start=' + user_id;
+            const balanceEl = document.getElementById('balance');
+            const balanceValueEl = document.getElementById('balanceValue');
+            const profileBalanceEl = document.getElementById('profileBalance');
+            const profileCasesEl = document.getElementById('profileCases');
+            const profileStatusEl = document.getElementById('profileStatus');
+            const profileRefsEl = document.getElementById('profileRefs');
+            const inviteLinkEl = document.getElementById('inviteLink');
+            
+            if (balanceEl) balanceEl.textContent = '⭐ ' + data.balance;
+            if (balanceValueEl) balanceValueEl.textContent = data.balance + ' ⭐';
+            if (profileBalanceEl) profileBalanceEl.textContent = data.balance;
+            if (profileCasesEl) profileCasesEl.textContent = data.total_cases;
+            if (profileStatusEl) profileStatusEl.textContent = data.status;
+            if (profileRefsEl) profileRefsEl.textContent = data.refs;
+            if (inviteLinkEl) inviteLinkEl.value = 'https://t.me/Randevucase_bot?start=' + user_id;
+            
+            // Обновляем баланс в открытых окнах (если они есть)
+            const balanceDisplays = document.querySelectorAll('.balance-display, #resultContainer .balance-display');
+            balanceDisplays.forEach(el => {
+                if (el) el.textContent = '💰 ⭐ ' + data.balance;
+            });
         }
     } catch(e) { console.error(e); }
 }
@@ -115,7 +146,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, 2.475С, БАЛАНС) =====
+// ===== ПРЕДПРОСМОТР (УВЕЛИЧЕН В 1.5 РАЗА, ВСЕ НАГРАДЫ ПОСТЕПЕННО) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -172,6 +203,7 @@ function showPreviewTape(type) {
     tapeContainer.appendChild(title);
 
     const balanceDisplay = document.createElement('div');
+    balanceDisplay.className = 'balance-display';
     balanceDisplay.style.cssText = `
         position: absolute;
         top: 20px;
@@ -187,28 +219,30 @@ function showPreviewTape(type) {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         z-index: 10;
     `;
-    balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
+    const currentBalance = document.getElementById('balance')?.textContent || '⭐ 0';
+    balanceDisplay.textContent = `💰 ${currentBalance}`;
     tapeContainer.appendChild(balanceDisplay);
 
+    // ===== УВЕЛИЧЕННЫЙ VIEWPORT (В 1.5 РАЗА) =====
     const viewport = document.createElement('div');
     viewport.style.cssText = `
         width: 95%;
-        max-width: 1200px;
+        max-width: 900px;
         overflow: hidden;
         position: relative;
         border-radius: 16px;
         border: 1px solid rgba(255,255,255,0.06);
         background: rgba(0,0,0,0.3);
-        height: 150px;
+        height: 180px;
         margin: 0 auto;
         flex-shrink: 0;
     `;
 
-    const cardWidth = 70;
-    const cardGap = 4;
+    const cardWidth = 100;
+    const cardGap = 8;
     const totalItems = prizes.length;
     const totalWidth = totalItems * (cardWidth + cardGap);
-    const viewportWidth = 1200;
+    const viewportWidth = 900;
     const shift = totalWidth - viewportWidth + 20;
 
     const track = document.createElement('div');
@@ -216,7 +250,7 @@ function showPreviewTape(type) {
     track.style.cssText = `
         display: flex;
         gap: ${cardGap}px;
-        padding: 16px 0;
+        padding: 20px 0;
         will-change: transform;
         animation: scrollTapeAlternate 2.475s ease-in-out infinite alternate;
         position: relative;
@@ -226,23 +260,22 @@ function showPreviewTape(type) {
     let cards = [];
     prizes.forEach((p, index) => {
         const isLarge = p > 1000;
-        const fontSize = isLarge ? '12px' : '14px';
+        const fontSize = isLarge ? '18px' : '22px';
         cards.push(`<div class="card" data-value="${p}" style="
             width: ${cardWidth}px;
-            height: 110px;
+            height: 130px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             background: rgba(255,255,255,0.04);
-            border-radius: 8px;
+            border-radius: 12px;
             border: 1px solid rgba(255,255,255,0.06);
             font-size: ${fontSize};
             font-weight: 700;
             color: ${style.itemColor};
             text-shadow: 0 0 20px ${style.glowColor};
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            padding: 0 2px;
         ">${p}⭐</div>`);
     });
     track.innerHTML = cards.join('');
@@ -278,7 +311,7 @@ function showPreviewTape(type) {
     const btnContainer = document.createElement('div');
     btnContainer.style.cssText = `display:flex; gap:14px; flex-wrap:wrap; justify-content:center;`;
 
-    const userBalance = parseInt(document.getElementById('balance').textContent.replace('⭐ ', ''));
+    const userBalance = parseInt(document.getElementById('balance')?.textContent.replace('⭐ ', '') || '0');
     const hasEnough = userBalance >= price;
 
     if (hasEnough) {
@@ -618,6 +651,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         `;
 
         const balanceDisplay = document.createElement('div');
+        balanceDisplay.className = 'balance-display';
         balanceDisplay.style.cssText = `
             position: absolute;
             top: 20px;
@@ -632,7 +666,8 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
             backdrop-filter: blur(10px);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         `;
-        balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
+        const currentBalance = document.getElementById('balance')?.textContent || '⭐ 0';
+        balanceDisplay.textContent = `💰 ${currentBalance}`;
         resultContainer.appendChild(balanceDisplay);
 
         const winText = document.createElement('div');
@@ -694,6 +729,8 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         againBtn.onclick = function() {
             resultContainer.remove();
             closeTape();
+            // Обновляем баланс после закрытия
+            loadBalance();
             setTimeout(() => {
                 openCaseDirect(type);
             }, 300);
@@ -718,6 +755,8 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         backBtn.onclick = function() {
             resultContainer.remove();
             closeTape();
+            // Обновляем баланс после закрытия
+            loadBalance();
             showMain();
         };
 
@@ -729,6 +768,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         resultContainer.appendChild(btnContainer);
         document.body.appendChild(resultContainer);
 
+        // ===== НАЧИСЛЕНИЕ И ОБНОВЛЕНИЕ БАЛАНСА =====
         setTimeout(async () => {
             try {
                 const res = await fetch('/open_case', {
@@ -744,10 +784,13 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
                 if (data.error) {
                     tg.showAlert('❌ ' + data.error);
                 } else {
-                    loadBalance();
-                    const balanceEl = resultContainer.querySelector('div[style*="position: absolute"]');
+                    // Обновляем баланс сразу после начисления
+                    await loadBalance();
+                    // Обновляем баланс в контейнере результата
+                    const balanceEl = resultContainer.querySelector('.balance-display');
                     if (balanceEl) {
-                        balanceEl.textContent = `💰 ${document.getElementById('balance').textContent}`;
+                        const newBalance = document.getElementById('balance')?.textContent || '⭐ 0';
+                        balanceEl.textContent = `💰 ${newBalance}`;
                     }
                 }
             } catch(e) {
@@ -846,5 +889,6 @@ function showWithdraw() {
     .catch(() => tg.showAlert('❌ Ошибка соединения'));
 }
 
+// ===== ИНИЦИАЛИЗАЦИЯ =====
 loadBalance();
 tg.ready();
