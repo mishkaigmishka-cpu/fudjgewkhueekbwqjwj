@@ -13,8 +13,8 @@ let _tapeContainer = null;
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
     'mud': [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 16, 18, 20, 22, 24, 27, 50, 500],
-    'wood': [2, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15, 20, 50, 100, 500, 1000, 10000],
-    'stone': [11, 13, 15, 16, 17, 18, 19, 21, 23, 24, 25, 30, 50, 100, 250, 500, 1000, 2500, 25000],
+    'wood': [2, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15, 20, 50, 100, 500, 1000],
+    'stone': [11, 13, 15, 16, 17, 18, 19, 21, 23, 24, 25, 30, 50, 100, 250, 500, 1000, 2500],
     'bronze': [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 100, 222, 333, 444, 555, 1000, 1500, 2000, 5000],
     'silver': [40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 200, 250, 333, 444, 555, 666, 777, 888, 999, 1488, 2011, 5000, 10000],
     'gold': [75, 100, 150, 169, 190, 220, 251, 300, 400, 500, 777, 999, 1000, 2000, 5000, 10000, 12500, 25000],
@@ -115,7 +115,6 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ ВИДНЫ, 7.875С) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -355,7 +354,6 @@ function showPreviewTape(type) {
     document.body.appendChild(tapeContainer);
 }
 
-// ===== ОТКРЫТИЕ КЕЙСА (СТАНДАРТНЫЙ МАСШТАБ) =====
 function openCaseDirect(type) {
     if (_isOpening) return;
     _isOpening = true;
@@ -519,7 +517,6 @@ function startFinalSpin(type) {
         return;
     }
 
-    // ===== СТАНДАРТНЫЙ МАСШТАБ =====
     const cardWidth = 130;
     const cardGap = 8;
     const totalCardWidth = cardWidth + cardGap;
