@@ -42,7 +42,6 @@ conn.commit()
 
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
 
-# ===== ОБНОВЛЁННЫЕ ШАНСЫ =====
 CASE_RANGES = {
     "free": {
         "common": (1, 2), "rare": (3, 4), "epic": (5, 10), "legendary": (100, 100), "jackpot": (1000, 1000),
@@ -192,7 +191,7 @@ def topup_callback(call):
     bot.answer_callback_query(call.id)
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("🔙 Назад", callback_data="cancel_topup"))
-    msg = bot.send_message(call.message.chat.id, "💳 Введите сумму пополнения (от 50 до 5000⭐):", reply_markup=kb)
+    msg = bot.send_message(call.message.chat.id, "💳 Введите сумму пополнения (от 1 до 5000⭐):", reply_markup=kb)
     bot.register_next_step_handler(msg, process_topup_amount, msg.message_id)
 
 def process_topup_amount(message, msg_id):
@@ -202,8 +201,8 @@ def process_topup_amount(message, msg_id):
     except:
         bot.edit_message_text("❌ Введите число!", chat_id=uid, message_id=msg_id)
         return
-    if amount < 50 or amount > 5000:
-        bot.edit_message_text("❌ Сумма должна быть от 50 до 5000⭐!", chat_id=uid, message_id=msg_id)
+    if amount < 1 or amount > 5000:
+        bot.edit_message_text("❌ Сумма должна быть от 1 до 5000⭐!", chat_id=uid, message_id=msg_id)
         return
     bot.edit_message_text("💰 Ожидайте оплаты...", chat_id=uid, message_id=msg_id)
     bot.send_invoice(chat_id=uid, title=f"Пополнение на {amount}⭐", description=f"Ты получишь {amount} звёзд.", invoice_payload=f"stars_{uid}_{int(time.time())}", provider_token="", currency="XTR", prices=[LabeledPrice(label=f"{amount} Stars", amount=amount)], start_parameter="buy_stars")
@@ -324,7 +323,6 @@ def webhook():
         return ''
     return '', 400
 
-# ===== НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ РЕАЛЬНОЙ НАГРАДЫ =====
 @app.route('/get_prize', methods=['POST'])
 def get_prize_endpoint():
     data = request.get_json()
@@ -359,26 +357,40 @@ def open_case():
         data = request.get_json()
         user_id = data.get('user_id')
         case_type = data.get('case_type')
+        prize_from_client = data.get('prize')
+        
         user = get_user(user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 404
+            
         prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
         price = prices.get(case_type, 0)
+        
         if user[1] < price:
             return jsonify({'error': 'Недостаточно звёзд!'}), 400
+            
         if case_type == "free" and time.time() - user[4] < 7200:
             wait = int((7200 - (time.time() - user[4])) // 60)
             return jsonify({'error': f'Жди {wait} мин'}), 400
-        prize = get_prize(case_type)
+        
+        # ===== ИСПОЛЬЗУЕМ НАГРАДУ ОТ КЛИЕНТА =====
+        if prize_from_client is not None:
+            prize = prize_from_client
+        else:
+            prize = get_prize(case_type)
+        
         new_bal = user[1] - price + prize
         new_total = user[2] + 1
         new_streak = user[3] + 1
+        
         if case_type == "free":
             update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
         else:
             update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak)
+            
         update_status(user_id, new_total)
         ad = random.choice(ads) if case_type == "free" and ads else ""
+        
         return jsonify({'prize': prize, 'new_balance': new_bal, 'ad': ad})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
