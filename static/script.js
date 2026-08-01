@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ВПЕРЁД → НАЗАД, СКОРОСТЬ 1.1С) =====
+// ===== ПРЕДПРОСМОТР (БАЛАНС СВЕРХУ, СКОРОСТЬ 1.1С) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -171,6 +171,26 @@ function showPreviewTape(type) {
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
+    // ===== БАЛАНС СВЕРХУ СПРАВА =====
+    const balanceDisplay = document.createElement('div');
+    balanceDisplay.style.cssText = `
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(255,255,255,0.08);
+        padding: 10px 20px;
+        border-radius: 30px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #FFD700;
+        border: 1px solid rgba(255,215,0,0.2);
+        backdrop-filter: blur(10px);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        z-index: 10;
+    `;
+    balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
+    tapeContainer.appendChild(balanceDisplay);
+
     const viewport = document.createElement('div');
     viewport.style.cssText = `
         width: 90%;
@@ -185,12 +205,18 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    // ===== ЛЕНТА (ВПЕРЁД → НАЗАД, 1.1С) =====
+    const cardWidth = 130;
+    const cardGap = 8;
+    const totalItems = prizes.length;
+    const totalWidth = totalItems * (cardWidth + cardGap);
+    const viewportWidth = 700;
+    const shift = totalWidth - viewportWidth + 20;
+
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
         display: flex;
-        gap: 8px;
+        gap: ${cardGap}px;
         padding: 16px 0;
         will-change: transform;
         animation: scrollTapeAlternate 1.1s ease-in-out infinite alternate;
@@ -203,7 +229,7 @@ function showPreviewTape(type) {
         const isLarge = p > 1000;
         const fontSize = isLarge ? '22px' : '28px';
         cards.push(`<div class="card" data-value="${p}" style="
-            width: 130px;
+            width: ${cardWidth}px;
             height: 110px;
             flex-shrink: 0;
             display: flex;
@@ -222,11 +248,6 @@ function showPreviewTape(type) {
     track.innerHTML = cards.join('');
 
     viewport.appendChild(track);
-
-    // Динамический расчёт сдвига
-    const trackWidth = track.scrollWidth;
-    const viewportWidth = viewport.offsetWidth || 700;
-    const shift = trackWidth - viewportWidth;
 
     if (!document.getElementById('previewScrollStyle')) {
         const scrollStyle = document.createElement('style');
