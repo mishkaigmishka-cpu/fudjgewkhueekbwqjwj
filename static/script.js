@@ -394,8 +394,19 @@ function startFinalSpin(type) {
         return;
     }
     
-    const prizeIndex = prizes.indexOf(targetPrize);
-    if (prizeIndex === -1) {
+    // ===== НАХОДИМ ИНДЕКС ЧЕРЕЗ data-value (БЕЗ indexOf) =====
+    const allItems = document.querySelectorAll('.prize-item');
+    let prizeIndex = -1;
+    let targetElement = null;
+    
+    allItems.forEach((el, idx) => {
+        if (parseInt(el.dataset.value) === targetPrize && prizeIndex === -1) {
+            prizeIndex = idx;
+            targetElement = el;
+        }
+    });
+    
+    if (prizeIndex === -1 || !targetElement) {
         tg.showAlert('❌ Ошибка: награда не найдена в списке');
         closeTape();
         return;
@@ -421,7 +432,6 @@ function startFinalSpin(type) {
         if (timestamp - lastHighlightTime > 80) {
             lastHighlightTime = timestamp;
             
-            const allItems = document.querySelectorAll('.prize-item');
             const randomIdx = Math.floor(Math.random() * prizes.length);
             const target = document.querySelector(`.prize-item[data-index="${randomIdx}"]`);
 
@@ -443,76 +453,93 @@ function startFinalSpin(type) {
         } else {
             _rafId = null;
             
+            // ===== ПЛАВНАЯ ОСТАНОВКА =====
             tapeContent.style.animation = 'none';
-            tapeContent.style.transition = 'transform 2.0s cubic-bezier(0.1, 0.9, 0.2, 1)';
-
-            const targetItem = document.querySelector(`.prize-item[data-index="${prizeIndex}"]`);
-
-            if (targetItem) {
-                document.querySelectorAll('.prize-item').forEach(el => {
-                    el.style.color = style.itemColor;
-                    el.style.textShadow = `0 0 15px ${style.glowColor}`;
-                    el.style.transition = 'all 0.4s ease';
-                });
+            
+            // ===== ВЫЧИСЛЯЕМ ПОЗИЦИЮ ДЛЯ СКРОЛЛА =====
+            const containerWidth = tapeTrack?.offsetWidth || 400;
+            const itemWidth = 140;
+            const gap = 60;
+            const totalItemWidth = itemWidth + gap;
+            
+            // Находим позицию элемента в ленте (учитывая повторы)
+            const repeatOffset = 4; // 8 повторов, центр — 4-й повтор
+            const scrollPosition = (prizeIndex % prizes.length) * totalItemWidth + 
+                                  (repeatOffset * prizes.length * totalItemWidth) - 
+                                  containerWidth / 2 + itemWidth / 2;
+            
+            // ===== ПЛАВНЫЙ СКРОЛЛ =====
+            const startPos = parseFloat(tapeContent.style.transform?.replace('translateX(-', '') || '0');
+            const endPos = Math.max(0, scrollPosition);
+            const duration = 1500; // 1.5 секунды
+            const startTime = performance.now();
+            
+            function smoothScroll(time) {
+                const elapsed = time - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                // easeInOutCubic
+                const eased = progress < 0.5 
+                    ? 4 * progress * progress * progress 
+                    : 1 - Math.pow(-2 * progress + 2, 3) / 2;
                 
-                targetItem.style.color = '#FFFFFF';
-                targetItem.style.textShadow = `
-                    0 0 60px ${style.highlightColor},
-                    0 0 120px ${style.highlightColor},
-                    0 0 200px ${style.highlightColor}80
-                `;
-                targetItem.style.transition = 'all 0.6s ease';
-
-                const arrowTop = document.getElementById('arrowTop');
-                const arrowBottom = document.getElementById('arrowBottom');
-                if (arrowTop) {
-                    arrowTop.style.color = '#FFFFFF';
-                    arrowTop.style.textShadow = `0 0 60px ${style.highlightColor}`;
-                    arrowTop.style.transform = 'scale(1.4)';
-                    arrowTop.style.transition = 'all 0.6s ease';
-                }
-                if (arrowBottom) {
-                    arrowBottom.style.color = '#FFFFFF';
-                    arrowBottom.style.textShadow = `0 0 60px ${style.highlightColor}`;
-                    arrowBottom.style.transform = 'scale(1.4)';
-                    arrowBottom.style.transition = 'all 0.6s ease';
-                }
-
-                const containerWidth = tapeContainer.querySelector('.tape-track')?.offsetWidth || 400;
-                const itemWidth = 140;
-                const gap = 60;
-                const scrollPosition = prizeIndex * (itemWidth + gap) * 4 - containerWidth / 2 + itemWidth / 2;
-                tapeContent.style.transform = `translateX(-${Math.max(0, scrollPosition)}px)`;
-
-                setTimeout(() => {
-                    tapeContent.innerHTML = `
-                        <span style="color:${style.highlightColor}; font-size:100px; text-shadow: 0 0 80px ${style.highlightColor}, 0 0 160px ${style.highlightColor}, 0 0 240px ${style.highlightColor}80; font-weight:900; transition: all 0.6s ease;">
-                            ${targetPrize}⭐
-                        </span>
-                    `;
-                    if (arrowTop) arrowTop.style.display = 'none';
-                    if (arrowBottom) arrowBottom.style.display = 'none';
+                const currentPos = startPos + (endPos - startPos) * eased;
+                tapeContent.style.transform = `translateX(-${currentPos}px)`;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(smoothScroll);
+                } else {
+                    tapeContent.style.transform = `translateX(-${endPos}px)`;
                     
+                    // ===== ПОДСВЕТКА ВЫИГРЫША =====
+                    allItems.forEach(el => {
+                        el.style.color = style.itemColor;
+                        el.style.textShadow = `0 0 15px ${style.glowColor}`;
+                        el.style.transition = 'all 0.4s ease';
+                    });
+                    
+                    targetElement.style.color = '#FFFFFF';
+                    targetElement.style.textShadow = `
+                        0 0 60px ${style.highlightColor},
+                        0 0 120px ${style.highlightColor},
+                        0 0 200px ${style.highlightColor}80
+                    `;
+                    targetElement.style.transition = 'all 0.6s ease';
+
+                    const arrowTop = document.getElementById('arrowTop');
+                    const arrowBottom = document.getElementById('arrowBottom');
+                    if (arrowTop) {
+                        arrowTop.style.color = '#FFFFFF';
+                        arrowTop.style.textShadow = `0 0 60px ${style.highlightColor}`;
+                        arrowTop.style.transform = 'scale(1.4)';
+                        arrowTop.style.transition = 'all 0.6s ease';
+                    }
+                    if (arrowBottom) {
+                        arrowBottom.style.color = '#FFFFFF';
+                        arrowBottom.style.textShadow = `0 0 60px ${style.highlightColor}`;
+                        arrowBottom.style.transform = 'scale(1.4)';
+                        arrowBottom.style.transition = 'all 0.6s ease';
+                    }
+
                     setTimeout(() => {
-                        tapeContainer.remove();
-                        _tapeContainer = null;
-                        _isOpening = false;
-                        openCaseReal(type, targetPrize);
-                    }, 1400);
-                }, 1800);
-            } else {
-                tapeContent.innerHTML = `
-                    <span style="color:${style.highlightColor}; font-size:100px; text-shadow: 0 0 80px ${style.highlightColor}, 0 0 160px ${style.highlightColor}, 0 0 240px ${style.highlightColor}80; font-weight:900;">
-                        ${targetPrize}⭐
-                    </span>
-                `;
-                setTimeout(() => {
-                    tapeContainer.remove();
-                    _tapeContainer = null;
-                    _isOpening = false;
-                    openCaseReal(type, targetPrize);
-                }, 1400);
+                        tapeContent.innerHTML = `
+                            <span style="color:${style.highlightColor}; font-size:100px; text-shadow: 0 0 80px ${style.highlightColor}, 0 0 160px ${style.highlightColor}, 0 0 240px ${style.highlightColor}80; font-weight:900; transition: all 0.6s ease;">
+                                ${targetPrize}⭐
+                            </span>
+                        `;
+                        if (arrowTop) arrowTop.style.display = 'none';
+                        if (arrowBottom) arrowBottom.style.display = 'none';
+                        
+                        setTimeout(() => {
+                            tapeContainer.remove();
+                            _tapeContainer = null;
+                            _isOpening = false;
+                            openCaseReal(type, targetPrize);
+                        }, 1400);
+                    }, 1800);
+                }
             }
+            
+            requestAnimationFrame(smoothScroll);
         }
     }
 
