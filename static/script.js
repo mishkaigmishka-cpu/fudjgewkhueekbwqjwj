@@ -211,6 +211,7 @@ function showFullScreenTape(type, isOpening) {
         position: relative;
     `;
 
+    // ===== СТРЕЛКИ (БЕЗ АНИМАЦИИ) =====
     const arrowTop = document.createElement('div');
     arrowTop.id = 'arrowTop';
     arrowTop.style.cssText = `
@@ -218,9 +219,8 @@ function showFullScreenTape(type, isOpening) {
         font-size: 44px;
         line-height: 1;
         text-shadow: 0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}40;
-        transition: all 0.15s ease;
         margin-bottom: 6px;
-        opacity: 1;
+        opacity: 0.9;
     `;
     arrowTop.textContent = '▼';
 
@@ -289,9 +289,8 @@ function showFullScreenTape(type, isOpening) {
         font-size: 44px;
         line-height: 1;
         text-shadow: 0 0 30px ${style.highlightColor}, 0 0 60px ${style.highlightColor}40;
-        transition: all 0.15s ease;
         margin-top: 6px;
-        opacity: 1;
+        opacity: 0.9;
     `;
     arrowBottom.textContent = '▲';
 
@@ -407,8 +406,8 @@ function startFinalSpin(type) {
     tapeContent.style.animationDuration = '0.2s';
     tapeContent.style.animationTimingFunction = 'linear';
     
-    const maxDuration = 6.0;
-    const totalTime = 9000;
+    const maxDuration = 7.0;     // ЕЩЁ МЕДЛЕННЕЕ В КОНЦЕ
+    const totalTime = 10000;     // 10 СЕКУНД
     _startTime = performance.now();
     let lastHighlightTime = 0;
 
@@ -417,8 +416,8 @@ function startFinalSpin(type) {
         const elapsed = timestamp - _startTime;
         const progress = Math.min(elapsed / totalTime, 1);
         
-        // ===== ПЛАВНОЕ ЗАМЕДЛЕНИЕ (easeOutQuart) =====
-        const eased = 1 - Math.pow(1 - progress, 4);
+        // ===== ОЧЕНЬ ПЛАВНОЕ ЗАМЕДЛЕНИЕ (easeOutQuint) =====
+        const eased = 1 - Math.pow(1 - progress, 5);
         const currentDuration = 0.2 + (maxDuration - 0.2) * eased;
         tapeContent.style.animationDuration = currentDuration + 's';
         
@@ -442,16 +441,7 @@ function startFinalSpin(type) {
                 target.style.transition = 'all 0.1s ease';
             }
 
-            const arrowTop = document.getElementById('arrowTop');
-            const arrowBottom = document.getElementById('arrowBottom');
-            if (arrowTop && arrowBottom && target) {
-                arrowTop.style.transform = 'translateY(5px)';
-                arrowBottom.style.transform = 'translateY(-5px)';
-                setTimeout(() => {
-                    arrowTop.style.transform = 'translateY(0)';
-                    arrowBottom.style.transform = 'translateY(0)';
-                }, 40);
-            }
+            // ===== СТРЕЛКИ НЕ ДВИГАЮТСЯ =====
         }
 
         if (progress < 1) {
@@ -460,7 +450,7 @@ function startFinalSpin(type) {
             _rafId = null;
             
             tapeContent.style.animation = 'none';
-            tapeContent.style.transition = 'transform 1.8s cubic-bezier(0.15, 0.85, 0.35, 1)';
+            tapeContent.style.transition = 'transform 2.0s cubic-bezier(0.1, 0.9, 0.2, 1)';
 
             const targetItem = document.querySelector(`.prize-item[data-index="${prizeIndex}"]`);
 
@@ -538,6 +528,7 @@ function startFinalSpin(type) {
 async function openCaseReal(type, finalPrize) {
     lastOpenedCase = type;
     try {
+        // ===== ОТПРАВЛЯЕМ НАГРАДУ НА СЕРВЕР =====
         const res = await fetch('/open_case', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
