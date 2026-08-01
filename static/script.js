@@ -10,7 +10,6 @@ let _tapeInterval = null;
 let _currentPrize = null;
 let _isOpening = false;
 let _tapeContainer = null;
-let _spinInterval = null;
 let _rafId = null;
 let _startTime = null;
 
@@ -124,7 +123,6 @@ function openCaseDirect(type) {
 
 function closeTape() {
     if (_tapeInterval) { clearInterval(_tapeInterval); _tapeInterval = null; }
-    if (_spinInterval) { clearInterval(_spinInterval); _spinInterval = null; }
     if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
     if (_tapeContainer) { _tapeContainer.remove(); _tapeContainer = null; }
     _isOpening = false;
@@ -353,33 +351,29 @@ function startFinalSpin(type) {
     
     _currentPrize = prizes[Math.floor(Math.random() * prizes.length)];
 
-    // ===== БЫСТРЫЙ СТАРТ =====
+    // ===== НАЧАЛЬНАЯ СКОРОСТЬ =====
     tapeContent.style.animationDuration = '0.15s';
     tapeContent.style.animationTimingFunction = 'linear';
     
-    let duration = 0.15;
-    const maxDuration = 7.0;
-    let elapsed = 0;
-    const totalTime = 10000; // 10 секунд всего
+    const maxDuration = 6.0;
+    const totalTime = 8000; // 8 секунд
     _startTime = performance.now();
 
-    // ===== ИСПОЛЬЗУЕМ requestAnimationFrame ДЛЯ ПЛАВНОСТИ =====
+    // ===== ПЛАВНАЯ АНИМАЦИЯ ЧЕРЕЗ requestAnimationFrame =====
     function animateSpin(timestamp) {
         if (!_startTime) _startTime = timestamp;
-        elapsed = timestamp - _startTime;
-        
-        // Прогресс от 0 до 1 за 10 секунд
+        const elapsed = timestamp - _startTime;
         const progress = Math.min(elapsed / totalTime, 1);
         
-        // ===== ПЛАВНАЯ КРИВАЯ ЗАМЕДЛЕНИЯ (ease-out) =====
-        // Сначала быстро, потом очень медленно
-        const eased = 1 - Math.pow(1 - progress, 3); // кубический ease-out
+        // ===== КРИВАЯ ЗАМЕДЛЕНИЯ (easeOutCubic) =====
+        // Сначала быстро, потом плавно замедляется
+        const eased = 1 - Math.pow(1 - progress, 3);
         
-        // Вычисляем текущую скорость: от 0.15 до maxDuration
+        // Текущая скорость: от 0.15 до maxDuration
         const currentDuration = 0.15 + (maxDuration - 0.15) * eased;
         tapeContent.style.animationDuration = currentDuration + 's';
         
-        // ===== ПОДСВЕТКА (каждые ~50мс) =====
+        // ===== ПОДСВЕТКА (каждый кадр) =====
         const allItems = document.querySelectorAll('.prize-item');
         const randomIdx = Math.floor(Math.random() * prizes.length);
         const target = document.querySelector(`.prize-item[data-index="${randomIdx}"]`);
@@ -412,8 +406,9 @@ function startFinalSpin(type) {
         if (progress < 1) {
             _rafId = requestAnimationFrame(animateSpin);
         } else {
-            // ===== ФИНАЛ =====
             _rafId = null;
+            
+            // ===== ФИНАЛ =====
             tapeContent.style.animation = 'none';
             tapeContent.style.transition = 'transform 1.2s cubic-bezier(0.1, 0.95, 0.2, 1)';
 
