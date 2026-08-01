@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (УВЕЛИЧЕННЫЙ МАСШТАБ, 7.875С) =====
+// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ ВИДНЫ, 7.875С) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -191,11 +191,10 @@ function showPreviewTape(type) {
     balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
     tapeContainer.appendChild(balanceDisplay);
 
-    // ===== УВЕЛИЧЕННЫЙ VIEWPORT =====
     const viewport = document.createElement('div');
     viewport.style.cssText = `
         width: 95%;
-        max-width: 1300px;
+        max-width: 1400px;
         overflow: hidden;
         position: relative;
         border-radius: 16px;
@@ -206,8 +205,8 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    const cardWidth = 110;
-    const cardGap = 8;
+    const cardWidth = 90;
+    const cardGap = 6;
     const totalItems = prizes.length;
     const oneSetWidth = totalItems * (cardWidth + cardGap);
 
@@ -224,10 +223,10 @@ function showPreviewTape(type) {
     `;
 
     let cards = [];
-    for (let repeat = 0; repeat < 3; repeat++) {
+    for (let repeat = 0; repeat < 4; repeat++) {
         prizes.forEach((p, index) => {
             const isLarge = p > 1000;
-            const fontSize = isLarge ? '18px' : '22px';
+            const fontSize = isLarge ? '16px' : '20px';
             cards.push(`<div class="card" data-value="${p}" style="
                 width: ${cardWidth}px;
                 height: 140px;
@@ -236,7 +235,7 @@ function showPreviewTape(type) {
                 align-items: center;
                 justify-content: center;
                 background: rgba(255,255,255,0.04);
-                border-radius: 12px;
+                border-radius: 10px;
                 border: 1px solid rgba(255,255,255,0.06);
                 font-size: ${fontSize};
                 font-weight: 700;
