@@ -11,7 +11,6 @@ let _isOpening = false;
 let _tapeContainer = null;
 let _rafId = null;
 let _startTime = null;
-let _highlightIndex = 0;
 
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
@@ -377,8 +376,6 @@ function showFullScreenTape(type, isOpening) {
     bottomSection.appendChild(btnContainer);
     tapeContainer.appendChild(bottomSection);
     document.body.appendChild(tapeContainer);
-
-    _highlightIndex = 0;
 }
 
 function startFinalSpin(type) {
@@ -544,14 +541,14 @@ function startFinalSpin(type) {
 async function openCaseReal(type, finalPrize) {
     lastOpenedCase = type;
     try {
-        // ===== ОТПРАВЛЯЕМ НАГРАДУ НА СЕРВЕР =====
+        // ===== ОТПРАВЛЯЕМ ТУ ЖЕ НАГРАДУ, ЧТО ПОКАЗАЛА РУЛЕТКА =====
         const res = await fetch('/open_case', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 user_id, 
                 case_type: type,
-                prize: finalPrize  // <-- ПЕРЕДАЁМ НАГРАДУ
+                prize: _currentPrize  // <-- ГЛАВНОЕ ИСПРАВЛЕНИЕ
             })
         });
         const data = await res.json();
