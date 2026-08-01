@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (2 НАБОРА, ПЛАВНЫЙ ПЕРЕХОД) =====
+// ===== ПРЕДПРОСМОТР (ВПЕРЁД → НАЗАД, СКОРОСТЬ 1.1С) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -185,6 +185,7 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
+    // ===== ЛЕНТА (ВПЕРЁД → НАЗАД, 1.1С) =====
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
@@ -192,7 +193,7 @@ function showPreviewTape(type) {
         gap: 8px;
         padding: 16px 0;
         will-change: transform;
-        animation: scrollTapeInfinite 1.1s linear infinite;
+        animation: scrollTapeAlternate 1.1s ease-in-out infinite alternate;
         position: relative;
         top: 10px;
     `;
@@ -218,18 +219,22 @@ function showPreviewTape(type) {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         ">${p}⭐</div>`);
     });
-    const firstSet = cards.join('');
-    track.innerHTML = firstSet + firstSet;
+    track.innerHTML = cards.join('');
 
     viewport.appendChild(track);
+
+    // Динамический расчёт сдвига
+    const trackWidth = track.scrollWidth;
+    const viewportWidth = viewport.offsetWidth || 700;
+    const shift = trackWidth - viewportWidth;
 
     if (!document.getElementById('previewScrollStyle')) {
         const scrollStyle = document.createElement('style');
         scrollStyle.id = 'previewScrollStyle';
         scrollStyle.textContent = `
-            @keyframes scrollTapeInfinite {
+            @keyframes scrollTapeAlternate {
                 0% { transform: translateX(0); }
-                100% { transform: translateX(-50%); }
+                100% { transform: translateX(-${shift}px); }
             }
         `;
         document.head.appendChild(scrollStyle);
