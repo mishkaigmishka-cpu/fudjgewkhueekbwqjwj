@@ -13,7 +13,6 @@ let _tapeContainer = null;
 let _rafId = null;
 let _startTime = null;
 
-// ===== ВСЕ ВОЗМОЖНЫЕ НАГРАДЫ (ОБНОВЛЕНЫ) =====
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
     'mud': [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 16, 18, 20, 22, 24, 27, 50, 500],
@@ -305,27 +304,48 @@ function showFullScreenTape(type, isOpening) {
     const btnContainer = document.createElement('div');
     btnContainer.style.cssText = `display:flex; gap:16px; flex-wrap:wrap; justify-content:center;`;
 
+    // ===== КНОПКА «ОТКРЫТЬ» ТОЛЬКО ЕСЛИ ХВАТАЕТ БАЛАНСА =====
     if (isOpening) {
-        const openBtn = document.createElement('button');
-        openBtn.textContent = `🎲 Открыть (${price}⭐)`;
-        openBtn.style.cssText = `
-            background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
-            color: #fff;
-            border: none;
-            padding: 18px 50px;
-            border-radius: 20px;
-            font-size: 22px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 40px ${style.shadowColor};
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            min-width: 200px;
-        `;
-        openBtn.onclick = function() {
-            startFinalSpin(type);
-        };
-        btnContainer.appendChild(openBtn);
+        const userBalance = parseInt(document.getElementById('balance').textContent.replace('⭐ ', ''));
+        const hasEnough = userBalance >= price;
+        
+        if (hasEnough) {
+            const openBtn = document.createElement('button');
+            openBtn.textContent = `🎲 Открыть (${price}⭐)`;
+            openBtn.style.cssText = `
+                background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
+                color: #fff;
+                border: none;
+                padding: 18px 50px;
+                border-radius: 20px;
+                font-size: 22px;
+                font-weight: 700;
+                cursor: pointer;
+                transition: all 0.2s;
+                box-shadow: 0 4px 40px ${style.shadowColor};
+                text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                min-width: 200px;
+            `;
+            openBtn.onclick = function() {
+                startFinalSpin(type);
+            };
+            btnContainer.appendChild(openBtn);
+        } else {
+            const lockedBtn = document.createElement('button');
+            lockedBtn.textContent = `🔒 Недостаточно (${price}⭐)`;
+            lockedBtn.style.cssText = `
+                background: rgba(255,0,0,0.15);
+                color: #888;
+                border: 2px solid rgba(255,0,0,0.3);
+                padding: 18px 50px;
+                border-radius: 20px;
+                font-size: 22px;
+                font-weight: 700;
+                cursor: not-allowed;
+                min-width: 200px;
+            `;
+            btnContainer.appendChild(lockedBtn);
+        }
     } else {
         const previewLabel = document.createElement('div');
         previewLabel.textContent = '👀 Предпросмотр наград';
