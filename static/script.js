@@ -177,14 +177,13 @@ function showFullScreenTape(type, isOpening) {
         background-image: ${style.bgGradient};
         backdrop-filter: blur(30px);
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         z-index: 999;
-        padding: 30px 20px;
+        padding: 20px;
         border: none;
         animation: fadeIn 0.3s ease;
-        gap: 30px;
     `;
 
     if (!document.getElementById('tapeFadeStyle')) {
@@ -194,18 +193,48 @@ function showFullScreenTape(type, isOpening) {
         document.head.appendChild(fadeStyle);
     }
 
+    // ===== ЗАГОЛОВОК =====
+    const title = document.createElement('div');
+    title.style.cssText = `
+        font-size: 22px;
+        font-weight: 800;
+        color: ${style.titleColor};
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        text-shadow: 0 0 40px ${style.glowColor};
+        text-align: center;
+    `;
+    title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
+    tapeContainer.appendChild(title);
+
+    // ===== ОСНОВНОЙ КОНТЕЙНЕР (СЛЕВА + СПРАВА) =====
+    const mainContainer = document.createElement('div');
+    mainContainer.style.cssText = `
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 700px;
+        height: 65%;
+        gap: 20px;
+        flex: 1;
+    `;
+
     // ===== ЛЕВАЯ ЧАСТЬ — ВЕРТИКАЛЬНЫЙ СПИСОК =====
     const leftPanel = document.createElement('div');
     leftPanel.style.cssText = `
         flex: 3;
-        height: 80%;
+        height: 100%;
         overflow: hidden;
         background: rgba(255,255,255,0.03);
         border-radius: 16px;
-        border: 1px solid rgba(255,255,255,0.05);
-        padding: 10px 0;
+        border: 1px solid rgba(255,255,255,0.06);
+        padding: 8px 0;
         position: relative;
-        max-width: 250px;
+        max-width: 280px;
+        min-width: 180px;
     `;
 
     const listContainer = document.createElement('div');
@@ -213,33 +242,34 @@ function showFullScreenTape(type, isOpening) {
     listContainer.style.cssText = `
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        padding: 0 16px;
+        gap: 4px;
+        padding: 0 12px;
         transition: transform 1.5s cubic-bezier(0.15, 0.85, 0.35, 1);
     `;
 
-    // Заполняем список всеми наградами (3 повтора для бесконечности)
+    // Заполняем список всеми наградами (3 повтора)
     let listItems = [];
     for (let repeat = 0; repeat < 3; repeat++) {
         prizes.forEach((p, index) => {
             const isLarge = p > 1000;
-            const fontSize = isLarge ? '18px' : '22px';
+            const fontSize = isLarge ? '16px' : '20px';
             listItems.push(`<div class="list-item" data-index="${index}" data-value="${p}" style="
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                padding: 12px 16px;
-                background: rgba(255,255,255,0.03);
-                border-radius: 10px;
+                padding: 10px 14px;
+                background: rgba(255,255,255,0.02);
+                border-radius: 8px;
                 font-size: ${fontSize};
                 font-weight: 700;
                 color: ${style.itemColor};
                 text-shadow: 0 0 15px ${style.glowColor};
                 border-left: 3px solid transparent;
-                transition: all 0.15s ease;
-                height: 56px;
-                min-height: 56px;
+                transition: all 0.12s ease;
+                height: 48px;
+                min-height: 48px;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                letter-spacing: 0.5px;
             ">${p}⭐</div>`);
         });
     }
@@ -253,14 +283,14 @@ function showFullScreenTape(type, isOpening) {
         position: absolute;
         left: 4px;
         right: 4px;
-        height: 56px;
+        height: 48px;
         border: 2px solid ${style.highlightColor};
-        border-radius: 12px;
-        background: rgba(255,215,0,0.08);
-        box-shadow: 0 0 30px ${style.highlightColor}40, inset 0 0 30px ${style.highlightColor}20;
-        transition: top 0.1s ease;
+        border-radius: 10px;
+        background: rgba(255,215,0,0.06);
+        box-shadow: 0 0 30px ${style.highlightColor}30, inset 0 0 30px ${style.highlightColor}10;
+        transition: top 0.12s ease;
         pointer-events: none;
-        top: 10px;
+        top: 8px;
     `;
     leftPanel.appendChild(highlightFrame);
 
@@ -268,27 +298,28 @@ function showFullScreenTape(type, isOpening) {
     const rightPanel = document.createElement('div');
     rightPanel.style.cssText = `
         flex: 4;
-        height: 80%;
+        height: 100%;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         background: rgba(255,255,255,0.02);
         border-radius: 16px;
-        border: 1px solid rgba(255,255,255,0.05);
-        padding: 20px;
-        min-width: 200px;
+        border: 1px solid rgba(255,255,255,0.06);
+        padding: 16px;
+        min-width: 150px;
+        position: relative;
     `;
 
     const prizeDisplay = document.createElement('div');
     prizeDisplay.id = 'prizeDisplay';
     prizeDisplay.style.cssText = `
-        font-size: 80px;
+        font-size: 72px;
         font-weight: 900;
         color: ${style.highlightColor};
-        text-shadow: 0 0 60px ${style.highlightColor}40;
+        text-shadow: 0 0 60px ${style.highlightColor}30;
         transition: all 0.5s ease;
-        opacity: 0.3;
+        opacity: 0.4;
         transform: scale(0.8);
     `;
     prizeDisplay.textContent = '?';
@@ -296,10 +327,10 @@ function showFullScreenTape(type, isOpening) {
     const rarityLabel = document.createElement('div');
     rarityLabel.id = 'rarityLabel';
     rarityLabel.style.cssText = `
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 600;
         color: ${style.highlightColor};
-        margin-top: 12px;
+        margin-top: 10px;
         opacity: 0;
         transition: all 0.5s ease;
         letter-spacing: 2px;
@@ -310,76 +341,123 @@ function showFullScreenTape(type, isOpening) {
     rightPanel.appendChild(prizeDisplay);
     rightPanel.appendChild(rarityLabel);
 
-    tapeContainer.appendChild(leftPanel);
-    tapeContainer.appendChild(rightPanel);
+    mainContainer.appendChild(leftPanel);
+    mainContainer.appendChild(rightPanel);
+    tapeContainer.appendChild(mainContainer);
 
     // ===== НИЖНЯЯ ЧАСТЬ — КНОПКИ =====
     const bottomSection = document.createElement('div');
     bottomSection.style.cssText = `
-        position: absolute;
-        bottom: 30px;
-        left: 0;
-        right: 0;
         display: flex;
+        flex-direction: column;
+        align-items: center;
         justify-content: center;
-        gap: 16px;
-        padding: 0 20px;
+        gap: 12px;
+        width: 100%;
+        padding: 16px 0 8px 0;
+        flex-shrink: 0;
     `;
 
     const btnContainer = document.createElement('div');
-    btnContainer.style.cssText = `display:flex; gap:16px; flex-wrap:wrap; justify-content:center;`;
+    btnContainer.style.cssText = `display:flex; gap:14px; flex-wrap:wrap; justify-content:center;`;
 
-    if (isOpening) {
+    // ===== КНОПКА «ОТКРЫТЬ» ВСЕГДА (ЕСЛИ ХВАТАЕТ БАЛАНСА) =====
+    const userBalance = parseInt(document.getElementById('balance').textContent.replace('⭐ ', ''));
+    const hasEnough = userBalance >= price;
+
+    if (hasEnough) {
         const openBtn = document.createElement('button');
         openBtn.textContent = `🎲 Открыть (${price}⭐)`;
         openBtn.style.cssText = `
             background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
             color: #fff;
             border: none;
-            padding: 16px 40px;
-            border-radius: 16px;
+            padding: 14px 40px;
+            border-radius: 14px;
             font-size: 18px;
             font-weight: 700;
             cursor: pointer;
             transition: all 0.2s;
             box-shadow: 0 4px 30px ${style.shadowColor};
             text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            min-width: 180px;
+            min-width: 170px;
         `;
+        openBtn.onmouseover = function() {
+            this.style.transform = 'scale(1.04)';
+            this.style.boxShadow = `0 6px 40px ${style.shadowColor}`;
+        };
+        openBtn.onmouseout = function() {
+            this.style.transform = 'scale(1)';
+            this.style.boxShadow = `0 4px 30px ${style.shadowColor}`;
+        };
         openBtn.onclick = function() {
-            startFinalSpin(type);
+            checkBalance(type).then(canOpen => {
+                if (!canOpen) return;
+                fetchRealPrize(type).then(prize => {
+                    if (prize === null) return;
+                    _currentPrize = prize;
+                    closeTape();
+                    showFullScreenTape(type, true);
+                    setTimeout(() => {
+                        startFinalSpin(type);
+                    }, 300);
+                });
+            });
         };
         btnContainer.appendChild(openBtn);
     } else {
-        const previewLabel = document.createElement('div');
-        previewLabel.textContent = '👀 Предпросмотр наград';
-        previewLabel.style.cssText = `
-            color: ${style.titleColor};
+        const lockedBtn = document.createElement('button');
+        lockedBtn.textContent = `🔒 Недостаточно (${price}⭐)`;
+        lockedBtn.style.cssText = `
+            background: rgba(255,0,0,0.12);
+            color: #888;
+            border: 2px solid rgba(255,0,0,0.25);
+            padding: 14px 40px;
+            border-radius: 14px;
             font-size: 18px;
-            font-weight: 600;
-            opacity: 0.7;
-            text-align: center;
+            font-weight: 700;
+            cursor: not-allowed;
+            min-width: 170px;
         `;
-        bottomSection.appendChild(previewLabel);
+        btnContainer.appendChild(lockedBtn);
     }
 
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '🔙 Назад';
     closeBtn.style.cssText = `
-        background: rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.06);
         color: #fff;
-        border: none;
-        padding: 16px 40px;
-        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.08);
+        padding: 14px 40px;
+        border-radius: 14px;
         font-size: 18px;
         font-weight: 700;
         cursor: pointer;
         transition: all 0.2s;
-        min-width: 180px;
+        min-width: 170px;
     `;
+    closeBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.12)'; };
+    closeBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.06)'; };
     closeBtn.onclick = function() { closeTape(); };
     btnContainer.appendChild(closeBtn);
     bottomSection.appendChild(btnContainer);
+
+    // ===== ПОДПИСЬ (ПРЕДПРОСМОТР) =====
+    if (!isOpening) {
+        const previewLabel = document.createElement('div');
+        previewLabel.textContent = '👀 Предпросмотр наград';
+        previewLabel.style.cssText = `
+            color: ${style.titleColor};
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0.5;
+            text-align: center;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        `;
+        bottomSection.appendChild(previewLabel);
+    }
+
     tapeContainer.appendChild(bottomSection);
     document.body.appendChild(tapeContainer);
 
@@ -439,76 +517,84 @@ function startFinalSpin(type) {
     const totalItems = allItems.length;
     let speed = 60;
     let steps = 0;
-    const maxSteps = 25;
+    const maxSteps = 28;
 
     if (_spinInterval) clearInterval(_spinInterval);
     _spinInterval = setInterval(() => {
         // Снимаем подсветку со всех
         allItems.forEach(el => {
-            el.style.background = 'rgba(255,255,255,0.03)';
+            el.style.background = 'rgba(255,255,255,0.02)';
             el.style.borderLeft = '3px solid transparent';
+            el.style.color = style.itemColor;
+            el.style.textShadow = `0 0 15px ${style.glowColor}`;
         });
 
         // Подсвечиваем текущий
         const currentItem = allItems[currentHighlight];
         if (currentItem) {
-            currentItem.style.background = 'rgba(255,215,0,0.12)';
+            currentItem.style.background = 'rgba(255,215,0,0.1)';
             currentItem.style.borderLeft = `3px solid ${style.highlightColor}`;
+            currentItem.style.color = '#FFFFFF';
+            currentItem.style.textShadow = `0 0 20px ${style.highlightColor}`;
         }
 
         // Двигаем рамку
-        const itemHeight = 64;
-        highlightFrame.style.top = (10 + currentHighlight * itemHeight) + 'px';
+        const itemHeight = 52;
+        highlightFrame.style.top = (8 + currentHighlight * itemHeight) + 'px';
 
         // Обновляем центральный дисплей
         const val = parseInt(currentItem?.dataset.value || 0);
         prizeDisplay.textContent = val + '⭐';
-        prizeDisplay.style.opacity = '0.6';
-        prizeDisplay.style.transform = 'scale(0.9)';
+        prizeDisplay.style.opacity = '0.5';
+        prizeDisplay.style.transform = 'scale(0.85)';
 
         steps++;
         currentHighlight = (currentHighlight + 1) % totalItems;
 
         // Замедление
         if (steps > 12) {
-            speed += 15;
+            speed += 18;
         }
         if (steps > 18) {
-            speed += 30;
+            speed += 35;
+        }
+        if (steps > 24) {
+            speed += 60;
         }
         if (steps >= maxSteps) {
             clearInterval(_spinInterval);
             _spinInterval = null;
 
             // ===== ОСТАНОВКА =====
-            // Находим целевой элемент в списке
             const targetIdx = targetIndex;
             const targetEl = allItems[targetIdx];
 
             // Снимаем подсветку со всех
             allItems.forEach(el => {
-                el.style.background = 'rgba(255,255,255,0.03)';
+                el.style.background = 'rgba(255,255,255,0.02)';
                 el.style.borderLeft = '3px solid transparent';
+                el.style.color = style.itemColor;
+                el.style.textShadow = `0 0 15px ${style.glowColor}`;
             });
 
             // Подсвечиваем выигрыш
-            targetEl.style.background = 'rgba(255,215,0,0.2)';
+            targetEl.style.background = 'rgba(255,215,0,0.18)';
             targetEl.style.borderLeft = `3px solid ${style.highlightColor}`;
             targetEl.style.color = '#FFFFFF';
             targetEl.style.textShadow = `0 0 30px ${style.highlightColor}`;
 
             // Двигаем рамку к выигрышу
-            const itemHeightFinal = 64;
-            highlightFrame.style.top = (10 + targetIdx * itemHeightFinal) + 'px';
+            const itemHeightFinal = 52;
+            highlightFrame.style.top = (8 + targetIdx * itemHeightFinal) + 'px';
             highlightFrame.style.borderColor = '#FFFFFF';
-            highlightFrame.style.boxShadow = '0 0 60px rgba(255,215,0,0.6), inset 0 0 60px rgba(255,215,0,0.3)';
+            highlightFrame.style.boxShadow = '0 0 60px rgba(255,215,0,0.5), inset 0 0 40px rgba(255,215,0,0.2)';
 
             // ===== ВСПЫШКА =====
             const flash = document.createElement('div');
             flash.style.cssText = `
                 position: fixed;
                 top: 0; left: 0; right: 0; bottom: 0;
-                background: radial-gradient(circle at center, rgba(255,215,0,0.8), rgba(255,255,255,0.4), transparent 70%);
+                background: radial-gradient(circle at center, rgba(255,215,0,0.7), rgba(255,255,255,0.3), transparent 70%);
                 z-index: 1000;
                 pointer-events: none;
                 animation: flashOut 0.6s ease-out forwards;
@@ -521,7 +607,7 @@ function startFinalSpin(type) {
                 flashStyle.textContent = `
                     @keyframes flashOut {
                         0% { opacity: 1; transform: scale(0.8); }
-                        100% { opacity: 0; transform: scale(1.5); }
+                        100% { opacity: 0; transform: scale(1.6); }
                     }
                 `;
                 document.head.appendChild(flashStyle);
@@ -533,7 +619,7 @@ function startFinalSpin(type) {
             setTimeout(() => {
                 prizeDisplay.textContent = targetPrize + '⭐';
                 prizeDisplay.style.opacity = '1';
-                prizeDisplay.style.transform = 'scale(1.5)';
+                prizeDisplay.style.transform = 'scale(1.6)';
                 prizeDisplay.style.color = '#FFFFFF';
                 prizeDisplay.style.textShadow = `
                     0 0 60px ${style.highlightColor},
@@ -553,13 +639,14 @@ function startFinalSpin(type) {
                 rarityLabel.style.opacity = '1';
                 rarityLabel.style.textShadow = `0 0 30px ${rarityColor}40`;
 
-                // Показываем кнопки
+                // ===== КНОПКИ РЕЗУЛЬТАТА =====
                 const resultButtons = document.createElement('div');
                 resultButtons.style.cssText = `
                     display: flex;
-                    gap: 16px;
-                    margin-top: 20px;
+                    gap: 14px;
+                    margin-top: 12px;
                     justify-content: center;
+                    flex-wrap: wrap;
                 `;
 
                 const closeResultBtn = document.createElement('button');
@@ -567,13 +654,16 @@ function startFinalSpin(type) {
                 closeResultBtn.style.cssText = `
                     background: rgba(255,255,255,0.08);
                     color: #fff;
-                    border: none;
-                    padding: 14px 36px;
-                    border-radius: 14px;
-                    font-size: 17px;
+                    border: 1px solid rgba(255,255,255,0.08);
+                    padding: 12px 32px;
+                    border-radius: 12px;
+                    font-size: 16px;
                     font-weight: 700;
                     cursor: pointer;
+                    transition: all 0.2s;
                 `;
+                closeResultBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.15)'; };
+                closeResultBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.08)'; };
                 closeResultBtn.onclick = function() {
                     closeTape();
                     openCaseReal(type, targetPrize);
@@ -585,12 +675,16 @@ function startFinalSpin(type) {
                     background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
                     color: #fff;
                     border: none;
-                    padding: 14px 36px;
-                    border-radius: 14px;
-                    font-size: 17px;
+                    padding: 12px 32px;
+                    border-radius: 12px;
+                    font-size: 16px;
                     font-weight: 700;
                     cursor: pointer;
+                    transition: all 0.2s;
+                    box-shadow: 0 4px 20px ${style.shadowColor};
                 `;
+                againBtn.onmouseover = function() { this.style.transform = 'scale(1.04)'; };
+                againBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
                 againBtn.onclick = function() {
                     closeTape();
                     openCaseDirect(type);
