@@ -42,21 +42,22 @@ conn.commit()
 
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
 
+# ===== ОБНОВЛЁННЫЕ ШАНСЫ =====
 CASE_RANGES = {
     "free": {
         "common": (1, 2), "rare": (3, 4), "epic": (5, 10), "legendary": (100, 100), "jackpot": (1000, 1000),
         "common_chance": 0.599, "rare_chance": 0.299, "epic_chance": 0.0999, "legendary_chance": 0.0001, "jackpot_chance": 0.00000001
     },
     "mud": {
-        "common": (1, 7), "rare": (10, 14), "epic": (16, 40), "legendary": (50, 50), "jackpot": (500, 500),
+        "common": (1, 7), "rare": (10, 13), "epic": (16, 27), "legendary": (50, 50), "jackpot": (500, 500),
         "common_chance": 0.7, "rare_chance": 0.25, "epic_chance": 0.0499, "legendary_chance": 0.001, "jackpot_chance": 0.00000001
     },
     "wood": {
-        "common": (2, 10), "rare": (12, 15), "epic": (20, 500), "legendary": (1000, 1000), "jackpot": (10000, 10000),
+        "common": (2, 10), "rare": (12, 15), "epic": (20, 50), "legendary": (100, 500), "jackpot": (10000, 10000),
         "common_chance": 0.6, "rare_chance": 0.3, "epic_chance": 0.099, "legendary_chance": 0.00001, "jackpot_chance": 0.000000001
     },
     "stone": {
-        "common": (11, 19), "rare": (21, 25), "epic": (30, 1000), "legendary": (2500, 2500),
+        "common": (11, 19), "rare": (21, 25), "epic": (30, 250), "legendary": (500, 1000), "jackpot": (25000, 25000),
         "common_chance": 0.6, "rare_chance": 0.3, "epic_chance": 0.099, "legendary_chance": 0.00001, "jackpot_chance": 0.000000001
     },
     "bronze": {
@@ -72,11 +73,11 @@ CASE_RANGES = {
         "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001
     },
     "diamond": {
-        "common": (250, 333), "rare": (350, 505), "epic": (1000, 2222), "legendary": (1000, 25000), "jackpot": (50000, 50000),
+        "common": (250, 333), "rare": (350, 505), "epic": (1000, 1000), "legendary": (1488, 2222), "jackpot": (50000, 50000),
         "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001
     },
     "netherite": {
-        "common": (500, 600), "rare": (650, 850), "epic": (900, 1500), "legendary": (2000, 20000), "jackpot": (25000, 25000),
+        "common": (500, 600), "rare": (650, 850), "epic": (900, 1500), "legendary": (2000, 3500), "jackpot": (25000, 25000),
         "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001
     },
     "bedrock": {
@@ -322,6 +323,18 @@ def webhook():
         bot.process_new_updates([update])
         return ''
     return '', 400
+
+# ===== НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ РЕАЛЬНОЙ НАГРАДЫ =====
+@app.route('/get_prize', methods=['POST'])
+def get_prize_endpoint():
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    case_type = data.get('case_type')
+    if case_type not in CASE_RANGES:
+        return jsonify({'error': 'Invalid case type'}), 400
+    prize = get_prize(case_type)
+    return jsonify({'prize': prize})
 
 @app.route('/check_balance', methods=['POST'])
 def check_balance():
