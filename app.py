@@ -44,43 +44,43 @@ ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Хал
 
 CASE_RANGES = {
     "free": {
-        "common": (1, 2), "rare": (3, 4), "epic": (5, 10), "legendary": (100, 100), "jackpot": (1000, 1000),
+        "common": [1, 2], "rare": [3, 4], "epic": [5, 6, 7, 8, 9, 10], "legendary": [100], "jackpot": [1000],
         "common_chance": 0.599, "rare_chance": 0.299, "epic_chance": 0.0999, "legendary_chance": 0.0001, "jackpot_chance": 0.00000001
     },
     "mud": {
-        "common": (1, 7), "rare": (10, 13), "epic": (16, 27), "legendary": (50, 50), "jackpot": (500, 500),
+        "common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500],
         "common_chance": 0.7, "rare_chance": 0.25, "epic_chance": 0.0499, "legendary_chance": 0.001, "jackpot_chance": 0.00000001
     },
     "wood": {
-        "common": (2, 10), "rare": (12, 15), "epic": (20, 50), "legendary": (100, 500), "jackpot": (10000, 10000),
-        "common_chance": 0.6, "rare_chance": 0.3, "epic_chance": 0.099, "legendary_chance": 0.00001, "jackpot_chance": 0.000000001
+        "common": [2, 4, 5, 6, 7, 8, 9, 10], "rare": [12, 13, 15], "epic": [20, 50], "legendary": [100, 500], "jackpot": [1000],
+        "common_chance": 0.6, "rare_chance": 0.3, "epic_chance": 0.099, "legendary_chance": 0.00001, "jackpot_chance": 0.00000001
     },
     "stone": {
-        "common": (11, 19), "rare": (21, 25), "epic": (30, 250), "legendary": (500, 1000), "jackpot": (25000, 25000),
-        "common_chance": 0.6, "rare_chance": 0.3, "epic_chance": 0.099, "legendary_chance": 0.00001, "jackpot_chance": 0.000000001
+        "common": [11, 13, 15, 16, 17, 18, 19], "rare": [21, 23, 24, 25], "epic": [30, 50, 100, 250], "legendary": [500, 1000], "jackpot": [2500],
+        "common_chance": 0.6, "rare_chance": 0.3, "epic_chance": 0.099, "legendary_chance": 0.00001, "jackpot_chance": 0.00000001
     },
     "bronze": {
-        "common": (20, 30), "rare": (35, 50), "epic": (55, 100), "legendary": (222, 2000), "jackpot": (5000, 5000),
+        "common": [20, 25, 30], "rare": [35, 40, 45, 50], "epic": [55, 60, 65, 75, 100], "legendary": [222, 333, 444, 555, 1000, 1500, 2000], "jackpot": [5000],
         "common_chance": 0.25, "rare_chance": 0.6499, "epic_chance": 0.09999, "legendary_chance": 0.000001, "jackpot_chance": 0.000000001
     },
     "silver": {
-        "common": (40, 70), "rare": (70, 100), "epic": (100, 150), "legendary": (200, 5000), "jackpot": (10000, 10000),
+        "common": [40, 50, 60, 70], "rare": [70, 80, 90, 100], "epic": [100, 110, 120, 130, 140, 150], "legendary": [200, 250, 333, 444, 555, 666, 777, 888, 999, 1488, 2011, 5000], "jackpot": [10000],
         "common_chance": 0.25, "rare_chance": 0.6745, "epic_chance": 0.0749, "legendary_chance": 0.0005, "jackpot_chance": 0.00000001
     },
     "gold": {
-        "common": (75, 100), "rare": (150, 251), "epic": (300, 777), "legendary": (999, 12500), "jackpot": (25000, 25000),
+        "common": [75, 100], "rare": [150, 169, 190, 220, 251], "epic": [300, 400, 500, 777], "legendary": [999, 1000, 2000, 5000, 10000, 12500], "jackpot": [25000],
         "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001
     },
     "diamond": {
-        "common": (250, 333), "rare": (350, 505), "epic": (1000, 1000), "legendary": (1488, 2222), "jackpot": (50000, 50000),
+        "common": [250, 300, 333], "rare": [350, 444, 505], "epic": [1000, 1488, 2222], "legendary": [2500, 5000, 10000, 12500, 25000], "jackpot": [50000],
         "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001
     },
     "netherite": {
-        "common": (500, 600), "rare": (650, 850), "epic": (900, 1500), "legendary": (2000, 3500), "jackpot": (25000, 25000),
+        "common": [500, 550, 600], "rare": [650, 700, 750, 800, 850], "epic": [900, 950, 1000, 1500], "legendary": [2000, 2500, 3000, 3200, 3500, 4000, 5000, 10000, 15000, 20000], "jackpot": [25000],
         "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001
     },
     "bedrock": {
-        "common": (1000, 1400), "rare": (1600, 2400), "epic": (2500, 3500), "legendary": (4000, 30000), "jackpot": (50000, 50000),
+        "common": [1000, 1200, 1400], "rare": [1600, 1800, 2000, 2200, 2400], "epic": [2500, 2600, 2800, 3000, 3200, 3500], "legendary": [4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000], "jackpot": [10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000],
         "common_chance": 0.25, "rare_chance": 0.6745, "epic_chance": 0.0749, "legendary_chance": 0.0045, "jackpot_chance": 0.00000001
     }
 }
@@ -89,15 +89,15 @@ def get_prize(case_type):
     data = CASE_RANGES[case_type]
     rnd = random.random()
     if rnd < data["jackpot_chance"]:
-        return random.randint(data["jackpot"][0], data["jackpot"][1])
+        return random.choice(data["jackpot"])
     elif rnd < data["jackpot_chance"] + data["legendary_chance"]:
-        return random.randint(data["legendary"][0], data["legendary"][1])
+        return random.choice(data["legendary"])
     elif rnd < data["common_chance"]:
-        return random.randint(data["common"][0], data["common"][1])
+        return random.choice(data["common"])
     elif rnd < data["common_chance"] + data["rare_chance"]:
-        return random.randint(data["rare"][0], data["rare"][1])
+        return random.choice(data["rare"])
     else:
-        return random.randint(data["epic"][0], data["epic"][1])
+        return random.choice(data["epic"])
 
 def get_user(uid):
     cursor.execute("SELECT * FROM users WHERE id=?", (uid,))
