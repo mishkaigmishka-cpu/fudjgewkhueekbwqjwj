@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (БЕСКОНЕЧНАЯ ЛЕНТА) =====
+// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, БЕСКОНЕЧНАЯ ЛЕНТА) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -185,7 +185,7 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    // ===== БЕСКОНЕЧНАЯ ЛЕНТА (3 ПОВТОРА) =====
+    // ===== ВСЕ НАГРАДЫ (3 ПОВТОРА ДЛЯ БЕСКОНЕЧНОСТИ) =====
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
@@ -559,7 +559,7 @@ function startFinalSpin(type) {
     }, 7000);
 }
 
-// ===== ПОСЛЕ ОСТАНОВКИ: ПОДСВЕТКА + НАЧИСЛЕНИЕ =====
+// ===== КРАСИВАЯ ВСПЫШКА С ВЫИГРЫШЕМ (ЧЕРЕЗ 0.3С) =====
 function showResultAndClaim(type, targetPrize, style, track, winPosition) {
     // Подсветка выигрыша
     const cards = track.querySelectorAll('.card');
@@ -578,62 +578,108 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         winCard.style.textShadow = `0 0 30px ${style.highlightColor}`;
     }
 
-    // Вспышка
-    const flash = document.createElement('div');
-    flash.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: radial-gradient(circle at center, rgba(255,215,0,0.6), rgba(255,255,255,0.2), transparent 70%);
-        z-index: 1000;
-        pointer-events: none;
-        animation: flashOut 0.6s ease-out forwards;
-    `;
-    document.body.appendChild(flash);
-
-    if (!document.getElementById('flashStyle')) {
-        const flashStyle = document.createElement('style');
-        flashStyle.id = 'flashStyle';
-        flashStyle.textContent = `
-            @keyframes flashOut {
-                0% { opacity: 1; transform: scale(0.8); }
-                100% { opacity: 0; transform: scale(1.6); }
-            }
+    // ===== КРАСИВАЯ ВСПЫШКА =====
+    setTimeout(() => {
+        // Золотая вспышка с текстом
+        const flashOverlay = document.createElement('div');
+        flashOverlay.style.cssText = `
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at center, rgba(255,215,0,0.8), rgba(255,215,0,0.2), transparent 60%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            animation: flashGold 0.6s ease-out forwards;
+            pointer-events: none;
         `;
-        document.head.appendChild(flashStyle);
-    }
 
-    setTimeout(() => flash.remove(), 700);
+        const winText = document.createElement('div');
+        winText.style.cssText = `
+            font-size: 52px;
+            font-weight: 900;
+            color: #FFD700;
+            text-shadow: 0 0 40px rgba(255,215,0,0.8), 0 0 80px rgba(255,215,0,0.4), 0 4px 20px rgba(0,0,0,0.3);
+            animation: winPulse 0.8s ease-out forwards;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            text-align: center;
+            letter-spacing: 2px;
+        `;
+        winText.innerHTML = `🎉 ${targetPrize} ⭐`;
 
-    // ===== НАЧИСЛЕНИЕ НАГРАДЫ =====
-    setTimeout(async () => {
-        try {
-            const res = await fetch('/open_case', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    user_id: user_id, 
-                    case_type: type,
-                    prize: targetPrize
-                })
-            });
-            const data = await res.json();
-            if (data.error) {
-                tg.showAlert('❌ ' + data.error);
-            } else {
-                // Обновляем баланс
-                loadBalance();
-                // Показываем уведомление о выигрыше
-                tg.showAlert(`🎉 Ты выиграл ${targetPrize}⭐!`);
-            }
-        } catch(e) {
-            tg.showAlert('❌ Ошибка при открытии кейса');
+        const subText = document.createElement('div');
+        subText.style.cssText = `
+            font-size: 22px;
+            font-weight: 600;
+            color: #FFF8E7;
+            text-shadow: 0 0 20px rgba(255,215,0,0.4);
+            margin-top: 8px;
+            animation: winPulse 0.8s ease-out forwards;
+            opacity: 0.9;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        `;
+        subText.textContent = 'Ты выиграл!';
+
+        flashOverlay.appendChild(winText);
+        flashOverlay.appendChild(subText);
+        document.body.appendChild(flashOverlay);
+
+        // Стили для анимации
+        if (!document.getElementById('flashGoldStyle')) {
+            const flashStyle = document.createElement('style');
+            flashStyle.id = 'flashGoldStyle';
+            flashStyle.textContent = `
+                @keyframes flashGold {
+                    0% { opacity: 0; transform: scale(0.8); }
+                    30% { opacity: 1; transform: scale(1.1); }
+                    70% { opacity: 1; transform: scale(1); }
+                    100% { opacity: 0; transform: scale(1.2); }
+                }
+                @keyframes winPulse {
+                    0% { opacity: 0; transform: scale(0.5); }
+                    30% { opacity: 1; transform: scale(1.2); }
+                    60% { transform: scale(1); }
+                    100% { opacity: 1; transform: scale(1); }
+                }
+            `;
+            document.head.appendChild(flashStyle);
         }
-        
-        // Закрываем рулетку
+
+        // Удаляем вспышку через 0.8с
         setTimeout(() => {
-            closeTape();
-        }, 1500);
-    }, 1000);
+            flashOverlay.remove();
+        }, 800);
+
+        // ===== НАЧИСЛЕНИЕ НАГРАДЫ =====
+        setTimeout(async () => {
+            try {
+                const res = await fetch('/open_case', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        user_id: user_id, 
+                        case_type: type,
+                        prize: targetPrize
+                    })
+                });
+                const data = await res.json();
+                if (data.error) {
+                    tg.showAlert('❌ ' + data.error);
+                } else {
+                    loadBalance();
+                }
+            } catch(e) {
+                tg.showAlert('❌ Ошибка при открытии кейса');
+            }
+            
+            // Закрываем рулетку
+            setTimeout(() => {
+                closeTape();
+            }, 1500);
+        }, 300);
+
+    }, 300); // <-- УСКОРЕНО ДО 0.3С
 }
 
 function closeTape() {
