@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ГОРИЗОНТАЛЬНАЯ ЛЕНТА, БЕСКОНЕЧНАЯ АНИМАЦИЯ) =====
+// ===== ПРЕДПРОСМОТР (СКОРОСТЬ УВЕЛИЧЕНА В 2 РАЗА: 6.7 / 2 = 3.35с) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -171,7 +171,6 @@ function showPreviewTape(type) {
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
-    // ===== ОКНО ПРОСМОТРА =====
     const viewport = document.createElement('div');
     viewport.style.cssText = `
         width: 90%;
@@ -186,7 +185,6 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    // ===== ЛЕНТА (СКОРОСТЬ УВЕЛИЧЕНА В 1.8 РАЗА: 12 / 1.8 = 6.7с) =====
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
@@ -194,13 +192,12 @@ function showPreviewTape(type) {
         gap: 8px;
         padding: 16px 0;
         will-change: transform;
-        animation: scrollTape 6.7s linear infinite;
+        animation: scrollTape 3.35s linear infinite;
         width: auto;
         position: relative;
         top: 10px;
     `;
 
-    // ===== ЗАПОЛНЯЕМ ЛЕНТУ (2 ПОВТОРА) =====
     let cards = [];
     for (let repeat = 0; repeat < 2; repeat++) {
         prizes.forEach((p, index) => {
@@ -227,7 +224,6 @@ function showPreviewTape(type) {
     track.innerHTML = cards.join('');
     viewport.appendChild(track);
 
-    // ===== СТИЛЬ АНИМАЦИИ =====
     if (!document.getElementById('previewScrollStyle')) {
         const scrollStyle = document.createElement('style');
         scrollStyle.id = 'previewScrollStyle';
@@ -242,7 +238,6 @@ function showPreviewTape(type) {
 
     tapeContainer.appendChild(viewport);
 
-    // ===== КНОПКИ =====
     const bottomSection = document.createElement('div');
     bottomSection.style.cssText = `
         display: flex;
@@ -498,7 +493,6 @@ function startFinalSpin(type) {
         return;
     }
 
-    // ===== 1. СОБИРАЕМ ЛЕНТУ =====
     const cardWidth = 130;
     const cardGap = 8;
     const totalCardWidth = cardWidth + cardGap;
@@ -536,17 +530,14 @@ function startFinalSpin(type) {
     }
     track.innerHTML = cards.join('');
 
-    // ===== 2. РАССЧИТЫВАЕМ СДВИГ =====
     const viewportWidth = viewport.offsetWidth || 700;
     const centerOffset = viewportWidth / 2;
     const shift = (winPosition * totalCardWidth) - centerOffset + (cardWidth / 2);
     const noise = Math.floor(Math.random() * 60) - 30;
     const finalShift = shift + noise;
 
-    // ===== 3. ЗАПУСК =====
     track.style.transform = `translateX(-${finalShift}px)`;
 
-    // ===== 4. FALLBACK: ЕСЛИ transitionend НЕ СРАБОТАЕТ =====
     let finished = false;
 
     const onFinish = () => {
@@ -558,7 +549,6 @@ function startFinalSpin(type) {
 
     track.addEventListener('transitionend', onFinish);
 
-    // Если через 7 секунд событие не сработало — принудительно показываем результат
     setTimeout(() => {
         if (!finished) {
             finished = true;
@@ -569,7 +559,6 @@ function startFinalSpin(type) {
 }
 
 function showResult(targetPrize, style, track, winPosition) {
-    // Подсветка
     const cards = track.querySelectorAll('.card');
     cards.forEach(el => {
         el.style.background = 'rgba(255,255,255,0.04)';
@@ -586,7 +575,6 @@ function showResult(targetPrize, style, track, winPosition) {
         winCard.style.textShadow = `0 0 30px ${style.highlightColor}`;
     }
 
-    // Вспышка
     const flash = document.createElement('div');
     flash.style.cssText = `
         position: fixed;
@@ -612,7 +600,6 @@ function showResult(targetPrize, style, track, winPosition) {
 
     setTimeout(() => flash.remove(), 700);
 
-    // ===== МОДАЛЬНОЕ ОКНО =====
     setTimeout(() => {
         const resultDiv = document.getElementById('result');
         const prizeDisplay = document.getElementById('prizeDisplay');
@@ -673,10 +660,18 @@ function closeResult() {
     const resultDiv = document.getElementById('result');
     const againBtn = document.getElementById('againBtn');
     const adBlock = document.getElementById('adBlock');
+    const prizeDisplay = document.getElementById('prizeDisplay');
+    const prizeName = document.getElementById('prizeName');
+    const prizeValue = document.getElementById('prizeValue');
     
     if (resultDiv) resultDiv.classList.remove('show');
     if (againBtn) againBtn.style.display = 'none';
     if (adBlock) adBlock.style.display = 'none';
+    
+    // Очищаем содержимое, чтобы при следующем открытии не было старых данных
+    if (prizeDisplay) prizeDisplay.textContent = '';
+    if (prizeName) prizeName.textContent = '';
+    if (prizeValue) prizeValue.textContent = '';
 }
 
 function showProfile() {
