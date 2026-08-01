@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (БАЛАНС СВЕРХУ, СКОРОСТЬ 1.1С) =====
+// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, 2.475С, БАЛАНС) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -171,7 +171,6 @@ function showPreviewTape(type) {
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
-    // ===== БАЛАНС СВЕРХУ СПРАВА =====
     const balanceDisplay = document.createElement('div');
     balanceDisplay.style.cssText = `
         position: absolute;
@@ -193,8 +192,8 @@ function showPreviewTape(type) {
 
     const viewport = document.createElement('div');
     viewport.style.cssText = `
-        width: 90%;
-        max-width: 700px;
+        width: 95%;
+        max-width: 1000px;
         overflow: hidden;
         position: relative;
         border-radius: 16px;
@@ -205,11 +204,11 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    const cardWidth = 130;
-    const cardGap = 8;
+    const cardWidth = 100;
+    const cardGap = 6;
     const totalItems = prizes.length;
     const totalWidth = totalItems * (cardWidth + cardGap);
-    const viewportWidth = 700;
+    const viewportWidth = 1000;
     const shift = totalWidth - viewportWidth + 20;
 
     const track = document.createElement('div');
@@ -219,7 +218,7 @@ function showPreviewTape(type) {
         gap: ${cardGap}px;
         padding: 16px 0;
         will-change: transform;
-        animation: scrollTapeAlternate 1.1s ease-in-out infinite alternate;
+        animation: scrollTapeAlternate 2.475s ease-in-out infinite alternate;
         position: relative;
         top: 10px;
     `;
@@ -227,7 +226,7 @@ function showPreviewTape(type) {
     let cards = [];
     prizes.forEach((p, index) => {
         const isLarge = p > 1000;
-        const fontSize = isLarge ? '22px' : '28px';
+        const fontSize = isLarge ? '16px' : '20px';
         cards.push(`<div class="card" data-value="${p}" style="
             width: ${cardWidth}px;
             height: 110px;
