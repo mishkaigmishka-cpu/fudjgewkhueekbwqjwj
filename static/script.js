@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ТОЛЬКО ВПЕРЁД, 7.875С, БОЛЬШАЯ ЛЕНТА) =====
+// ===== ПРЕДПРОСМОТР (УВЕЛИЧЕННЫЙ МАСШТАБ, 7.875С) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -191,6 +191,7 @@ function showPreviewTape(type) {
     balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
     tapeContainer.appendChild(balanceDisplay);
 
+    // ===== УВЕЛИЧЕННЫЙ VIEWPORT =====
     const viewport = document.createElement('div');
     viewport.style.cssText = `
         width: 95%;
@@ -355,7 +356,7 @@ function showPreviewTape(type) {
     document.body.appendChild(tapeContainer);
 }
 
-// ===== ОТКРЫТИЕ КЕЙСА (С ИНДЕКСОМ И УМЕНЬШЕННЫМИ ПОЛЯМИ) =====
+// ===== ОТКРЫТИЕ КЕЙСА (СТАНДАРТНЫЙ МАСШТАБ) =====
 function openCaseDirect(type) {
     if (_isOpening) return;
     _isOpening = true;
@@ -428,14 +429,14 @@ function showRouletteTape(type) {
 
     const viewport = document.createElement('div');
     viewport.style.cssText = `
-        width: 95%;
-        max-width: 900px;
+        width: 90%;
+        max-width: 700px;
         overflow: hidden;
         position: relative;
         border-radius: 16px;
         border: 1px solid rgba(255,255,255,0.06);
         background: rgba(0,0,0,0.3);
-        height: 220px;
+        height: 150px;
         margin: 0 auto;
         flex-shrink: 0;
     `;
@@ -461,12 +462,12 @@ function showRouletteTape(type) {
     track.style.cssText = `
         display: flex;
         gap: 8px;
-        padding: 20px 0;
+        padding: 16px 0;
         will-change: transform;
         transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1);
         width: auto;
         position: relative;
-        top: 20px;
+        top: 10px;
     `;
     viewport.appendChild(track);
     tapeContainer.appendChild(viewport);
@@ -519,9 +520,9 @@ function startFinalSpin(type) {
         return;
     }
 
-    // ===== УМЕНЬШЕННЫЕ ПОЛЯ =====
-    const cardWidth = 120;
-    const cardGap = 6;
+    // ===== СТАНДАРТНЫЙ МАСШТАБ =====
+    const cardWidth = 130;
+    const cardGap = 8;
     const totalCardWidth = cardWidth + cardGap;
     const totalCards = 60;
     const winPosition = 40;
@@ -546,7 +547,7 @@ function startFinalSpin(type) {
         const fontSize = isLarge ? '22px' : '28px';
         cards.push(`<div class="card" data-value="${value}" style="
             width: ${cardWidth}px;
-            height: 150px;
+            height: 120px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
