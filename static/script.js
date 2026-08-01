@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, 1.1С) =====
+// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, БЕСКОНЕЧНАЯ ЛЕНТА) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -185,7 +185,6 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    // ===== ВСЕ НАГРАДЫ (ДУБЛИРОВАНИЕ, 1.1С) =====
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
@@ -194,7 +193,6 @@ function showPreviewTape(type) {
         padding: 16px 0;
         will-change: transform;
         animation: scrollTapeInfinite 1.1s linear infinite;
-        width: auto;
         position: relative;
         top: 10px;
     `;
@@ -220,7 +218,8 @@ function showPreviewTape(type) {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         ">${p}⭐</div>`);
     });
-    track.innerHTML = cards.join('') + cards.join('');
+    const firstSet = cards.join('');
+    track.innerHTML = firstSet + firstSet;
 
     viewport.appendChild(track);
 
@@ -558,7 +557,6 @@ function startFinalSpin(type) {
     }, 7000);
 }
 
-// ===== ВСПЫШКА С ВЫИГРЫШЕМ + БАЛАНС СВЕРХУ =====
 function showResultAndClaim(type, targetPrize, style, track, winPosition) {
     // Подсветка выигрыша
     const cards = track.querySelectorAll('.card');
@@ -578,7 +576,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
     }
 
     setTimeout(() => {
-        // ===== КОНТЕЙНЕР РЕЗУЛЬТАТА =====
         const resultContainer = document.createElement('div');
         resultContainer.id = 'resultContainer';
         resultContainer.style.cssText = `
@@ -595,7 +592,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
             animation: fadeIn 0.3s ease;
         `;
 
-        // ===== БАЛАНС СВЕРХУ СПРАВА =====
         const balanceDisplay = document.createElement('div');
         balanceDisplay.style.cssText = `
             position: absolute;
@@ -614,7 +610,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
         resultContainer.appendChild(balanceDisplay);
 
-        // ===== ТЕКСТ ВЫИГРЫША =====
         const winText = document.createElement('div');
         winText.style.cssText = `
             font-size: 64px;
@@ -638,7 +633,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         `;
         subText.textContent = 'Ты выиграл!';
 
-        // ===== КНОПКИ =====
         const btnContainer = document.createElement('div');
         btnContainer.style.cssText = `
             display: flex;
@@ -710,7 +704,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         resultContainer.appendChild(btnContainer);
         document.body.appendChild(resultContainer);
 
-        // ===== НАЧИСЛЕНИЕ =====
         setTimeout(async () => {
             try {
                 const res = await fetch('/open_case', {
@@ -727,7 +720,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
                     tg.showAlert('❌ ' + data.error);
                 } else {
                     loadBalance();
-                    // Обновляем баланс в контейнере
                     const balanceEl = resultContainer.querySelector('div[style*="position: absolute"]');
                     if (balanceEl) {
                         balanceEl.textContent = `💰 ${document.getElementById('balance').textContent}`;
