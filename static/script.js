@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, БЕСКОНЕЧНАЯ ЛЕНТА, СКОРОСТЬ 1.1С) =====
+// ===== ПРЕДПРОСМОТР (БЕСКОНЕЧНАЯ ЛЕНТА, ДУБЛИРОВАНИЕ КОНТЕНТА, 1.1С) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -185,7 +185,7 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    // ===== БЕСКОНЕЧНАЯ ЛЕНТА (3 ПОВТОРА, СКОРОСТЬ 1.1С) =====
+    // ===== БЕСКОНЕЧНАЯ ЛЕНТА (ДУБЛИРОВАНИЕ КОНТЕНТА, 1.1С) =====
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
@@ -200,29 +200,28 @@ function showPreviewTape(type) {
     `;
 
     let cards = [];
-    for (let repeat = 0; repeat < 3; repeat++) {
-        prizes.forEach((p, index) => {
-            const isLarge = p > 1000;
-            const fontSize = isLarge ? '22px' : '28px';
-            cards.push(`<div class="card" data-value="${p}" style="
-                width: 130px;
-                height: 110px;
-                flex-shrink: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: rgba(255,255,255,0.04);
-                border-radius: 12px;
-                border: 1px solid rgba(255,255,255,0.06);
-                font-size: ${fontSize};
-                font-weight: 700;
-                color: ${style.itemColor};
-                text-shadow: 0 0 20px ${style.glowColor};
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            ">${p}⭐</div>`);
-        });
-    }
-    track.innerHTML = cards.join('');
+    prizes.forEach((p, index) => {
+        const isLarge = p > 1000;
+        const fontSize = isLarge ? '22px' : '28px';
+        cards.push(`<div class="card" data-value="${p}" style="
+            width: 130px;
+            height: 110px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.04);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.06);
+            font-size: ${fontSize};
+            font-weight: 700;
+            color: ${style.itemColor};
+            text-shadow: 0 0 20px ${style.glowColor};
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        ">${p}⭐</div>`);
+    });
+    track.innerHTML = cards.join('') + cards.join('');
+
     viewport.appendChild(track);
 
     if (!document.getElementById('previewScrollStyle')) {
@@ -231,7 +230,7 @@ function showPreviewTape(type) {
         scrollStyle.textContent = `
             @keyframes scrollTapeInfinite {
                 0% { transform: translateX(0); }
-                100% { transform: translateX(-33.33%); }
+                100% { transform: translateX(-50%); }
             }
         `;
         document.head.appendChild(scrollStyle);
@@ -559,7 +558,6 @@ function startFinalSpin(type) {
     }, 7000);
 }
 
-// ===== ВСПЫШКА С ВЫИГРЫШЕМ + КНОПКИ =====
 function showResultAndClaim(type, targetPrize, style, track, winPosition) {
     // Подсветка выигрыша
     const cards = track.querySelectorAll('.card');
@@ -578,9 +576,8 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         winCard.style.textShadow = `0 0 30px ${style.highlightColor}`;
     }
 
-    // ===== ВСПЫШКА С ВЫИГРЫШЕМ (БЕЗ АНИМАЦИИ) =====
+    // ===== ВСПЫШКА С ВЫИГРЫШЕМ + КНОПКИ =====
     setTimeout(() => {
-        // Создаём контейнер для результата
         const resultContainer = document.createElement('div');
         resultContainer.id = 'resultContainer';
         resultContainer.style.cssText = `
@@ -597,7 +594,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
             animation: fadeIn 0.3s ease;
         `;
 
-        // Текст выигрыша
         const winText = document.createElement('div');
         winText.style.cssText = `
             font-size: 64px;
@@ -621,7 +617,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         `;
         subText.textContent = 'Ты выиграл!';
 
-        // ===== КНОПКИ =====
         const btnContainer = document.createElement('div');
         btnContainer.style.cssText = `
             display: flex;
@@ -630,7 +625,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
             justify-content: center;
         `;
 
-        // Кнопка "Открыть ещё" с ценой
         const price = getPrice(type);
         const againBtn = document.createElement('button');
         againBtn.textContent = `🎲 Открыть ещё (${price}⭐)`;
@@ -658,14 +652,12 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         };
         againBtn.onclick = function() {
             resultContainer.remove();
-            // Закрываем рулетку и открываем заново
             closeTape();
             setTimeout(() => {
                 openCaseDirect(type);
             }, 300);
         };
 
-        // Кнопка "Назад"
         const backBtn = document.createElement('button');
         backBtn.textContent = '🔙 Назад';
         backBtn.style.cssText = `
@@ -685,7 +677,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         backBtn.onclick = function() {
             resultContainer.remove();
             closeTape();
-            // Возвращаемся на главный экран
             showMain();
         };
 
@@ -697,7 +688,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         resultContainer.appendChild(btnContainer);
         document.body.appendChild(resultContainer);
 
-        // Начисление награды
         setTimeout(async () => {
             try {
                 const res = await fetch('/open_case', {
@@ -734,6 +724,15 @@ function closeTape() {
         _tapeContainer = null;
     }
     _isOpening = false;
+}
+
+function openAgain() {
+    closeResult();
+    if (lastOpenedCase) {
+        setTimeout(() => {
+            openCaseDirect(lastOpenedCase);
+        }, 300);
+    }
 }
 
 function closeResult() {
