@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (БЕСКОНЕЧНАЯ ЛЕНТА, ДУБЛИРОВАНИЕ КОНТЕНТА, 1.1С) =====
+// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ, 1.1С) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -185,7 +185,7 @@ function showPreviewTape(type) {
         flex-shrink: 0;
     `;
 
-    // ===== БЕСКОНЕЧНАЯ ЛЕНТА (ДУБЛИРОВАНИЕ КОНТЕНТА, 1.1С) =====
+    // ===== ВСЕ НАГРАДЫ (ДУБЛИРОВАНИЕ, 1.1С) =====
     const track = document.createElement('div');
     track.id = 'track';
     track.style.cssText = `
@@ -558,6 +558,7 @@ function startFinalSpin(type) {
     }, 7000);
 }
 
+// ===== ВСПЫШКА С ВЫИГРЫШЕМ + БАЛАНС СВЕРХУ =====
 function showResultAndClaim(type, targetPrize, style, track, winPosition) {
     // Подсветка выигрыша
     const cards = track.querySelectorAll('.card');
@@ -576,8 +577,8 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         winCard.style.textShadow = `0 0 30px ${style.highlightColor}`;
     }
 
-    // ===== ВСПЫШКА С ВЫИГРЫШЕМ + КНОПКИ =====
     setTimeout(() => {
+        // ===== КОНТЕЙНЕР РЕЗУЛЬТАТА =====
         const resultContainer = document.createElement('div');
         resultContainer.id = 'resultContainer';
         resultContainer.style.cssText = `
@@ -594,6 +595,26 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
             animation: fadeIn 0.3s ease;
         `;
 
+        // ===== БАЛАНС СВЕРХУ СПРАВА =====
+        const balanceDisplay = document.createElement('div');
+        balanceDisplay.style.cssText = `
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.08);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #FFD700;
+            border: 1px solid rgba(255,215,0,0.2);
+            backdrop-filter: blur(10px);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        `;
+        balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
+        resultContainer.appendChild(balanceDisplay);
+
+        // ===== ТЕКСТ ВЫИГРЫША =====
         const winText = document.createElement('div');
         winText.style.cssText = `
             font-size: 64px;
@@ -617,6 +638,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         `;
         subText.textContent = 'Ты выиграл!';
 
+        // ===== КНОПКИ =====
         const btnContainer = document.createElement('div');
         btnContainer.style.cssText = `
             display: flex;
@@ -688,6 +710,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         resultContainer.appendChild(btnContainer);
         document.body.appendChild(resultContainer);
 
+        // ===== НАЧИСЛЕНИЕ =====
         setTimeout(async () => {
             try {
                 const res = await fetch('/open_case', {
@@ -704,6 +727,11 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
                     tg.showAlert('❌ ' + data.error);
                 } else {
                     loadBalance();
+                    // Обновляем баланс в контейнере
+                    const balanceEl = resultContainer.querySelector('div[style*="position: absolute"]');
+                    if (balanceEl) {
+                        balanceEl.textContent = `💰 ${document.getElementById('balance').textContent}`;
+                    }
                 }
             } catch(e) {
                 tg.showAlert('❌ Ошибка при открытии кейса');
