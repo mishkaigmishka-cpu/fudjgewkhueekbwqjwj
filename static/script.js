@@ -9,6 +9,10 @@ let lastOpenedCase = null;
 let _currentPrize = null;
 let _isOpening = false;
 let _tapeContainer = null;
+let _rafId = null;
+let _startTime = null;
+let _spinInterval = null;
+let _highlightIndex = 0;
 
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
@@ -21,6 +25,11 @@ const CASE_PRIZES = {
     'diamond': [250, 300, 333, 350, 444, 505, 1000, 1488, 2222, 2500, 5000, 10000, 12500, 25000, 50000],
     'netherite': [500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 1500, 2000, 2500, 3000, 3200, 3500, 4000, 5000, 10000, 15000, 20000, 25000],
     'bedrock': [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 2600, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000]
+};
+
+const CASE_SPEED = {
+    'free': 15, 'mud': 15, 'wood': 15, 'stone': 15, 'bronze': 15, 'silver': 15, 'gold': 15,
+    'diamond': 17, 'netherite': 19, 'bedrock': 21
 };
 
 const CASE_PRICES = {
@@ -51,6 +60,7 @@ const CASE_STYLES = {
 
 function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
+function getSpeed(type) { return CASE_SPEED[type] || 15; }
 function getPrice(type) { return CASE_PRICES[type] || 0; }
 
 async function loadBalance() {
@@ -115,247 +125,12 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ВСЕ НАГРАДЫ ВИДНЫ, 7.875С) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
-    showPreviewTape(type);
+    showFullScreenTape(type, false);
 }
 
-function showPreviewTape(type) {
-    const prizes = getPrizes(type);
-    const style = getStyle(type);
-    const price = getPrice(type);
-    closeTape();
-
-    const tapeContainer = document.createElement('div');
-    tapeContainer.id = 'tapeContainer';
-    _tapeContainer = tapeContainer;
-    tapeContainer.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: ${style.bg};
-        background-image: ${style.bgGradient};
-        backdrop-filter: blur(30px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 999;
-        padding: 20px;
-        border: none;
-        animation: fadeIn 0.3s ease;
-    `;
-
-    if (!document.getElementById('tapeFadeStyle')) {
-        const fadeStyle = document.createElement('style');
-        fadeStyle.id = 'tapeFadeStyle';
-        fadeStyle.textContent = `@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }`;
-        document.head.appendChild(fadeStyle);
-    }
-
-    const title = document.createElement('div');
-    title.style.cssText = `
-        font-size: 24px;
-        font-weight: 800;
-        color: ${style.titleColor};
-        margin-bottom: 20px;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-        text-shadow: 0 0 40px ${style.glowColor};
-        text-align: center;
-        flex-shrink: 0;
-    `;
-    title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
-    tapeContainer.appendChild(title);
-
-    const balanceDisplay = document.createElement('div');
-    balanceDisplay.style.cssText = `
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        background: rgba(255,255,255,0.08);
-        padding: 10px 20px;
-        border-radius: 30px;
-        font-size: 18px;
-        font-weight: 700;
-        color: #FFD700;
-        border: 1px solid rgba(255,215,0,0.2);
-        backdrop-filter: blur(10px);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        z-index: 10;
-    `;
-    balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
-    tapeContainer.appendChild(balanceDisplay);
-
-    const viewport = document.createElement('div');
-    viewport.style.cssText = `
-        width: 95%;
-        max-width: 1400px;
-        overflow: hidden;
-        position: relative;
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,0.06);
-        background: rgba(0,0,0,0.3);
-        height: 200px;
-        margin: 0 auto;
-        flex-shrink: 0;
-    `;
-
-    const cardWidth = 90;
-    const cardGap = 6;
-    const totalItems = prizes.length;
-    const oneSetWidth = totalItems * (cardWidth + cardGap);
-
-    const track = document.createElement('div');
-    track.id = 'track';
-    track.style.cssText = `
-        display: flex;
-        gap: ${cardGap}px;
-        padding: 20px 0;
-        will-change: transform;
-        animation: scrollTapeForward 7.875s linear infinite;
-        position: relative;
-        top: 15px;
-    `;
-
-    let cards = [];
-    for (let repeat = 0; repeat < 4; repeat++) {
-        prizes.forEach((p, index) => {
-            const isLarge = p > 1000;
-            const fontSize = isLarge ? '16px' : '20px';
-            cards.push(`<div class="card" data-value="${p}" style="
-                width: ${cardWidth}px;
-                height: 140px;
-                flex-shrink: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: rgba(255,255,255,0.04);
-                border-radius: 10px;
-                border: 1px solid rgba(255,255,255,0.06);
-                font-size: ${fontSize};
-                font-weight: 700;
-                color: ${style.itemColor};
-                text-shadow: 0 0 20px ${style.glowColor};
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                padding: 0 4px;
-            ">${p}⭐</div>`);
-        });
-    }
-    track.innerHTML = cards.join('');
-
-    viewport.appendChild(track);
-
-    if (!document.getElementById('previewScrollStyle')) {
-        const scrollStyle = document.createElement('style');
-        scrollStyle.id = 'previewScrollStyle';
-        scrollStyle.textContent = `
-            @keyframes scrollTapeForward {
-                0% { transform: translateX(0); }
-                100% { transform: translateX(-${oneSetWidth}px); }
-            }
-        `;
-        document.head.appendChild(scrollStyle);
-    }
-
-    tapeContainer.appendChild(viewport);
-
-    const bottomSection = document.createElement('div');
-    bottomSection.style.cssText = `
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        width: 100%;
-        padding: 20px 0 8px 0;
-        flex-shrink: 0;
-    `;
-
-    const btnContainer = document.createElement('div');
-    btnContainer.style.cssText = `display:flex; gap:14px; flex-wrap:wrap; justify-content:center;`;
-
-    const userBalance = parseInt(document.getElementById('balance').textContent.replace('⭐ ', ''));
-    const hasEnough = userBalance >= price;
-
-    if (hasEnough) {
-        const openBtn = document.createElement('button');
-        openBtn.textContent = `🎲 Открыть (${price}⭐)`;
-        openBtn.style.cssText = `
-            background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
-            color: #fff;
-            border: none;
-            padding: 14px 40px;
-            border-radius: 14px;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 30px ${style.shadowColor};
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            min-width: 170px;
-        `;
-        openBtn.onclick = function() {
-            openCaseDirect(type);
-        };
-        btnContainer.appendChild(openBtn);
-    } else {
-        const lockedBtn = document.createElement('button');
-        lockedBtn.textContent = `🔒 Недостаточно (${price}⭐)`;
-        lockedBtn.style.cssText = `
-            background: rgba(255,0,0,0.12);
-            color: #888;
-            border: 2px solid rgba(255,0,0,0.25);
-            padding: 14px 40px;
-            border-radius: 14px;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: not-allowed;
-            min-width: 170px;
-        `;
-        btnContainer.appendChild(lockedBtn);
-    }
-
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '🔙 Назад';
-    closeBtn.style.cssText = `
-        background: rgba(255,255,255,0.06);
-        color: #fff;
-        border: 1px solid rgba(255,255,255,0.08);
-        padding: 14px 40px;
-        border-radius: 14px;
-        font-size: 18px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s;
-        min-width: 170px;
-    `;
-    closeBtn.onclick = function() { closeTape(); };
-    btnContainer.appendChild(closeBtn);
-    bottomSection.appendChild(btnContainer);
-
-    const previewLabel = document.createElement('div');
-    previewLabel.textContent = '👀 Предпросмотр наград';
-    previewLabel.style.cssText = `
-        color: ${style.titleColor};
-        font-size: 14px;
-        font-weight: 500;
-        opacity: 0.5;
-        text-align: center;
-        letter-spacing: 1px;
-        margin-top: 4px;
-    `;
-    bottomSection.appendChild(previewLabel);
-
-    tapeContainer.appendChild(bottomSection);
-    document.body.appendChild(tapeContainer);
-}
-
-// ===== ОТКРЫТИЕ КЕЙСА (СТАНДАРТНЫЙ МАСШТАБ) =====
 function openCaseDirect(type) {
     if (_isOpening) return;
     _isOpening = true;
@@ -370,17 +145,27 @@ function openCaseDirect(type) {
             }
             _currentPrize = prize;
             closeTape();
-            showRouletteTape(type);
+            showFullScreenTape(type, true);
             setTimeout(() => {
                 startFinalSpin(type);
-            }, 300);
+            }, 400);
         });
     });
 }
 
-function showRouletteTape(type) {
+function closeTape() {
+    if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
+    if (_spinInterval) { clearInterval(_spinInterval); _spinInterval = null; }
+    if (_tapeContainer) { _tapeContainer.remove(); _tapeContainer = null; }
+    _isOpening = false;
+    _startTime = null;
+}
+
+function showFullScreenTape(type, isOpening) {
     const prizes = getPrizes(type);
     const style = getStyle(type);
+    const speed = getSpeed(type);
+    const price = getPrice(type);
     closeTape();
 
     const tapeContainer = document.createElement('div');
@@ -426,51 +211,120 @@ function showRouletteTape(type) {
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
-    const viewport = document.createElement('div');
-    viewport.style.cssText = `
-        width: 90%;
+    const mainContainer = document.createElement('div');
+    mainContainer.style.cssText = `
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
         max-width: 700px;
+        height: 65%;
+        gap: 20px;
+        flex: 1;
+    `;
+
+    // ===== ЛЕВАЯ ЧАСТЬ — ВЕРТИКАЛЬНЫЙ СПИСОК =====
+    const leftPanel = document.createElement('div');
+    leftPanel.style.cssText = `
+        flex: 3;
+        height: 100%;
         overflow: hidden;
-        position: relative;
+        background: rgba(255,255,255,0.03);
         border-radius: 16px;
         border: 1px solid rgba(255,255,255,0.06);
-        background: rgba(0,0,0,0.3);
-        height: 150px;
-        margin: 0 auto;
-        flex-shrink: 0;
+        padding: 8px 0;
+        position: relative;
+        max-width: 280px;
+        min-width: 180px;
     `;
 
     const marker = document.createElement('div');
     marker.style.cssText = `
         position: absolute;
-        top: -8px;
+        top: 0;
         left: 50%;
         transform: translateX(-50%);
-        font-size: 36px;
+        font-size: 24px;
         color: ${style.highlightColor};
         text-shadow: 0 0 30px ${style.highlightColor};
         z-index: 10;
         pointer-events: none;
         line-height: 1;
+        padding: 4px 0;
+        background: rgba(0,0,0,0.5);
+        border-radius: 0 0 8px 8px;
+        width: 100%;
+        text-align: center;
     `;
     marker.textContent = '▼';
-    viewport.appendChild(marker);
+    leftPanel.appendChild(marker);
 
-    const track = document.createElement('div');
-    track.id = 'track';
-    track.style.cssText = `
+    const listContainer = document.createElement('div');
+    listContainer.id = 'listContainer';
+    listContainer.style.cssText = `
         display: flex;
-        gap: 8px;
-        padding: 16px 0;
-        will-change: transform;
+        flex-direction: column;
+        gap: 4px;
+        padding: 0 12px;
         transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1);
-        width: auto;
-        position: relative;
-        top: 10px;
+        will-change: transform;
+        margin-top: 40px;
     `;
-    viewport.appendChild(track);
-    tapeContainer.appendChild(viewport);
+    leftPanel.appendChild(listContainer);
 
+    // ===== ПРАВАЯ ЧАСТЬ — ЦЕНТРАЛЬНАЯ ОБЛАСТЬ =====
+    const rightPanel = document.createElement('div');
+    rightPanel.style.cssText = `
+        flex: 4;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255,255,255,0.02);
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.06);
+        padding: 16px;
+        min-width: 150px;
+        position: relative;
+    `;
+
+    const prizeDisplay = document.createElement('div');
+    prizeDisplay.id = 'prizeDisplay';
+    prizeDisplay.style.cssText = `
+        font-size: 72px;
+        font-weight: 900;
+        color: ${style.highlightColor};
+        text-shadow: 0 0 60px ${style.highlightColor}30;
+        transition: all 0.5s ease;
+        opacity: 0.4;
+        transform: scale(0.8);
+    `;
+    prizeDisplay.textContent = '?';
+
+    const rarityLabel = document.createElement('div');
+    rarityLabel.id = 'rarityLabel';
+    rarityLabel.style.cssText = `
+        font-size: 14px;
+        font-weight: 600;
+        color: ${style.highlightColor};
+        margin-top: 10px;
+        opacity: 0;
+        transition: all 0.5s ease;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+    `;
+    rarityLabel.textContent = 'Обычный';
+
+    rightPanel.appendChild(prizeDisplay);
+    rightPanel.appendChild(rarityLabel);
+
+    mainContainer.appendChild(leftPanel);
+    mainContainer.appendChild(rightPanel);
+    tapeContainer.appendChild(mainContainer);
+
+    // ===== НИЖНЯЯ ЧАСТЬ — КНОПКИ =====
     const bottomSection = document.createElement('div');
     bottomSection.style.cssText = `
         display: flex;
@@ -483,24 +337,139 @@ function showRouletteTape(type) {
         flex-shrink: 0;
     `;
 
-    const loadingLabel = document.createElement('div');
-    loadingLabel.textContent = '🎰 Открытие...';
-    loadingLabel.style.cssText = `
-        color: ${style.titleColor};
-        font-size: 16px;
-        font-weight: 600;
-        opacity: 0.6;
-        text-align: center;
-        letter-spacing: 1px;
+    const btnContainer = document.createElement('div');
+    btnContainer.style.cssText = `display:flex; gap:14px; flex-wrap:wrap; justify-content:center;`;
+
+    const userBalance = parseInt(document.getElementById('balance').textContent.replace('⭐ ', ''));
+    const hasEnough = userBalance >= price;
+
+    if (hasEnough) {
+        const openBtn = document.createElement('button');
+        openBtn.textContent = `🎲 Открыть (${price}⭐)`;
+        openBtn.style.cssText = `
+            background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
+            color: #fff;
+            border: none;
+            padding: 14px 40px;
+            border-radius: 14px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 30px ${style.shadowColor};
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            min-width: 170px;
+        `;
+        openBtn.onclick = function() {
+            checkBalance(type).then(canOpen => {
+                if (!canOpen) return;
+                fetchRealPrize(type).then(prize => {
+                    if (prize === null) return;
+                    _currentPrize = prize;
+                    // ===== ПЕРЕСТРАИВАЕМ ЛЕНТУ С НОВОЙ НАГРАДОЙ =====
+                    const listContainer = document.getElementById('listContainer');
+                    if (listContainer) {
+                        const prizes = getPrizes(type);
+                        const style = getStyle(type);
+                        const totalCards = 60;
+                        const winPosition = 40;
+                        let items = [];
+                        for (let i = 0; i < totalCards; i++) {
+                            let value;
+                            if (i === winPosition) {
+                                value = _currentPrize;
+                            } else {
+                                const randomIndex = Math.floor(Math.random() * prizes.length);
+                                value = prizes[randomIndex];
+                            }
+                            const isLarge = value > 1000;
+                            const fontSize = isLarge ? '16px' : '20px';
+                            items.push(`<div class="list-item" data-value="${value}" style="
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                padding: 10px 14px;
+                                background: rgba(255,255,255,0.02);
+                                border-radius: 8px;
+                                font-size: ${fontSize};
+                                font-weight: 700;
+                                color: ${style.itemColor};
+                                text-shadow: 0 0 15px ${style.glowColor};
+                                border-left: 3px solid transparent;
+                                transition: all 0.12s ease;
+                                height: 48px;
+                                min-height: 48px;
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                letter-spacing: 0.5px;
+                            ">${value}⭐</div>`);
+                        }
+                        listContainer.innerHTML = items.join('');
+                        listContainer.style.transform = 'translateY(0px)';
+                    }
+                    setTimeout(() => {
+                        startFinalSpin(type);
+                    }, 300);
+                });
+            });
+        };
+        btnContainer.appendChild(openBtn);
+    } else {
+        const lockedBtn = document.createElement('button');
+        lockedBtn.textContent = `🔒 Недостаточно (${price}⭐)`;
+        lockedBtn.style.cssText = `
+            background: rgba(255,0,0,0.12);
+            color: #888;
+            border: 2px solid rgba(255,0,0,0.25);
+            padding: 14px 40px;
+            border-radius: 14px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: not-allowed;
+            min-width: 170px;
+        `;
+        btnContainer.appendChild(lockedBtn);
+    }
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '🔙 Назад';
+    closeBtn.style.cssText = `
+        background: rgba(255,255,255,0.06);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.08);
+        padding: 14px 40px;
+        border-radius: 14px;
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-width: 170px;
     `;
-    bottomSection.appendChild(loadingLabel);
+    closeBtn.onclick = function() { closeTape(); };
+    btnContainer.appendChild(closeBtn);
+    bottomSection.appendChild(btnContainer);
+
+    if (!isOpening) {
+        const previewLabel = document.createElement('div');
+        previewLabel.textContent = '👀 Предпросмотр наград';
+        previewLabel.style.cssText = `
+            color: ${style.titleColor};
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0.5;
+            text-align: center;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        `;
+        bottomSection.appendChild(previewLabel);
+    }
 
     tapeContainer.appendChild(bottomSection);
     document.body.appendChild(tapeContainer);
 
-    tapeContainer._track = track;
-    tapeContainer._viewport = viewport;
-    tapeContainer._marker = marker;
+    // Сохраняем ссылки
+    tapeContainer._listContainer = listContainer;
+    tapeContainer._prizeDisplay = prizeDisplay;
+    tapeContainer._rarityLabel = rarityLabel;
 }
 
 function startFinalSpin(type) {
@@ -509,8 +478,12 @@ function startFinalSpin(type) {
     const tapeContainer = document.getElementById('tapeContainer');
     if (!tapeContainer) return;
 
-    const track = tapeContainer._track;
-    const viewport = tapeContainer._viewport;
+    const btns = tapeContainer.querySelectorAll('button');
+    btns.forEach(btn => btn.remove());
+
+    const listContainer = tapeContainer._listContainer;
+    const prizeDisplay = tapeContainer._prizeDisplay;
+    const rarityLabel = tapeContainer._rarityLabel;
 
     const targetPrize = _currentPrize;
     if (targetPrize === null) {
@@ -519,265 +492,174 @@ function startFinalSpin(type) {
         return;
     }
 
-    // ===== СТАНДАРТНЫЙ МАСШТАБ =====
-    const cardWidth = 130;
-    const cardGap = 8;
-    const totalCardWidth = cardWidth + cardGap;
-    const totalCards = 60;
-    const winPosition = 40;
-
-    const prizeIndex = prizes.indexOf(targetPrize);
-    if (prizeIndex === -1) {
+    const allItems = listContainer.querySelectorAll('.list-item');
+    let targetIndex = -1;
+    let targetElement = null;
+    
+    allItems.forEach((el, idx) => {
+        if (parseInt(el.dataset.value) === targetPrize && targetIndex === -1) {
+            targetIndex = idx;
+            targetElement = el;
+        }
+    });
+    
+    if (targetIndex === -1 || !targetElement) {
         tg.showAlert('❌ Ошибка: награда не найдена в списке');
         closeTape();
         return;
     }
 
-    let cards = [];
-    for (let i = 0; i < totalCards; i++) {
-        let value;
-        if (i === winPosition) {
-            value = targetPrize;
-        } else {
-            const randomIndex = Math.floor(Math.random() * prizes.length);
-            value = prizes[randomIndex];
+    // ===== БЫСТРОЕ ПРОБЕГАНИЕ ПО СПИСКУ =====
+    let currentHighlight = 0;
+    const totalItems = allItems.length;
+    let speed = 60;
+    let steps = 0;
+    const maxSteps = 28;
+
+    if (_spinInterval) clearInterval(_spinInterval);
+    _spinInterval = setInterval(() => {
+        // Снимаем подсветку со всех
+        allItems.forEach(el => {
+            el.style.background = 'rgba(255,255,255,0.02)';
+            el.style.borderLeft = '3px solid transparent';
+            el.style.color = style.itemColor;
+            el.style.textShadow = `0 0 15px ${style.glowColor}`;
+        });
+
+        // Подсвечиваем текущий
+        const currentItem = allItems[currentHighlight];
+        if (currentItem) {
+            currentItem.style.background = 'rgba(255,215,0,0.1)';
+            currentItem.style.borderLeft = `3px solid ${style.highlightColor}`;
+            currentItem.style.color = '#FFFFFF';
+            currentItem.style.textShadow = `0 0 20px ${style.highlightColor}`;
         }
-        const isLarge = value > 1000;
-        const fontSize = isLarge ? '22px' : '28px';
-        cards.push(`<div class="card" data-value="${value}" style="
-            width: ${cardWidth}px;
-            height: 120px;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255,255,255,0.04);
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.06);
-            font-size: ${fontSize};
-            font-weight: 700;
-            color: ${style.itemColor};
-            text-shadow: 0 0 20px ${style.glowColor};
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            transition: all 0.2s ease;
-        ">${value}⭐</div>`);
-    }
-    track.innerHTML = cards.join('');
 
-    const viewportWidth = viewport.offsetWidth || 700;
-    const centerOffset = viewportWidth / 2;
-    const shift = (winPosition * totalCardWidth) - centerOffset + (cardWidth / 2);
-    const noise = Math.floor(Math.random() * 40) - 20;
-    const finalShift = shift + noise;
+        // Обновляем центральный дисплей
+        const val = parseInt(currentItem?.dataset.value || 0);
+        prizeDisplay.textContent = val + '⭐';
+        prizeDisplay.style.opacity = '0.5';
+        prizeDisplay.style.transform = 'scale(0.85)';
 
-    track.style.transform = `translateX(-${finalShift}px)`;
+        steps++;
+        currentHighlight = (currentHighlight + 1) % totalItems;
 
-    let finished = false;
-
-    const onFinish = () => {
-        if (finished) return;
-        finished = true;
-        track.removeEventListener('transitionend', onFinish);
-        showResultAndClaim(type, targetPrize, style, track, winPosition);
-    };
-
-    track.addEventListener('transitionend', onFinish);
-
-    setTimeout(() => {
-        if (!finished) {
-            finished = true;
-            track.removeEventListener('transitionend', onFinish);
-            showResultAndClaim(type, targetPrize, style, track, winPosition);
+        // Замедление
+        if (steps > 12) {
+            speed += 18;
         }
-    }, 7000);
-}
+        if (steps > 18) {
+            speed += 35;
+        }
+        if (steps > 24) {
+            speed += 60;
+        }
+        if (steps >= maxSteps) {
+            clearInterval(_spinInterval);
+            _spinInterval = null;
 
-function showResultAndClaim(type, targetPrize, style, track, winPosition) {
-    const cards = track.querySelectorAll('.card');
-    cards.forEach(el => {
-        el.style.background = 'rgba(255,255,255,0.04)';
-        el.style.border = '1px solid rgba(255,255,255,0.06)';
-        el.style.color = style.itemColor;
-        el.style.textShadow = `0 0 20px ${style.glowColor}`;
-    });
+            // ===== ОСТАНОВКА =====
+            const targetIdx = targetIndex;
+            const targetEl = allItems[targetIdx];
 
-    const winCard = cards[winPosition];
-    if (winCard) {
-        winCard.style.background = 'rgba(255,215,0,0.15)';
-        winCard.style.border = `2px solid ${style.highlightColor}`;
-        winCard.style.color = '#FFFFFF';
-        winCard.style.textShadow = `0 0 30px ${style.highlightColor}`;
-    }
+            // Снимаем подсветку со всех
+            allItems.forEach(el => {
+                el.style.background = 'rgba(255,255,255,0.02)';
+                el.style.borderLeft = '3px solid transparent';
+                el.style.color = style.itemColor;
+                el.style.textShadow = `0 0 15px ${style.glowColor}`;
+            });
 
-    setTimeout(() => {
-        const resultContainer = document.createElement('div');
-        resultContainer.id = 'resultContainer';
-        resultContainer.style.cssText = `
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(20px);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 30px;
-            animation: fadeIn 0.3s ease;
-        `;
+            // Подсвечиваем выигрыш
+            targetEl.style.background = 'rgba(255,215,0,0.18)';
+            targetEl.style.borderLeft = `3px solid ${style.highlightColor}`;
+            targetEl.style.color = '#FFFFFF';
+            targetEl.style.textShadow = `0 0 30px ${style.highlightColor}`;
 
-        const balanceDisplay = document.createElement('div');
-        balanceDisplay.style.cssText = `
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255,255,255,0.08);
-            padding: 10px 20px;
-            border-radius: 30px;
-            font-size: 18px;
-            font-weight: 700;
-            color: #FFD700;
-            border: 1px solid rgba(255,215,0,0.2);
-            backdrop-filter: blur(10px);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
-        balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
-        resultContainer.appendChild(balanceDisplay);
+            // ===== ВСПЫШКА =====
+            const flash = document.createElement('div');
+            flash.style.cssText = `
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: radial-gradient(circle at center, rgba(255,215,0,0.6), rgba(255,255,255,0.2), transparent 70%);
+                z-index: 1000;
+                pointer-events: none;
+                animation: flashOut 0.6s ease-out forwards;
+            `;
+            document.body.appendChild(flash);
 
-        const winText = document.createElement('div');
-        winText.style.cssText = `
-            font-size: 64px;
-            font-weight: 900;
-            color: #FFD700;
-            text-shadow: 0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,215,0,0.3);
-            margin-bottom: 10px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            text-align: center;
-        `;
-        winText.textContent = `⭐ ${targetPrize}`;
-
-        const subText = document.createElement('div');
-        subText.style.cssText = `
-            font-size: 24px;
-            font-weight: 600;
-            color: #FFF8E7;
-            text-shadow: 0 0 20px rgba(255,215,0,0.3);
-            margin-bottom: 30px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
-        subText.textContent = 'Ты выиграл!';
-
-        const btnContainer = document.createElement('div');
-        btnContainer.style.cssText = `
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            justify-content: center;
-        `;
-
-        const price = getPrice(type);
-        const againBtn = document.createElement('button');
-        againBtn.textContent = `🎲 Открыть ещё (${price}⭐)`;
-        againBtn.style.cssText = `
-            background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
-            color: #fff;
-            border: none;
-            padding: 14px 36px;
-            border-radius: 14px;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 30px ${style.shadowColor};
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            min-width: 160px;
-        `;
-        againBtn.onmouseover = function() {
-            this.style.transform = 'scale(1.05)';
-            this.style.boxShadow = `0 6px 40px ${style.shadowColor}`;
-        };
-        againBtn.onmouseout = function() {
-            this.style.transform = 'scale(1)';
-            this.style.boxShadow = `0 4px 30px ${style.shadowColor}`;
-        };
-        againBtn.onclick = function() {
-            resultContainer.remove();
-            closeTape();
-            setTimeout(() => {
-                openCaseDirect(type);
-            }, 300);
-        };
-
-        const backBtn = document.createElement('button');
-        backBtn.textContent = '🔙 Назад';
-        backBtn.style.cssText = `
-            background: rgba(255,255,255,0.08);
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.1);
-            padding: 14px 36px;
-            border-radius: 14px;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            min-width: 160px;
-        `;
-        backBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.15)'; };
-        backBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.08)'; };
-        backBtn.onclick = function() {
-            resultContainer.remove();
-            closeTape();
-            showMain();
-        };
-
-        btnContainer.appendChild(againBtn);
-        btnContainer.appendChild(backBtn);
-
-        resultContainer.appendChild(winText);
-        resultContainer.appendChild(subText);
-        resultContainer.appendChild(btnContainer);
-        document.body.appendChild(resultContainer);
-
-        setTimeout(async () => {
-            try {
-                const res = await fetch('/open_case', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        user_id: user_id, 
-                        case_type: type,
-                        prize: targetPrize
-                    })
-                });
-                const data = await res.json();
-                if (data.error) {
-                    tg.showAlert('❌ ' + data.error);
-                } else {
-                    loadBalance();
-                    const balanceEl = resultContainer.querySelector('div[style*="position: absolute"]');
-                    if (balanceEl) {
-                        balanceEl.textContent = `💰 ${document.getElementById('balance').textContent}`;
+            if (!document.getElementById('flashStyle')) {
+                const flashStyle = document.createElement('style');
+                flashStyle.id = 'flashStyle';
+                flashStyle.textContent = `
+                    @keyframes flashOut {
+                        0% { opacity: 1; transform: scale(0.8); }
+                        100% { opacity: 0; transform: scale(1.6); }
                     }
-                }
-            } catch(e) {
-                tg.showAlert('❌ Ошибка при открытии кейса');
+                `;
+                document.head.appendChild(flashStyle);
             }
-        }, 300);
 
-    }, 300);
+            setTimeout(() => flash.remove(), 700);
+
+            // ===== УВЕЛИЧЕНИЕ ВЫИГРЫША =====
+            setTimeout(() => {
+                prizeDisplay.textContent = targetPrize + '⭐';
+                prizeDisplay.style.opacity = '1';
+                prizeDisplay.style.transform = 'scale(1.6)';
+                prizeDisplay.style.color = '#FFFFFF';
+                prizeDisplay.style.textShadow = `
+                    0 0 60px ${style.highlightColor},
+                    0 0 120px ${style.highlightColor},
+                    0 0 200px ${style.highlightColor}80
+                `;
+
+                let rarity = 'Обычный';
+                let rarityColor = style.itemColor;
+                if (targetPrize >= 1000) { rarity = 'Легендарный'; rarityColor = '#ff6b35'; }
+                else if (targetPrize >= 500) { rarity = 'Эпический'; rarityColor = '#b388ff'; }
+                else if (targetPrize >= 100) { rarity = 'Редкий'; rarityColor = '#ffd700'; }
+                
+                rarityLabel.textContent = rarity;
+                rarityLabel.style.color = rarityColor;
+                rarityLabel.style.opacity = '1';
+                rarityLabel.style.textShadow = `0 0 30px ${rarityColor}40`;
+
+                // ===== ПОКАЗЫВАЕМ РЕЗУЛЬТАТ =====
+                const resultDiv = document.getElementById('result');
+                document.getElementById('prizeDisplay').textContent = '🎁';
+                document.getElementById('prizeName').textContent = 'Ты выиграл!';
+                document.getElementById('prizeValue').textContent = '⭐ ' + targetPrize;
+                resultDiv.classList.add('show');
+                loadBalance();
+                document.getElementById('againBtn').style.display = 'inline-block';
+
+                openCaseReal(type, targetPrize);
+            }, 800);
+        }
+    }, speed);
 }
 
-function closeTape() {
-    if (_tapeContainer) {
-        const track = _tapeContainer.querySelector('#track');
-        if (track) {
-            track.style.animation = 'none';
-            track.style.transition = 'none';
+async function openCaseReal(type, finalPrize) {
+    lastOpenedCase = type;
+    try {
+        const res = await fetch('/open_case', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                user_id: user_id, 
+                case_type: type,
+                prize: _currentPrize
+            })
+        });
+        const data = await res.json();
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
+            return;
         }
-        _tapeContainer.remove();
-        _tapeContainer = null;
+    } catch(e) {
+        tg.showAlert('❌ Ошибка открытия кейса');
     }
-    _isOpening = false;
 }
 
 function openAgain() {
@@ -790,20 +672,9 @@ function openAgain() {
 }
 
 function closeResult() {
-    const resultDiv = document.getElementById('result');
-    const againBtn = document.getElementById('againBtn');
-    const adBlock = document.getElementById('adBlock');
-    const prizeDisplay = document.getElementById('prizeDisplay');
-    const prizeName = document.getElementById('prizeName');
-    const prizeValue = document.getElementById('prizeValue');
-    
-    if (resultDiv) resultDiv.classList.remove('show');
-    if (againBtn) againBtn.style.display = 'none';
-    if (adBlock) adBlock.style.display = 'none';
-    
-    if (prizeDisplay) prizeDisplay.textContent = '';
-    if (prizeName) prizeName.textContent = '';
-    if (prizeValue) prizeValue.textContent = '';
+    document.getElementById('result').classList.remove('show');
+    document.getElementById('againBtn').style.display = 'none';
+    document.getElementById('adBlock').style.display = 'none';
 }
 
 function showProfile() {
