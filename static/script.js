@@ -115,7 +115,7 @@ async function fetchRealPrize(type) {
     }
 }
 
-// ===== ПРЕДПРОСМОТР (ТОЛЬКО ВПЕРЁД, БЕЗ ВОЗВРАТА) =====
+// ===== ПРЕДПРОСМОТР (ТОЛЬКО ВПЕРЁД, 5.25С, БОЛЬШАЯ ЛЕНТА) =====
 function previewCase(type) {
     if (_isOpening) return;
     closeTape();
@@ -157,20 +157,23 @@ function showPreviewTape(type) {
         document.head.appendChild(fadeStyle);
     }
 
+    // ===== НАЗВАНИЕ ВВЕРХУ =====
     const title = document.createElement('div');
     title.style.cssText = `
-        font-size: 22px;
+        font-size: 24px;
         font-weight: 800;
         color: ${style.titleColor};
-        margin-bottom: 16px;
+        margin-bottom: 20px;
         text-transform: uppercase;
         letter-spacing: 3px;
         text-shadow: 0 0 40px ${style.glowColor};
         text-align: center;
+        flex-shrink: 0;
     `;
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
+    // ===== БАЛАНС =====
     const balanceDisplay = document.createElement('div');
     balanceDisplay.style.cssText = `
         position: absolute;
@@ -190,23 +193,23 @@ function showPreviewTape(type) {
     balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
     tapeContainer.appendChild(balanceDisplay);
 
+    // ===== БОЛЬШАЯ ЛЕНТА =====
     const viewport = document.createElement('div');
     viewport.style.cssText = `
         width: 95%;
-        max-width: 1200px;
+        max-width: 1300px;
         overflow: hidden;
         position: relative;
         border-radius: 16px;
         border: 1px solid rgba(255,255,255,0.06);
         background: rgba(0,0,0,0.3);
-        height: 150px;
+        height: 200px;
         margin: 0 auto;
         flex-shrink: 0;
     `;
 
-    // ===== ЛЕНТА (3 НАБОРА ДЛЯ БЕСКОНЕЧНОСТИ, ТОЛЬКО ВПЕРЁД) =====
-    const cardWidth = 80;
-    const cardGap = 5;
+    const cardWidth = 110;
+    const cardGap = 8;
     const totalItems = prizes.length;
     const oneSetWidth = totalItems * (cardWidth + cardGap);
     const totalWidth = oneSetWidth * 3;
@@ -216,34 +219,34 @@ function showPreviewTape(type) {
     track.style.cssText = `
         display: flex;
         gap: ${cardGap}px;
-        padding: 16px 0;
+        padding: 20px 0;
         will-change: transform;
-        animation: scrollTapeForward 3.5s linear infinite;
+        animation: scrollTapeForward 5.25s linear infinite;
         position: relative;
-        top: 10px;
+        top: 15px;
     `;
 
     let cards = [];
     for (let repeat = 0; repeat < 3; repeat++) {
         prizes.forEach((p, index) => {
             const isLarge = p > 1000;
-            const fontSize = isLarge ? '12px' : '14px';
+            const fontSize = isLarge ? '18px' : '22px';
             cards.push(`<div class="card" data-value="${p}" style="
                 width: ${cardWidth}px;
-                height: 110px;
+                height: 140px;
                 flex-shrink: 0;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 background: rgba(255,255,255,0.04);
-                border-radius: 8px;
+                border-radius: 12px;
                 border: 1px solid rgba(255,255,255,0.06);
                 font-size: ${fontSize};
                 font-weight: 700;
                 color: ${style.itemColor};
                 text-shadow: 0 0 20px ${style.glowColor};
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                padding: 0 2px;
+                padding: 0 4px;
             ">${p}⭐</div>`);
         });
     }
@@ -265,6 +268,7 @@ function showPreviewTape(type) {
 
     tapeContainer.appendChild(viewport);
 
+    // ===== КНОПКИ ВНИЗУ =====
     const bottomSection = document.createElement('div');
     bottomSection.style.cssText = `
         display: flex;
@@ -273,7 +277,7 @@ function showPreviewTape(type) {
         justify-content: center;
         gap: 12px;
         width: 100%;
-        padding: 16px 0 8px 0;
+        padding: 20px 0 8px 0;
         flex-shrink: 0;
     `;
 
@@ -356,7 +360,7 @@ function showPreviewTape(type) {
     document.body.appendChild(tapeContainer);
 }
 
-// ===== ОТКРЫТИЕ КЕЙСА (УВЕЛИЧЕННАЯ ЛЕНТА) =====
+// ===== ОТКРЫТИЕ КЕЙСА =====
 function openCaseDirect(type) {
     if (_isOpening) return;
     _isOpening = true;
@@ -427,7 +431,6 @@ function showRouletteTape(type) {
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
-    // ===== УВЕЛИЧЕННЫЙ VIEWPORT (220px) =====
     const viewport = document.createElement('div');
     viewport.style.cssText = `
         width: 95%;
