@@ -10,8 +10,11 @@ let _currentPrize = null;
 let _isOpening = false;
 let _tapeContainer = null;
 let minesGameData = null;
-let selectedMines = 2;
+let selectedMultiplier = 2.0;
+let selectedMinesForMultiplier = 2;
 let selectedLobbyCase = 'gold';
+let lobbyInterval = null;
+let isInLobby = false;
 
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
@@ -47,6 +50,7 @@ function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
 function getPrice(type) { return CASE_PRICES[type] || 0; }
 
+// ===================== НАВИГАЦИЯ =====================
 function showMain() {
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
     document.getElementById('mainScreen').classList.add('active');
@@ -62,6 +66,7 @@ function showBattles() {
     document.querySelector('.nav-item[data-tab="battles"]').classList.add('active');
     loadBattleData();
     loadLobby();
+    startAutoLobbyRefresh();
 }
 
 function showMines() {
@@ -78,7 +83,7 @@ function showMines() {
         document.getElementById('minesCountDisplay').textContent = '0';
         document.getElementById('minesTotalSafe').textContent = '0';
         document.getElementById('minesOpenedDisplay').textContent = '0';
-        document.getElementById('minesMultiplierDisplay').textContent = 'x1.0';
+        document.getElementById('minesMultiplierDisplay').textContent = 'x' + selectedMultiplier;
         initMinesBoard();
     }
 }
@@ -92,11 +97,13 @@ function showProfile() {
 }
 
 function goBack() {
+    stopAutoLobbyRefresh();
     closeTape();
     closeResult();
     showMain();
 }
 
+// ===================== БАЛАНС =====================
 async function loadBalance() {
     try {
         const res = await fetch('/get_balance', {
@@ -894,6 +901,67 @@ function renderBattleHistory(history) {
     `).join('');
 }
 
+// ===================== БИТВА С БОТОМ =====================
+function startBattleWithBot() {
+    const caseOptions = ['mud', 'wood', 'stone', 'bronze', 'silver', 'gold', 'diamond', 'netherite', 'bedrock'];
+    const caseNames = {
+        'mud': '🟫 Грязь',
+        'wood': '🌳 Дерево',
+        'stone': '🪨 Камень',
+        'bronze': '🥉 Бронза',
+        'silver': '🔘 Серебро',
+        'gold': '👑 Золото',
+        'diamond': '💎 Алмаз',
+        'netherite': '🔥 Незерит',
+        'bedrock': '⛏️ Бедрок'
+    };
+    
+    let msg = '🤖 **ВЫБЕРИ КЕЙС ДЛЯ БИТВЫ С БОТОМ:**\n\n';
+    caseOptions.forEach((c, i) => {
+        msg += `${i+1}. ${caseNames[c]}\n`;
+    });
+    
+    const choice = prompt(msg + '\nВведите номер кейса (1-9):');
+    if (!choice) return;
+    const idx = parseInt(choice) - 1;
+    if (idx < 0 || idx >= caseOptions.length) {
+        tg.showAlert('❌ Неверный номер');
+        return;
+    }
+    const case_type = caseOptions[idx];
+    
+    fetch('/check_balance_simple', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, amount: 1 })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error || !data.has_enough) {
+            tg.showAlert('❌ У тебя нет звёзд для битвы!');
+            return;
+        }
+        
+        fetch('/battle_with_bot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, case_type })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                tg.showAlert('❌ ' + data.error);
+                return;
+            }
+            
+            const resultText = `🤖 **БИТВА С БОТОМ**\n\n📦 Кейс: ${case_type.toUpperCase()}\n🎯 Твой дроп: ${data.player_prize}⭐\n🎯 Дроп бота: ${data.bot_prize}⭐\n\n${data.result}`;
+            tg.showAlert(resultText);
+            loadBalance();
+            loadBattleData();
+        });
+    });
+}
+
 // ===================== ЛОББИ =====================
 function loadLobby() {
     fetch('/get_lobby', {
@@ -903,19 +971,43 @@ function loadLobby() {
     })
     .then(res => res.json())
     .then(data => {
+        isInLobby = data.in_lobby || false;
+        
+        if (isInLobby) {
+            document.getElementById('lobbyWaiting').style.display = 'block';
+        } else {
+            document.getElementById('lobbyWaiting').style.display = 'none';
+        }
+        
         const list = document.getElementById('lobbyList');
         if (data.players && data.players.length > 0) {
             list.innerHTML = data.players.map(p => `
                 <div class="player-item">
-                    <span class="name">👤 ${p.username}</span>
-                    <span class="info">📦 ${p.case_type} | 💰 ${p.bet}⭐</span>
+                    <span class="name">👤 Игрок #${p.user_id}</span>
+                    <span class="info">📦 ${p.case_type} | ${p.status}</span>
                     <button class="btn-fight" onclick="startBattleWith('${p.user_id}')">⚔️ БИТЬСЯ</button>
                 </div>
             `).join('');
         } else {
             list.innerHTML = '<div class="empty-state">😴 Пока никто не ждёт битву</div>';
         }
-    });
+    })
+    .catch(() => {});
+}
+
+function startAutoLobbyRefresh() {
+    if (lobbyInterval) clearInterval(lobbyInterval);
+    lobbyInterval = setInterval(() => {
+        loadLobby();
+        loadBattleData();
+    }, 5000);
+}
+
+function stopAutoLobbyRefresh() {
+    if (lobbyInterval) {
+        clearInterval(lobbyInterval);
+        lobbyInterval = null;
+    }
 }
 
 function showJoinLobby() {
@@ -935,15 +1027,17 @@ document.querySelectorAll('.lobby-case-btn').forEach(btn => {
 });
 
 function confirmJoinLobby() {
-    const bet = parseInt(document.getElementById('lobbyBetInput').value);
-    if (isNaN(bet) || bet < 3 || bet > 1000) {
-        tg.showAlert('❌ Ставка должна быть от 3 до 1000⭐');
+    const case_type = selectedLobbyCase;
+    
+    if (case_type === 'free') {
+        tg.showAlert('❌ Бесплатный кейс нельзя выбрать для битвы!');
         return;
     }
+    
     fetch('/join_lobby', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, case_type: selectedLobbyCase, bet })
+        body: JSON.stringify({ user_id, case_type })
     })
     .then(res => res.json())
     .then(data => {
@@ -954,6 +1048,18 @@ function confirmJoinLobby() {
         } else {
             tg.showAlert('❌ ' + data.error);
         }
+    });
+}
+
+function exitLobby() {
+    fetch('/exit_lobby', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id })
+    })
+    .then(() => {
+        tg.showAlert('❌ Ты вышел из лобби');
+        loadLobby();
     });
 }
 
@@ -1004,24 +1110,22 @@ document.getElementById('betInput').addEventListener('change', function() {
     this.value = val;
 });
 
-document.querySelectorAll('.mines-btn').forEach(btn => {
+document.querySelectorAll('.multiplier-btn').forEach(btn => {
     btn.addEventListener('click', function() {
-        document.querySelectorAll('.mines-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.multiplier-btn').forEach(b => b.classList.remove('active'));
         this.classList.add('active');
-        selectedMines = parseInt(this.dataset.mines);
-        const mult = getMinesMultiplier(selectedMines);
-        document.getElementById('minesMultiplierDisplay').textContent = 'x' + mult;
+        selectedMultiplier = parseFloat(this.dataset.mult);
+        selectedMinesForMultiplier = parseInt(this.dataset.mines);
+        document.getElementById('minesMultiplierDisplay').textContent = 'x' + selectedMultiplier;
+        document.getElementById('minesCountDisplay').textContent = selectedMinesForMultiplier;
+        document.getElementById('minesTotalSafe').textContent = 25 - selectedMinesForMultiplier;
     });
 });
 
-function getMinesMultiplier(mines) {
-    const map = {1: 1.2, 2: 2.0, 3: 3.0, 4: 5.0, 5: 10.0};
-    return map[mines] || 1.0;
-}
-
 function startMinesGame() {
     const bet = getBetFromInput();
-    const mines = selectedMines;
+    const mines = selectedMinesForMultiplier;
+    const multiplier = selectedMultiplier;
     
     if (bet < 3 || bet > 1000) {
         tg.showAlert('❌ Ставка должна быть от 3 до 1000⭐');
@@ -1043,7 +1147,7 @@ function startMinesGame() {
         fetch('/start_mines_game', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, bet, mines })
+            body: JSON.stringify({ user_id, bet, mines, multiplier })
         })
         .then(res => res.json())
         .then(gameData => {
@@ -1056,9 +1160,9 @@ function startMinesGame() {
                 game_id: gameData.game_id,
                 bet: bet,
                 mines: mines,
+                selected_multiplier: multiplier,
                 opened: 0,
                 safe_cells: 25 - mines,
-                multiplier: 1.0,
                 board: gameData.board,
                 openedCells: gameData.opened,
                 active: true,
@@ -1069,7 +1173,7 @@ function startMinesGame() {
             document.getElementById('minesCountDisplay').textContent = mines;
             document.getElementById('minesTotalSafe').textContent = 25 - mines;
             document.getElementById('minesOpenedDisplay').textContent = '0';
-            document.getElementById('minesMultiplierDisplay').textContent = 'x1.0';
+            document.getElementById('minesMultiplierDisplay').textContent = 'x' + multiplier;
             
             document.getElementById('minesCashoutBtn').style.display = 'inline-block';
             document.getElementById('minesStartBtn').textContent = '🔄 ИГРАТЬ СНОВА';
@@ -1138,10 +1242,9 @@ function openMinesCell(index) {
         minesGameData.board = data.board;
         minesGameData.openedCells = data.opened;
         minesGameData.opened = data.opened_count;
-        minesGameData.multiplier = data.multiplier;
         
         document.getElementById('minesOpenedDisplay').textContent = minesGameData.opened;
-        document.getElementById('minesMultiplierDisplay').textContent = 'x' + minesGameData.multiplier;
+        document.getElementById('minesMultiplierDisplay').textContent = 'x' + data.multiplier;
         
         if (data.game_over) {
             minesGameData.active = false;
@@ -1176,12 +1279,15 @@ function cashoutMinesGame() {
         return;
     }
     
-    fetch('/cashout_mines', {
+    const winnings = Math.floor(minesGameData.bet * minesGameData.selected_multiplier);
+    
+    fetch('/cashout_mines_fixed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
             user_id, 
-            game_id: minesGameData.game_id 
+            game_id: minesGameData.game_id,
+            winnings: winnings
         })
     })
     .then(res => res.json())
@@ -1195,7 +1301,7 @@ function cashoutMinesGame() {
         minesGameData.game_over = true;
         document.getElementById('minesCashoutBtn').style.display = 'none';
         
-        tg.showAlert('✅ Ты забрал ' + data.winnings + '⭐ (x' + data.multiplier + ')');
+        tg.showAlert('✅ Ты забрал ' + data.winnings + '⭐ (x' + minesGameData.selected_multiplier + ')');
         loadBalance();
         loadMinesStats();
     });
@@ -1203,7 +1309,7 @@ function cashoutMinesGame() {
 
 function updateMinesCashoutAmount() {
     if (!minesGameData) return;
-    const amount = Math.floor(minesGameData.bet * minesGameData.multiplier);
+    const amount = Math.floor(minesGameData.bet * minesGameData.selected_multiplier);
     document.getElementById('minesCashoutAmount').textContent = amount;
 }
 
