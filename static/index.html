@@ -118,7 +118,6 @@
             <div class="battle-actions">
                 <button onclick="showCreateBattle()">🔥 СОЗДАТЬ БИТВУ</button>
                 <button onclick="showBotBattle()">🤖 БИТВА С БОТОМ</button>
-                <button onclick="loadBattleRooms()">🔄 ОБНОВИТЬ</button>
             </div>
             
             <div style="margin-top:12px;">
@@ -175,12 +174,16 @@
             <div style="margin-bottom:16px;">
                 <div style="color:#aaa; font-size:14px; margin-bottom:6px;">💣 X (количество бомб, 3-8):</div>
                 <div id="minesOptions" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
-                    <button class="mines-btn" data-mines="3">3 (x1.3)</button>
-                    <button class="mines-btn active" data-mines="4">4 (x1.5)</button>
-                    <button class="mines-btn" data-mines="5">5 (x2.0)</button>
-                    <button class="mines-btn" data-mines="6">6 (x2.5)</button>
-                    <button class="mines-btn" data-mines="7">7 (x3.0)</button>
-                    <button class="mines-btn" data-mines="8">8 (x4.0)</button>
+                    <button class="mines-btn" data-mines="3">3</button>
+                    <button class="mines-btn active" data-mines="4">4</button>
+                    <button class="mines-btn" data-mines="5">5</button>
+                    <button class="mines-btn" data-mines="6">6</button>
+                    <button class="mines-btn" data-mines="7">7</button>
+                    <button class="mines-btn" data-mines="8">8</button>
+                </div>
+                <div style="text-align:center; color:#666; font-size:12px; margin-top:4px;">
+                    🔥 Максимальный множитель: <b style="color:#ffd700;">x5.0</b> | 
+                    📦 Минимум для вывода: <b style="color:#4caf50;">3 клетки</b>
                 </div>
             </div>
 
