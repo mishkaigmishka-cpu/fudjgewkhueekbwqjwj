@@ -17,7 +17,6 @@
             </div>
         </header>
 
-        <!-- ГЛАВНАЯ -->
         <div id="mainScreen" class="screen active">
             <div class="balance-card">
                 <span class="balance-label">💰 Баланс</span>
@@ -107,7 +106,6 @@
             </div>
         </div>
 
-        <!-- БИТВЫ -->
         <div id="battlesScreen" class="screen">
             <div class="section-title">⚔️ БИТВЫ</div>
             <div class="battle-stats">
@@ -142,7 +140,6 @@
             <button onclick="goBack()" class="btn-back">🔙 Назад</button>
         </div>
 
-        <!-- МИНЁР -->
         <div id="minesScreen" class="screen">
             <div class="section-title">💣 МИНЁР</div>
             
@@ -171,19 +168,14 @@
                 </div>
             </div>
 
-            <div style="margin-bottom:16px;">
-                <div style="color:#aaa; font-size:14px; margin-bottom:6px;">💣 X (количество бомб, 3-8):</div>
-                <div id="minesOptions" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
-                    <button class="mines-btn" data-mines="3">3</button>
-                    <button class="mines-btn active" data-mines="4">4</button>
-                    <button class="mines-btn" data-mines="5">5</button>
-                    <button class="mines-btn" data-mines="6">6</button>
-                    <button class="mines-btn" data-mines="7">7</button>
-                    <button class="mines-btn" data-mines="8">8</button>
-                </div>
-                <div style="text-align:center; color:#666; font-size:12px; margin-top:4px;">
-                    🔥 Максимальный множитель: <b style="color:#ffd700;">x5.0</b> | 
-                    📦 Минимум для вывода: <b style="color:#4caf50;">3 клетки</b>
+            <div style="margin-bottom:16px; overflow-x:auto; white-space:nowrap; padding:4px 0; scrollbar-width:thin;">
+                <div id="minesOptions" style="display:inline-flex; gap:8px;">
+                    <button class="mines-btn" data-mines="3">3 (x1.3)</button>
+                    <button class="mines-btn active" data-mines="4">4 (x1.5)</button>
+                    <button class="mines-btn" data-mines="5">5 (x2.0)</button>
+                    <button class="mines-btn" data-mines="6">6 (x2.5)</button>
+                    <button class="mines-btn" data-mines="7">7 (x3.0)</button>
+                    <button class="mines-btn" data-mines="8">8 (x4.0)</button>
                 </div>
             </div>
 
@@ -198,7 +190,6 @@
             <button onclick="goBack()" class="btn-back" style="margin-top:12px;">🔙 Назад</button>
         </div>
 
-        <!-- ПРОФИЛЬ -->
         <div id="profileScreen" class="screen">
             <div class="profile-card">
                 <div class="profile-avatar">👤</div>
@@ -225,7 +216,6 @@
             </div>
         </div>
 
-        <!-- МОДАЛКА: СОЗДАНИЕ БИТВЫ -->
         <div id="createBattleModal" class="modal-overlay">
             <div class="modal">
                 <h2>🔥 СОЗДАНИЕ БИТВЫ</h2>
@@ -250,7 +240,6 @@
             </div>
         </div>
 
-        <!-- МОДАЛКА: БИТВА С БОТОМ -->
         <div id="botBattleModal" class="modal-overlay">
             <div class="modal">
                 <h2>🤖 БИТВА С БОТОМ</h2>
@@ -275,7 +264,6 @@
             </div>
         </div>
 
-        <!-- РЕЗУЛЬТАТ ОТКРЫТИЯ КЕЙСА -->
         <div id="result" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(20px);z-index:100;padding:24px;flex-direction:column;align-items:center;justify-content:center;">
             <div id="prizeDisplay" style="font-size:90px;margin-bottom:10px;"></div>
             <div id="prizeName" style="font-size:28px;font-weight:700;margin-bottom:6px;"></div>
