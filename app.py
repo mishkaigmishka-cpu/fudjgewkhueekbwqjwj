@@ -4,7 +4,6 @@ import sqlite3
 import time
 import os
 import threading
-import hashlib
 from flask import Flask, request, jsonify, send_from_directory
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice, WebAppInfo
 
@@ -206,9 +205,9 @@ bot_battles = {}
 active_mines_games = {}
 battle_rooms = {}
 battle_results = {}
-battle_ready_status = {}  # {room_id: [player1_ready, player2_ready]}
+battle_ready_status = {}
 
-# ===================== МИНЁР — НОВЫЕ МНОЖИТЕЛИ =====================
+# ===================== МИНЁР — МНОЖИТЕЛИ =====================
 def get_mines_multiplier(opened, mines):
     base_multipliers = {
         1: 1.05, 2: 1.10, 3: 1.20, 4: 1.35, 5: 1.55,
@@ -494,7 +493,6 @@ def create_battle_room():
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
     
-    # ===== ПРОВЕРКА БАЛАНСА =====
     prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
     price = prices.get(case_type, 0)
     if user[1] < price:
@@ -546,7 +544,6 @@ def join_battle_room():
     if uid in room['players']:
         return jsonify({'error': 'Ты уже в этой комнате'}), 400
     
-    # ===== ПРОВЕРКА БАЛАНСА ДЛЯ ВТОРОГО ИГРОКА =====
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
@@ -558,11 +555,9 @@ def join_battle_room():
     room['players'].append(uid)
     room['status'] = 'active'
     
-    # Показываем предпросмотр обоим игрокам (через WebApp)
     p1 = get_user(room['players'][0])
     p2 = get_user(room['players'][1])
     
-    # Отправляем данные для предпросмотра
     return jsonify({
         'success': True,
         'room_id': room_id,
@@ -619,10 +614,15 @@ def start_bot_battle():
     uid = data.get('user_id')
     case_type = data.get('case_type')
     
+    user = get_user(uid)
+    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
+    price = prices.get(case_type, 0)
+    if user[1] < price:
+        return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐ для открытия кейса'}), 400
+    
     player_prize = get_prize(case_type)
     bot_prize = get_prize(case_type)
     
-    user = get_user(uid)
     update_user(uid, balance=user[1] + player_prize)
     
     if player_prize > bot_prize:
