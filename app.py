@@ -4,6 +4,7 @@ import sqlite3
 import time
 import os
 import threading
+import hashlib
 from flask import Flask, request, jsonify, send_from_directory
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice, WebAppInfo
 
@@ -203,19 +204,27 @@ pending_battles = {}
 user_battles = {}
 bot_battles = {}
 active_mines_games = {}
-battle_rooms = {}  # {room_id: {'creator': uid, 'case_type': str, 'players': [uid], 'status': 'waiting'|'active'}}
-battle_results = {}  # {user_id: result_data}
+battle_rooms = {}
+battle_results = {}
 
-def get_mines_multiplier(mines):
-    multipliers = {
-        3: 1.3,
-        4: 1.5,
-        5: 2.0,
-        6: 2.5,
-        7: 3.0,
-        8: 4.0
+# ===================== МИНЁР — НОВЫЕ МНОЖИТЕЛИ =====================
+def get_mines_multiplier(opened, mines):
+    """
+    НОВАЯ ТАБЛИЦА:
+    - Множители слегка увеличены (на 0.03–0.15)
+    - Максимум всё ещё x5.0
+    - Игрок выигрывает чаще, но всё равно в минусе
+    """
+    base_multipliers = {
+        1: 1.05, 2: 1.10, 3: 1.20, 4: 1.35, 5: 1.55,
+        6: 1.80, 7: 2.20, 8: 2.70, 9: 3.30, 10: 4.00,
+        11: 4.50, 12: 5.00
     }
-    return multipliers.get(mines, 1.0)
+    
+    if opened > 12:
+        return 5.00
+    
+    return base_multipliers.get(opened, 1.00)
 
 def update_mines_stats(user_id, won, multiplier, stars):
     cursor.execute("SELECT * FROM mines_stats WHERE user_id=?", (user_id,))
@@ -481,193 +490,7 @@ def mines_stats_cmd(msg):
     text = f"💣 **СТАТИСТИКА МИНЁРА:**\n\n🎮 Всего игр: {stats[1]}\n🏆 Побед: {stats[2]}\n💀 Поражений: {stats[3]}\n🔥 Лучший множитель: x{stats[4]}\n⭐ Выиграно звёзд: {stats[5]}\n💸 Проиграно звёзд: {stats[6]}\n\nПроцент побед: {int(stats[2] / stats[1] * 100) if stats[1] > 0 else 0}%"
     bot.reply_to(msg, text)
 
-# ===================== БИТВА КЕЙСОВ (PvP) =====================
-@bot.message_handler(commands=['battle'])
-def battle_command(msg):
-    args = msg.text.split()
-    if len(args) < 2:
-        bot.reply_to(msg, "❌ Формат: /battle @username")
-        return
-    target_username = args[1].replace('@', '')
-    uid = msg.from_user.id
-    user = get_user(uid)
-    if not user:
-        bot.reply_to(msg, "❌ Напиши /start")
-        return
-    target_user = get_user_by_username(target_username)
-    if not target_user:
-        bot.reply_to(msg, "❌ Пользователь не найден")
-        return
-    if target_user[0] == uid:
-        bot.reply_to(msg, "❌ Нельзя вызвать самого себя!")
-        return
-    battle_id = int(time.time())
-    battle_data = {
-        'id': battle_id,
-        'player1': uid,
-        'player2': target_user[0],
-        'case_type': None,
-        'status': 'waiting',
-        'winner_id': None,
-        'prize1': None,
-        'prize2': None,
-        'bet': 0,
-        'created_at': time.time(),
-        'finished_at': None,
-        'player1_ready': False,
-        'player2_ready': False
-    }
-    active_battles[battle_id] = battle_data
-    pending_battles[target_user[0]] = battle_data
-    user_battles[uid] = battle_id
-    user_battles[target_user[0]] = battle_id
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("⚔️ ПРИНЯТЬ БОЙ", callback_data=f"battle_accept_{battle_id}"), InlineKeyboardButton("❌ ОТКЛОНИТЬ", callback_data=f"battle_decline_{battle_id}"))
-    bot.send_message(target_user[0], f"⚔️ @{user[8]} вызывает тебя на БИТВУ КЕЙСОВ!\n\n🎯 Кейс: нужно выбрать после принятия\n🔥 Без ставок! Победитель забирает свой дроп и дроп соперника - 10% комиссии\n\nПобеждает тот, у кого выпала бОльшая награда!", reply_markup=kb)
-    bot.reply_to(msg, f"✅ Вызов отправлен @{target_username}!\nОжидай ответа...")
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("battle_accept_"))
-def battle_accept(call):
-    battle_id = int(call.data.split('_')[2])
-    battle = active_battles.get(battle_id)
-    if not battle:
-        bot.answer_callback_query(call.id, "❌ Битва уже неактивна")
-        return
-    if call.from_user.id != battle['player2']:
-        bot.answer_callback_query(call.id, "❌ Это не твой вызов")
-        return
-    battle['status'] = 'case_selection'
-    bot.answer_callback_query(call.id, "✅ Ты принял бой! Выберите кейс.")
-    kb = InlineKeyboardMarkup(row_width=3)
-    kb.add(
-        InlineKeyboardButton("🟫 Грязь", callback_data=f"battle_case_{battle_id}_mud"),
-        InlineKeyboardButton("🌳 Дерево", callback_data=f"battle_case_{battle_id}_wood"),
-        InlineKeyboardButton("🪨 Камень", callback_data=f"battle_case_{battle_id}_stone"),
-        InlineKeyboardButton("🥉 Бронза", callback_data=f"battle_case_{battle_id}_bronze"),
-        InlineKeyboardButton("🔘 Серебро", callback_data=f"battle_case_{battle_id}_silver"),
-        InlineKeyboardButton("👑 Золото", callback_data=f"battle_case_{battle_id}_gold"),
-        InlineKeyboardButton("💎 Алмаз", callback_data=f"battle_case_{battle_id}_diamond"),
-        InlineKeyboardButton("🔥 Незерит", callback_data=f"battle_case_{battle_id}_netherite"),
-        InlineKeyboardButton("⛏️ Бедрок", callback_data=f"battle_case_{battle_id}_bedrock")
-    )
-    for player_id in [battle['player1'], battle['player2']]:
-        bot.send_message(player_id, f"⚔️ **ВЫБЕРИТЕ КЕЙС ДЛЯ БИТВЫ:**\nВажно выбрать ОДИНАКОВЫЙ кейс!", reply_markup=kb)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("battle_case_"))
-def battle_case_select(call):
-    battle_id = int(call.data.split('_')[2])
-    case_type = call.data.split('_')[3]
-    battle = active_battles.get(battle_id)
-    if not battle:
-        bot.answer_callback_query(call.id, "❌ Битва уже неактивна")
-        return
-    uid = call.from_user.id
-    if uid == battle['player1']:
-        battle['player1_ready'] = True
-        battle['player1_choice'] = case_type
-    elif uid == battle['player2']:
-        battle['player2_ready'] = True
-        battle['player2_choice'] = case_type
-    else:
-        bot.answer_callback_query(call.id, "❌ Ты не участник битвы")
-        return
-    bot.answer_callback_query(call.id, f"✅ Ты выбрал {case_type} кейс")
-    if battle['player1_ready'] and battle['player2_ready']:
-        if battle['player1_choice'] == battle['player2_choice']:
-            battle['case_type'] = case_type
-            battle['status'] = 'active'
-            start_battle_opening_old(battle_id)
-        else:
-            bot.send_message(battle['player1'], "❌ Вы выбрали разные кейсы! Выберите одинаковый.")
-            bot.send_message(battle['player2'], "❌ Вы выбрали разные кейсы! Выберите одинаковый.")
-            battle['player1_ready'] = False
-            battle['player2_ready'] = False
-            kb = InlineKeyboardMarkup(row_width=3)
-            kb.add(
-                InlineKeyboardButton("🟫 Грязь", callback_data=f"battle_case_{battle_id}_mud"),
-                InlineKeyboardButton("🌳 Дерево", callback_data=f"battle_case_{battle_id}_wood"),
-                InlineKeyboardButton("🪨 Камень", callback_data=f"battle_case_{battle_id}_stone"),
-                InlineKeyboardButton("🥉 Бронза", callback_data=f"battle_case_{battle_id}_bronze"),
-                InlineKeyboardButton("🔘 Серебро", callback_data=f"battle_case_{battle_id}_silver"),
-                InlineKeyboardButton("👑 Золото", callback_data=f"battle_case_{battle_id}_gold"),
-                InlineKeyboardButton("💎 Алмаз", callback_data=f"battle_case_{battle_id}_diamond"),
-                InlineKeyboardButton("🔥 Незерит", callback_data=f"battle_case_{battle_id}_netherite"),
-                InlineKeyboardButton("⛏️ Бедрок", callback_data=f"battle_case_{battle_id}_bedrock")
-            )
-            for player_id in [battle['player1'], battle['player2']]:
-                bot.send_message(player_id, "⚔️ **ВЫБЕРИТЕ КЕЙС ЗАНОВО:**", reply_markup=kb)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("battle_decline_"))
-def battle_decline(call):
-    battle_id = int(call.data.split('_')[2])
-    battle = active_battles.get(battle_id)
-    if not battle:
-        bot.answer_callback_query(call.id, "❌ Битва уже неактивна")
-        return
-    if call.from_user.id != battle['player2']:
-        bot.answer_callback_query(call.id, "❌ Это не твой вызов")
-        return
-    bot.answer_callback_query(call.id, "❌ Ты отклонил бой")
-    bot.send_message(battle['player1'], f"❌ @{call.from_user.username} отклонил битву")
-    bot.send_message(battle['player2'], "❌ Ты отклонил битву")
-    del active_battles[battle_id]
-
-def start_battle_opening_old(battle_id):
-    battle = active_battles.get(battle_id)
-    if not battle:
-        return
-    case_type = battle['case_type']
-    p1 = battle['player1']
-    p2 = battle['player2']
-    prize1 = get_prize(case_type)
-    prize2 = get_prize(case_type)
-    battle['prize1'] = prize1
-    battle['prize2'] = prize2
-    if prize1 > prize2:
-        winner = p1
-        loser = p2
-        winner_prize = prize1
-        loser_prize = prize2
-        is_draw = False
-    elif prize2 > prize1:
-        winner = p2
-        loser = p1
-        winner_prize = prize2
-        loser_prize = prize1
-        is_draw = False
-    else:
-        is_draw = True
-        commission1 = int(prize1 * 0.10)
-        commission2 = int(prize2 * 0.10)
-        total_commission = commission1 + commission2
-        user1 = get_user(p1)
-        user2 = get_user(p2)
-        update_user(p1, balance=user1[1] - commission1)
-        update_user(p2, balance=user2[1] - commission2)
-        add_commission(total_commission)
-        draw_text = f"🤝 **НИЧЬЯ!**\n\n📦 Кейс: {case_type.upper()}\n🎯 Награда обоих: {prize1}⭐\n\n💸 Комиссия (10% с каждого): {commission1}⭐\n💰 Ты получаешь: {prize1 - commission1}⭐"
-        bot.send_message(p1, draw_text)
-        bot.send_message(p2, draw_text)
-        battle['status'] = 'finished'
-        return
-    total_drop = winner_prize + loser_prize
-    commission = int(total_drop * 0.10)
-    winner_winnings = total_drop - commission
-    winner_user = get_user(winner)
-    loser_user = get_user(loser)
-    update_user(winner, balance=winner_user[1] + winner_winnings)
-    update_user(loser, balance=loser_user[1] - loser_prize)
-    add_commission(commission)
-    update_battle_stats(winner, won=True, stars=winner_winnings)
-    update_battle_stats(loser, won=False, stars=loser_prize)
-    winner_name = f"Игрок {winner}"
-    loser_name = f"Игрок {loser}"
-    result_text = f"⚔️ **РЕЗУЛЬТАТ БИТВЫ!**\n\n👤 {winner_name} выиграл! 🎉\n👤 {loser_name} проиграл 😢\n\n📦 Кейс: {case_type.upper()}\n🎯 Дроп {winner_name}: {winner_prize}⭐\n🎯 Дроп {loser_name}: {loser_prize}⭐\n\n💰 Общая сумма: {total_drop}⭐\n💸 Комиссия (10%): {commission}⭐\n🏆 {winner_name} получает: {winner_winnings}⭐"
-    bot.send_message(winner, result_text)
-    bot.send_message(loser, result_text)
-    battle['status'] = 'finished'
-
-# ===================== КОМНАТЫ (НОВАЯ СИСТЕМА БИТВ) =====================
+# ===================== КОМНАТЫ (БИТВЫ) =====================
 @app.route('/create_battle_room', methods=['POST'])
 def create_battle_room():
     data = request.get_json()
@@ -876,7 +699,161 @@ def get_battle_result():
         return jsonify(result)
     return jsonify({'pending': True})
 
-# ===================== FLASK ЭНДПОИНТЫ =====================
+# ===================== МИНЁР (ЭНДПОИНТЫ) =====================
+@app.route('/start_mines_game', methods=['POST'])
+def start_mines_game():
+    data = request.get_json()
+    uid = data.get('user_id')
+    bet = data.get('bet')
+    mines = data.get('mines')
+    
+    user = get_user(uid)
+    if not user or user[1] < bet:
+        return jsonify({'error': 'Недостаточно звёзд'}), 400
+    if bet < 3 or bet > 1000:
+        return jsonify({'error': 'Ставка от 3 до 1000⭐'}), 400
+    if mines < 3 or mines > 8:
+        return jsonify({'error': 'Мин от 3 до 8'}), 400
+    
+    update_user(uid, balance=user[1] - bet)
+    
+    board = [0] * 25
+    positions = random.sample(range(25), mines)
+    for pos in positions:
+        board[pos] = 1
+    
+    game_id = int(time.time())
+    active_mines_games[game_id] = {
+        'user_id': uid,
+        'bet': bet,
+        'mines': mines,
+        'board': board,
+        'opened': [0] * 25,
+        'opened_count': 0,
+        'multiplier': 1.0,
+        'status': 'active'
+    }
+    
+    return jsonify({
+        'game_id': game_id,
+        'board': board,
+        'opened': [0] * 25,
+        'bet': bet,
+        'mines': mines,
+        'multiplier': 1.0
+    })
+
+@app.route('/open_mines_cell', methods=['POST'])
+def open_mines_cell():
+    data = request.get_json()
+    uid = data.get('user_id')
+    game_id = data.get('game_id')
+    index = data.get('index')
+    
+    game = active_mines_games.get(game_id)
+    if not game or game['status'] != 'active':
+        return jsonify({'error': 'Игра не активна'}), 400
+    if game['user_id'] != uid:
+        return jsonify({'error': 'Не твоя игра'}), 403
+    if game['opened'][index] == 1:
+        return jsonify({'error': 'Клетка уже открыта'}), 400
+    
+    game['opened'][index] = 1
+    game['opened_count'] += 1
+    
+    if game['board'][index] == 1:
+        game['status'] = 'lost'
+        update_mines_stats(uid, won=False, multiplier=0, stars=0)
+        return jsonify({
+            'board': game['board'],
+            'opened': game['opened'],
+            'opened_count': game['opened_count'],
+            'multiplier': 0,
+            'game_over': True,
+            'won': False,
+            'bet': game['bet']
+        })
+    
+    opened = game['opened_count']
+    game['multiplier'] = get_mines_multiplier(opened, game['mines'])
+    
+    safe_cells = 25 - game['mines']
+    if game['opened_count'] == safe_cells:
+        raw_winnings = int(game['bet'] * game['multiplier'])
+        final_winnings = min(raw_winnings, 5000)
+        user = get_user(uid)
+        update_user(uid, balance=user[1] + final_winnings)
+        game['status'] = 'won'
+        update_mines_stats(uid, won=True, multiplier=game['multiplier'], stars=final_winnings)
+        return jsonify({
+            'board': game['board'],
+            'opened': game['opened'],
+            'opened_count': game['opened_count'],
+            'multiplier': game['multiplier'],
+            'game_over': True,
+            'won': True,
+            'winnings': final_winnings,
+            'bet': game['bet']
+        })
+    
+    return jsonify({
+        'board': game['board'],
+        'opened': game['opened'],
+        'opened_count': game['opened_count'],
+        'multiplier': game['multiplier'],
+        'game_over': False,
+        'won': False
+    })
+
+@app.route('/cashout_mines', methods=['POST'])
+def cashout_mines():
+    data = request.get_json()
+    uid = data.get('user_id')
+    game_id = data.get('game_id')
+    
+    game = active_mines_games.get(game_id)
+    if not game or game['status'] != 'active':
+        return jsonify({'error': 'Игра не активна'}), 400
+    if game['user_id'] != uid:
+        return jsonify({'error': 'Не твоя игра'}), 403
+    if game['opened_count'] < 3:
+        return jsonify({'error': 'Нужно открыть минимум 3 клетки!'}), 400
+    
+    raw_winnings = int(game['bet'] * game['multiplier'])
+    final_winnings = min(raw_winnings, 5000)
+    user = get_user(uid)
+    update_user(uid, balance=user[1] + final_winnings)
+    game['status'] = 'won'
+    update_mines_stats(uid, won=True, multiplier=game['multiplier'], stars=final_winnings)
+    
+    del active_mines_games[game_id]
+    
+    return jsonify({
+        'winnings': final_winnings,
+        'multiplier': game['multiplier'],
+        'game_over': True,
+        'won': True
+    })
+
+@app.route('/exit_mines', methods=['POST'])
+def exit_mines():
+    data = request.get_json()
+    game_id = data.get('game_id')
+    if game_id in active_mines_games:
+        del active_mines_games[game_id]
+    return jsonify({'success': True})
+
+@app.route('/get_mines_stats', methods=['POST'])
+def get_mines_stats():
+    data = request.get_json()
+    uid = data.get('user_id')
+    cursor.execute("SELECT * FROM mines_stats WHERE user_id=?", (uid,))
+    stats = cursor.fetchone()
+    if not stats:
+        return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
+    return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
+
+# ===================== ОБЫЧНЫЕ КЕЙСЫ (ЭНДПОИНТЫ) =====================
 @app.route('/')
 def home():
     return send_from_directory('static', 'index.html')
@@ -992,106 +969,6 @@ def check_balance_simple():
     if not user:
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'has_enough': user[1] >= amount})
-
-@app.route('/start_mines_game', methods=['POST'])
-def start_mines_game():
-    data = request.get_json()
-    uid = data.get('user_id')
-    bet = data.get('bet')
-    mines = data.get('mines')
-    user = get_user(uid)
-    if not user or user[1] < bet:
-        return jsonify({'error': 'Недостаточно звёзд'}), 400
-    if bet < 3 or bet > 1000:
-        return jsonify({'error': 'Ставка от 3 до 1000⭐'}), 400
-    if mines < 3 or mines > 8:
-        return jsonify({'error': 'Мин от 3 до 8'}), 400
-    update_user(uid, balance=user[1] - bet)
-    board = [0] * 25
-    positions = random.sample(range(25), mines)
-    for pos in positions:
-        board[pos] = 1
-    game_id = int(time.time())
-    active_mines_games[game_id] = {
-        'user_id': uid,
-        'bet': bet,
-        'mines': mines,
-        'board': board,
-        'opened': [0] * 25,
-        'opened_count': 0,
-        'multiplier': get_mines_multiplier(mines),
-        'status': 'active'
-    }
-    return jsonify({'game_id': game_id, 'board': board, 'opened': [0] * 25})
-
-@app.route('/open_mines_cell', methods=['POST'])
-def open_mines_cell():
-    data = request.get_json()
-    uid = data.get('user_id')
-    game_id = data.get('game_id')
-    index = data.get('index')
-    game = active_mines_games.get(game_id)
-    if not game or game['status'] != 'active':
-        return jsonify({'error': 'Игра не активна'}), 400
-    if game['user_id'] != uid:
-        return jsonify({'error': 'Не твоя игра'}), 403
-    if game['opened'][index] == 1:
-        return jsonify({'error': 'Клетка уже открыта'}), 400
-    game['opened'][index] = 1
-    game['opened_count'] += 1
-    if game['board'][index] == 1:
-        game['status'] = 'lost'
-        update_mines_stats(uid, won=False, multiplier=0, stars=0)
-        return jsonify({'board': game['board'], 'opened': game['opened'], 'opened_count': game['opened_count'], 'multiplier': 0, 'game_over': True, 'won': False, 'bet': game['bet']})
-    safe_cells = 25 - game['mines']
-    if game['opened_count'] == safe_cells:
-        raw_winnings = int(game['bet'] * game['multiplier'])
-        final_winnings = min(raw_winnings, 5000)
-        user = get_user(uid)
-        update_user(uid, balance=user[1] + final_winnings)
-        game['status'] = 'won'
-        update_mines_stats(uid, won=True, multiplier=game['multiplier'], stars=final_winnings)
-        return jsonify({'board': game['board'], 'opened': game['opened'], 'opened_count': game['opened_count'], 'multiplier': game['multiplier'], 'game_over': True, 'won': True, 'winnings': final_winnings})
-    return jsonify({'board': game['board'], 'opened': game['opened'], 'opened_count': game['opened_count'], 'multiplier': game['multiplier'], 'game_over': False, 'won': False})
-
-@app.route('/cashout_mines', methods=['POST'])
-def cashout_mines():
-    data = request.get_json()
-    uid = data.get('user_id')
-    game_id = data.get('game_id')
-    game = active_mines_games.get(game_id)
-    if not game or game['status'] != 'active':
-        return jsonify({'error': 'Игра не активна'}), 400
-    if game['user_id'] != uid:
-        return jsonify({'error': 'Не твоя игра'}), 403
-    if game['opened_count'] == 0:
-        return jsonify({'error': 'Открой хотя бы одну клетку'}), 400
-    raw_winnings = int(game['bet'] * game['multiplier'])
-    final_winnings = min(raw_winnings, 5000)
-    user = get_user(uid)
-    update_user(uid, balance=user[1] + final_winnings)
-    game['status'] = 'won'
-    update_mines_stats(uid, won=True, multiplier=game['multiplier'], stars=final_winnings)
-    del active_mines_games[game_id]
-    return jsonify({'winnings': final_winnings, 'multiplier': game['multiplier'], 'game_over': True, 'won': True})
-
-@app.route('/exit_mines', methods=['POST'])
-def exit_mines():
-    data = request.get_json()
-    game_id = data.get('game_id')
-    if game_id in active_mines_games:
-        del active_mines_games[game_id]
-    return jsonify({'success': True})
-
-@app.route('/get_mines_stats', methods=['POST'])
-def get_mines_stats():
-    data = request.get_json()
-    uid = data.get('user_id')
-    cursor.execute("SELECT * FROM mines_stats WHERE user_id=?", (uid,))
-    stats = cursor.fetchone()
-    if not stats:
-        return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
-    return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
 @app.route('/get_battle_data', methods=['POST'])
 def get_battle_data():
