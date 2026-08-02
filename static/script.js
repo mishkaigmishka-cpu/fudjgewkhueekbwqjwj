@@ -1063,15 +1063,16 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     const p1Container = document.createElement('div');
     p1Container.style.cssText = `flex: 1; text-align: center;`;
     let p1Cards = '';
-    for (let i = 0; i < 3; i++) {
+    for (let r = 0; r < 4; r++) {
         prizes.forEach(p => {
             p1Cards += `<div style="width: 70px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); font-size: ${p > 1000 ? '16px' : '20px'}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
         });
     }
+    const totalWidth = prizes.length * 76 * 4;
     p1Container.innerHTML = `
         <div style="font-size: 14px; color: #aaa; margin-bottom: 4px;">👤 ${player1}</div>
         <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px;">
-            <div id="previewTrack1" style="display: flex; gap: 6px; padding: 10px 0; animation: scrollTapeForward 8s linear infinite; will-change: transform; position: relative;">
+            <div id="previewTrack1" style="display: flex; gap: 6px; padding: 10px 0; animation: scrollTapeForward ${prizes.length * 2}s linear infinite; will-change: transform; position: relative; width: ${totalWidth}px;">
                 ${p1Cards}
             </div>
             <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none;">▼</div>
@@ -1093,7 +1094,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     const p2Container = document.createElement('div');
     p2Container.style.cssText = `flex: 1; text-align: center;`;
     let p2Cards = '';
-    for (let i = 0; i < 3; i++) {
+    for (let r = 0; r < 4; r++) {
         prizes.forEach(p => {
             p2Cards += `<div style="width: 70px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); font-size: ${p > 1000 ? '16px' : '20px'}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
         });
@@ -1101,7 +1102,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     p2Container.innerHTML = `
         <div style="font-size: 14px; color: #aaa; margin-bottom: 4px;">👤 ${player2}</div>
         <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px;">
-            <div id="previewTrack2" style="display: flex; gap: 6px; padding: 10px 0; animation: scrollTapeForward 8s linear infinite; will-change: transform; position: relative;">
+            <div id="previewTrack2" style="display: flex; gap: 6px; padding: 10px 0; animation: scrollTapeForward ${prizes.length * 2}s linear infinite; will-change: transform; position: relative; width: ${totalWidth}px;">
                 ${p2Cards}
             </div>
             <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none;">▼</div>
@@ -1194,14 +1195,12 @@ function sendBattleReady(room_id) {
 }
 
 function startBattleAnimation(room_id) {
-    // Получаем результат битвы
     if (window.battleResultInterval) clearInterval(window.battleResultInterval);
-    window.battleResultInterval = setInterval(checkBattleResult, 2000);
-    checkBattleResult();
+    window.battleResultInterval = setInterval(checkBattleResultWithRoulette, 2000);
+    checkBattleResultWithRoulette();
 }
 
 function startBotBattleAnimation() {
-    // Запускаем битву с ботом
     const case_type = selectedBotCase;
     
     fetch('/start_bot_battle', {
@@ -1220,7 +1219,7 @@ function startBotBattleAnimation() {
     });
 }
 
-function checkBattleResult() {
+function checkBattleResultWithRoulette() {
     fetch('/get_battle_result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1231,7 +1230,59 @@ function checkBattleResult() {
         if (data.pending) return;
         if (data.result) {
             if (window.battleResultInterval) clearInterval(window.battleResultInterval);
-            showBattleResult(data);
+            
+            const overlay = document.getElementById('battleRouletteOverlay');
+            if (!overlay) {
+                showBattleResult(data);
+                return;
+            }
+            
+            const track1 = document.getElementById('rouletteTrack1');
+            const track2 = document.getElementById('rouletteTrack2');
+            
+            if (!track1 || !track2) {
+                showBattleResult(data);
+                return;
+            }
+            
+            const cards1 = track1.querySelectorAll('.roulette-card');
+            const cards2 = track2.querySelectorAll('.roulette-card');
+            const winPos = 20;
+            
+            if (cards1[winPos]) {
+                cards1[winPos].textContent = `${data.player1_prize}⭐`;
+                cards1[winPos].style.background = 'rgba(255,215,0,0.15)';
+                cards1[winPos].style.border = '2px solid #ffd700';
+                cards1[winPos].style.color = '#FFFFFF';
+                cards1[winPos].style.textShadow = '0 0 30px #ffd700';
+                cards1[winPos].style.fontSize = '24px';
+            }
+            
+            if (cards2[winPos]) {
+                cards2[winPos].textContent = `${data.player2_prize}⭐`;
+                cards2[winPos].style.background = 'rgba(255,215,0,0.15)';
+                cards2[winPos].style.border = '2px solid #ffd700';
+                cards2[winPos].style.color = '#FFFFFF';
+                cards2[winPos].style.textShadow = '0 0 30px #ffd700';
+                cards2[winPos].style.fontSize = '24px';
+            }
+            
+            const cardWidth = 76;
+            const viewportWidth = window.innerWidth * 0.45;
+            const centerOffset = viewportWidth / 2;
+            const shift = (winPos * cardWidth) - centerOffset + (cardWidth / 2);
+            const noise1 = Math.floor(Math.random() * 30) - 15;
+            const noise2 = Math.floor(Math.random() * 30) - 15;
+            
+            track1.style.transform = `translateX(-${shift + noise1}px)`;
+            track2.style.transform = `translateX(-${shift + noise2}px)`;
+            
+            document.getElementById('battleRouletteStatus').textContent = '⏳ Результат...';
+            
+            setTimeout(() => {
+                if (overlay.parentNode) overlay.remove();
+                showBattleResult(data);
+            }, 6500);
         }
     })
     .catch(() => {});
