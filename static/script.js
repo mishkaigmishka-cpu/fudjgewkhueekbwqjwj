@@ -11,7 +11,10 @@ let _isOpening = false;
 let _tapeContainer = null;
 let minesGameData = null;
 let selectedMines = 4;
-let selectedLobbyCase = 'gold';
+let selectedBattleCase = 'gold';
+let selectedBotCase = 'gold';
+let currentRoomId = null;
+let battleResultPending = false;
 
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
@@ -47,6 +50,7 @@ function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
 function getPrice(type) { return CASE_PRICES[type] || 0; }
 
+// ===================== НАВИГАЦИЯ =====================
 function showMain() {
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
     document.getElementById('mainScreen').classList.add('active');
@@ -61,9 +65,10 @@ function showBattles() {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.querySelector('.nav-item[data-tab="battles"]').classList.add('active');
     loadBattleData();
-    loadLobby();
-    if (window.lobbyInterval) clearInterval(window.lobbyInterval);
-    window.lobbyInterval = setInterval(loadLobby, 5000);
+    loadBattleRooms();
+    if (window.battleInterval) clearInterval(window.battleInterval);
+    window.battleInterval = setInterval(loadBattleRooms, 5000);
+    checkBattleResult();
 }
 
 function showMines() {
@@ -896,124 +901,323 @@ function renderBattleHistory(history) {
     `).join('');
 }
 
-// ===================== ЛОББИ =====================
-function loadLobby() {
-    fetch('/get_lobby', {
+// ===================== КОМНАТЫ =====================
+function loadBattleRooms() {
+    fetch('/get_battle_rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id })
     })
     .then(res => res.json())
     .then(data => {
-        const list = document.getElementById('lobbyList');
-        if (data.players && data.players.length > 0) {
-            list.innerHTML = data.players.map(p => `
-                <div class="player-item">
-                    <span class="name">👤 ${p.username}</span>
-                    <span class="info">📦 ${p.case_type} | 💰 ${p.bet}⭐</span>
-                    <button class="btn-fight" onclick="startBattleWith('${p.user_id}')">⚔️ БИТЬСЯ</button>
+        const list = document.getElementById('battleRoomsList');
+        if (data.rooms && data.rooms.length > 0) {
+            list.innerHTML = data.rooms.map(r => `
+                <div class="room-item">
+                    <span class="room-creator">👤 Игрок (ID: ${r.creator_id})</span>
+                    <span class="room-case">📦 ${r.case_type}</span>
+                    <span class="room-players">👥 ${r.players_count}/2</span>
+                    <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ПРИСОЕДИНИТЬСЯ</button>
                 </div>
             `).join('');
         } else {
-            list.innerHTML = '<div class="empty-state">😴 Пока никто не ждёт битву</div>';
+            list.innerHTML = '<div class="empty-state">🏠 Нет активных комнат. Создай свою!</div>';
         }
     })
     .catch(() => {});
 }
 
-function showJoinLobby() {
-    document.getElementById('joinLobbyModal').classList.add('active');
+function showCreateBattle() {
+    document.getElementById('createBattleModal').classList.add('active');
 }
 
-function closeJoinLobby() {
-    document.getElementById('joinLobbyModal').classList.remove('active');
+function closeCreateBattle() {
+    document.getElementById('createBattleModal').classList.remove('active');
 }
 
-function confirmJoinLobby() {
-    const bet = parseInt(document.getElementById('lobbyBetInput').value);
-    const case_type = selectedLobbyCase;
+document.querySelectorAll('.battle-case-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.battle-case-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        selectedBattleCase = this.dataset.case;
+    });
+});
+
+document.querySelectorAll('.bot-case-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.bot-case-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        selectedBotCase = this.dataset.case;
+    });
+});
+
+function createBattleRoom() {
+    const case_type = selectedBattleCase;
     
-    if (isNaN(bet) || bet < 3 || bet > 1000) {
-        tg.showAlert('❌ Ставка должна быть от 3 до 1000⭐');
-        return;
-    }
-    
-    fetch('/check_balance_simple', {
+    fetch('/create_battle_room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, amount: bet })
+        body: JSON.stringify({ user_id, case_type })
     })
     .then(res => res.json())
     .then(data => {
-        if (data.error || !data.has_enough) {
-            tg.showAlert('❌ Недостаточно звёзд!');
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
             return;
         }
-        
-        fetch('/join_lobby', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, case_type, bet })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                tg.showAlert('✅ Ты в лобби! Ожидай соперника.');
-                closeJoinLobby();
-                loadLobby();
-            } else {
-                tg.showAlert('❌ ' + data.error);
-            }
-        });
+        currentRoomId = data.room_id;
+        closeCreateBattle();
+        showWaitingRoom(data.room_id, data.case_type);
+        if (window.battleResultInterval) clearInterval(window.battleResultInterval);
+        window.battleResultInterval = setInterval(checkBattleResult, 2000);
     });
 }
 
-function startBattleWith(target_id) {
-    if (!confirm('⚔️ Начать битву с этим игроком?')) return;
-    
-    fetch('/start_battle_from_lobby', {
+function showWaitingRoom(room_id, case_type) {
+    document.getElementById('waitingRoom').style.display = 'block';
+    document.getElementById('waitingRoomRoomId').textContent = room_id;
+    document.getElementById('waitingRoomCase').textContent = case_type.toUpperCase();
+    document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'none';
+    document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'none';
+    document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'none';
+}
+
+function exitWaitingRoom() {
+    if (currentRoomId) {
+        fetch('/exit_battle_room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, room_id: currentRoomId })
+        })
+        .then(() => {
+            currentRoomId = null;
+            document.getElementById('waitingRoom').style.display = 'none';
+            document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
+            document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
+            document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
+            if (window.battleResultInterval) clearInterval(window.battleResultInterval);
+            showBattles();
+        });
+    }
+}
+
+function joinBattleRoom(room_id) {
+    fetch('/join_battle_room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, target_id })
+        body: JSON.stringify({ user_id, room_id })
     })
     .then(res => res.json())
     .then(data => {
-        if (data.success) {
-            tg.showAlert('⚔️ Битва началась!');
-            if (window.lobbyInterval) clearInterval(window.lobbyInterval);
-            loadLobby();
-            loadBattleData();
-        } else {
+        if (data.error) {
             tg.showAlert('❌ ' + data.error);
+            return;
         }
+        tg.showAlert('⚔️ Битва началась!');
+        if (window.battleInterval) clearInterval(window.battleInterval);
+        loadBattleRooms();
+        if (window.battleResultInterval) clearInterval(window.battleResultInterval);
+        window.battleResultInterval = setInterval(checkBattleResult, 2000);
     });
 }
 
-function exitLobby() {
-    if (!confirm('Выйти из лобби?')) return;
-    
-    fetch('/exit_lobby', {
+function checkBattleResult() {
+    fetch('/get_battle_result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id })
     })
     .then(res => res.json())
     .then(data => {
-        if (data.success) {
-            tg.showAlert('✅ Ты вышел из лобби');
-            if (window.lobbyInterval) clearInterval(window.lobbyInterval);
-            loadLobby();
+        if (data.pending) return;
+        if (data.result) {
+            if (window.battleResultInterval) clearInterval(window.battleResultInterval);
+            showBattleResult(data);
         }
+    })
+    .catch(() => {});
+}
+
+function showBattleResult(data) {
+    document.getElementById('waitingRoom').style.display = 'none';
+    document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
+    document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
+    document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
+    currentRoomId = null;
+    
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.92);
+        backdrop-filter: blur(20px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 30px;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    if (data.is_draw) {
+        overlay.innerHTML = `
+            <div style="font-size: 80px; margin-bottom: 10px;">🤝</div>
+            <div style="font-size: 32px; font-weight: 800; color: #ffd700; margin-bottom: 20px;">НИЧЬЯ!</div>
+            <div style="display: flex; gap: 40px; margin-bottom: 20px;">
+                <div style="text-align: center;">
+                    <div style="font-size: 40px;">👤</div>
+                    <div style="font-weight: 700; color: #aaa;">Игрок 1</div>
+                    <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.player1_prize}⭐</div>
+                    <div style="font-size: 14px; color: #888;">-${data.commission1}⭐ комиссия</div>
+                </div>
+                <div style="display: flex; align-items: center; font-size: 36px; color: #ff6b6b;">⚔️</div>
+                <div style="text-align: center;">
+                    <div style="font-size: 40px;">👤</div>
+                    <div style="font-weight: 700; color: #aaa;">Игрок 2</div>
+                    <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.player2_prize}⭐</div>
+                    <div style="font-size: 14px; color: #888;">-${data.commission2}⭐ комиссия</div>
+                </div>
+            </div>
+            <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 16px 24px; margin-bottom: 20px; text-align: center; color: #aaa;">
+                ${data.result_text}
+            </div>
+            <div style="display: flex; gap: 16px;">
+                <button onclick="this.closest('div').remove(); showBattles();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                    ⚔️ НОВАЯ БИТВА
+                </button>
+                <button onclick="this.closest('div').remove(); showMain();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                    🏠 ГЛАВНАЯ
+                </button>
+            </div>
+        `;
+    } else {
+        const isWin = data.winner_id == user_id;
+        const icon = isWin ? '🎉' : '😢';
+        const title = isWin ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ...';
+        const color = isWin ? '#4caf50' : '#f44336';
+        const myPrize = isWin ? data.winner_prize : data.loser_prize;
+        const oppPrize = isWin ? data.loser_prize : data.winner_prize;
+        
+        overlay.innerHTML = `
+            <div style="font-size: 80px; margin-bottom: 10px;">${icon}</div>
+            <div style="font-size: 32px; font-weight: 800; color: ${color}; margin-bottom: 20px;">${title}</div>
+            <div style="display: flex; gap: 40px; margin-bottom: 20px;">
+                <div style="text-align: center;">
+                    <div style="font-size: 40px;">👤</div>
+                    <div style="font-weight: 700; color: ${isWin ? '#4caf50' : '#aaa'};">ТЫ</div>
+                    <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${myPrize}⭐</div>
+                </div>
+                <div style="display: flex; align-items: center; font-size: 36px; color: #ff6b6b;">⚔️</div>
+                <div style="text-align: center;">
+                    <div style="font-size: 40px;">👤</div>
+                    <div style="font-weight: 700; color: ${!isWin ? '#4caf50' : '#aaa'};">СОПЕРНИК</div>
+                    <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${oppPrize}⭐</div>
+                </div>
+            </div>
+            <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 16px 24px; margin-bottom: 20px; text-align: center;">
+                <div style="color: #aaa; font-size: 14px;">${data.result_text}</div>
+                <div style="color: #888; font-size: 12px;">💸 Комиссия: ${data.commission}⭐</div>
+                ${isWin ? `<div style="color: #4caf50; font-size: 16px; font-weight: 700;">🏆 Ты получил: ${data.winner_winnings}⭐</div>` : ''}
+            </div>
+            <div style="display: flex; gap: 16px;">
+                <button onclick="this.closest('div').remove(); showBattles();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                    ⚔️ НОВАЯ БИТВА
+                </button>
+                <button onclick="this.closest('div').remove(); showMain();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                    🏠 ГЛАВНАЯ
+                </button>
+            </div>
+        `;
+    }
+    
+    document.body.appendChild(overlay);
+    loadBattleData();
+}
+
+// ===================== БИТВА С БОТОМ =====================
+function showBotBattle() {
+    document.getElementById('botBattleModal').classList.add('active');
+}
+
+function closeBotBattle() {
+    document.getElementById('botBattleModal').classList.remove('active');
+}
+
+function startBotBattle() {
+    const case_type = selectedBotCase;
+    
+    fetch('/start_bot_battle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, case_type })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
+            return;
+        }
+        closeBotBattle();
+        showBotBattleResult(data);
     });
 }
 
-document.querySelectorAll('.lobby-case-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.lobby-case-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-        selectedLobbyCase = this.dataset.case;
-    });
-});
+function showBotBattleResult(data) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.92);
+        backdrop-filter: blur(20px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 30px;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    const iconMap = { 'win': '🎉', 'lose': '😢', 'draw': '🤝' };
+    const titleMap = { 'win': 'ПОБЕДА!', 'lose': 'ПОРАЖЕНИЕ...', 'draw': 'НИЧЬЯ!' };
+    const colorMap = { 'win': '#4caf50', 'lose': '#f44336', 'draw': '#ffd700' };
+    
+    overlay.innerHTML = `
+        <div style="font-size: 80px; margin-bottom: 10px;">${iconMap[data.result]}</div>
+        <div style="font-size: 32px; font-weight: 800; color: ${colorMap[data.result]}; margin-bottom: 20px;">
+            ${titleMap[data.result]}
+        </div>
+        <div style="display: flex; gap: 40px; margin-bottom: 20px;">
+            <div style="text-align: center;">
+                <div style="font-size: 40px;">👤</div>
+                <div style="font-weight: 700; color: ${data.result === 'win' ? '#4caf50' : '#aaa'};">ТЫ</div>
+                <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.player_prize}⭐</div>
+            </div>
+            <div style="display: flex; align-items: center; font-size: 36px; color: #ff6b6b;">⚔️</div>
+            <div style="text-align: center;">
+                <div style="font-size: 40px;">🤖</div>
+                <div style="font-weight: 700; color: ${data.result === 'lose' ? '#4caf50' : '#aaa'};">БОТ</div>
+                <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.bot_prize}⭐</div>
+            </div>
+        </div>
+        <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 16px 24px; margin-bottom: 20px; text-align: center;">
+            <div style="color: #aaa; font-size: 14px;">${data.result_text}</div>
+            ${data.commission ? `<div style="color: #888; font-size: 12px;">💸 Комиссия: ${data.commission}⭐</div>` : ''}
+        </div>
+        <div style="display: flex; gap: 16px;">
+            <button onclick="this.closest('div').remove(); showBotBattle();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                🤖 СНОВА
+            </button>
+            <button onclick="this.closest('div').remove(); showMain();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                🏠 ГЛАВНАЯ
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    loadBattleData();
+}
 
 // ===================== МИНЁР =====================
 function initMinesBoard() {
