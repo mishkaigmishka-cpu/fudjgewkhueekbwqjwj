@@ -203,6 +203,7 @@ pending_battles = {}
 user_battles = {}
 bot_battles = {}
 active_mines_games = {}
+lobby_players = {}
 
 def get_mines_multiplier(opened_count):
     if opened_count <= 3:
@@ -650,7 +651,6 @@ def start_battle_opening(battle_id):
         total_commission = commission1 + commission2
         user1 = get_user(p1)
         user2 = get_user(p2)
-        # У игроков уже есть их дропы на балансе, списываем комиссию
         update_user(p1, balance=user1[1] - commission1)
         update_user(p2, balance=user2[1] - commission2)
         add_commission(total_commission)
@@ -658,16 +658,13 @@ def start_battle_opening(battle_id):
         bot.send_message(p1, draw_text)
         bot.send_message(p2, draw_text)
         battle['status'] = 'finished'
-        # НЕ УДАЛЯЕМ битву, чтобы игрок мог нажать "Реванш"
         return
     total_drop = winner_prize + loser_prize
     commission = int(total_drop * 0.10)
     winner_winnings = total_drop - commission
     winner_user = get_user(winner)
     loser_user = get_user(loser)
-    # Победитель получает дроп свой + дроп соперника - комиссия
     update_user(winner, balance=winner_user[1] + winner_winnings)
-    # У проигравшего списываем его дроп (он уже есть на балансе)
     update_user(loser, balance=loser_user[1] - loser_prize)
     add_commission(commission)
     update_battle_stats(winner, won=True, stars=winner_winnings)
@@ -678,8 +675,6 @@ def start_battle_opening(battle_id):
     bot.send_message(winner, result_text)
     bot.send_message(loser, result_text)
     battle['status'] = 'finished'
-    battle['finished_at'] = time.time()
-    # НЕ УДАЛЯЕМ битву — игрок сам решит, что делать
 
 # ===================== БИТВА С БОТОМ =====================
 @bot.message_handler(commands=['battle_bot'])
@@ -706,7 +701,6 @@ def bot_battle_case(call):
     player_prize = get_prize(case_type)
     bot_prize = get_prize(case_type)
     user = get_user(uid)
-    # Начисляем игроку его дроп (временнно)
     update_user(uid, balance=user[1] + player_prize)
     if player_prize > bot_prize:
         commission = int(player_prize * 0.10)
@@ -987,19 +981,17 @@ def get_battle_data():
     commission = stats[6] if stats else 0
     active = []
     for bid, battle in active_battles.items():
-        if battle['player1'] == uid or battle['player2'] == uid:
-            if battle['status'] != 'finished':
-                p1 = get_user(battle['player1'])
-                p2 = get_user(battle['player2'])
-                active.append({
-                    'id': bid,
-                    'player1': p1[8] if p1 else str(battle['player1']),
-                    'player2': p2[8] if p2 else str(battle['player2']),
-                    'case_type': battle['case_type'],
-                    'status': battle['status']
-                })
+        if (battle['player1'] == uid or battle['player2'] == uid) and battle['status'] != 'finished':
+            p1 = get_user(battle['player1'])
+            p2 = get_user(battle['player2'])
+            active.append({
+                'id': bid,
+                'player1': p1[8] if p1 else str(battle['player1']),
+                'player2': p2[8] if p2 else str(battle['player2']),
+                'case_type': battle['case_type'],
+                'status': battle['status']
+            })
     history = []
-    # Простая история — берём последние 5 завершённых битв
     for bid, battle in list(active_battles.items())[-5:]:
         if battle['status'] == 'finished' and (battle['player1'] == uid or battle['player2'] == uid):
             if battle['winner_id'] == uid:
@@ -1027,7 +1019,6 @@ def create_battle():
         return jsonify({'error': 'Пользователь не найден'}), 404
     if target[0] == uid:
         return jsonify({'error': 'Нельзя вызвать себя'}), 400
-    # Проверяем, есть ли уже активная битва
     for bid, battle in active_battles.items():
         if (battle['player1'] == uid or battle['player2'] == uid) and battle['status'] != 'finished':
             return jsonify({'error': 'У тебя уже есть активная битва'}), 400
@@ -1091,6 +1082,86 @@ def accept_battle():
     )
     for player_id in [battle['player1'], battle['player2']]:
         bot.send_message(player_id, "⚔️ **ВЫБЕРИТЕ КЕЙС ДЛЯ БИТВЫ:**\nВажно выбрать ОДИНАКОВЫЙ кейс!", reply_markup=kb)
+    return jsonify({'success': True})
+
+@app.route('/get_lobby', methods=['POST'])
+def get_lobby():
+    data = request.get_json()
+    uid = data.get('user_id')
+    players = []
+    for pid, info in lobby_players.items():
+        if pid != uid:
+            players.append({
+                'user_id': pid,
+                'username': info['username'],
+                'case_type': info['case_type'],
+                'bet': info['bet']
+            })
+    return jsonify({'players': players})
+
+@app.route('/join_lobby', methods=['POST'])
+def join_lobby():
+    data = request.get_json()
+    uid = data.get('user_id')
+    case_type = data.get('case_type')
+    bet = data.get('bet')
+    user = get_user(uid)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    lobby_players[uid] = {
+        'username': user[8] or f"ID{uid}",
+        'case_type': case_type,
+        'bet': bet
+    }
+    return jsonify({'success': True})
+
+@app.route('/start_battle_from_lobby', methods=['POST'])
+def start_battle_from_lobby():
+    data = request.get_json()
+    uid = data.get('user_id')
+    target_id = data.get('target_id')
+    
+    if target_id not in lobby_players:
+        return jsonify({'error': 'Соперник уже вышел из лобби'}), 400
+    
+    p1 = lobby_players.get(uid)
+    p2 = lobby_players.get(target_id)
+    
+    if not p1 or not p2:
+        return jsonify({'error': 'Один из игроков вышел'}), 400
+    
+    if p1['case_type'] != p2['case_type']:
+        return jsonify({'error': 'Вы выбрали разные кейсы!'}), 400
+    
+    battle_id = int(time.time())
+    battle_data = {
+        'id': battle_id,
+        'player1': uid,
+        'player2': target_id,
+        'case_type': p1['case_type'],
+        'status': 'active',
+        'bet': p1['bet'],
+        'prize1': None,
+        'prize2': None,
+        'created_at': time.time(),
+        'finished_at': None,
+        'winner_id': None
+    }
+    active_battles[battle_id] = battle_data
+    
+    del lobby_players[uid]
+    del lobby_players[target_id]
+    
+    start_battle_opening(battle_id)
+    
+    return jsonify({'success': True})
+
+@app.route('/exit_lobby', methods=['POST'])
+def exit_lobby():
+    data = request.get_json()
+    uid = data.get('user_id')
+    if uid in lobby_players:
+        del lobby_players[uid]
     return jsonify({'success': True})
 
 if __name__ == "__main__":
