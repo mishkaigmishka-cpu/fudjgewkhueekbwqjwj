@@ -49,7 +49,6 @@ function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
 function getPrice(type) { return CASE_PRICES[type] || 0; }
 
-// ===================== НАВИГАЦИЯ =====================
 function showMain() {
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
     document.getElementById('mainScreen').classList.add('active');
@@ -1008,14 +1007,14 @@ function joinBattleRoom(room_id) {
             tg.showAlert('❌ ' + data.error);
             return;
         }
-        // Показываем предпросмотр
-        showBattlePreview(data.room_id, data.case_type, data.player1, data.player2);
-        if (window.battleInterval) clearInterval(window.battleInterval);
+        if (data.success) {
+            showBattlePreview(data.room_id, data.case_type, data.player1, data.player2, false);
+        }
     });
 }
 
-// ===================== НОВЫЙ ПРЕДПРОСМОТР БИТВЫ =====================
-function showBattlePreview(room_id, case_type, player1, player2) {
+// ===================== ПРЕДПРОСМОТР БИТВЫ =====================
+function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     const style = getStyle(case_type);
     const prizes = getPrizes(case_type);
     
@@ -1038,7 +1037,7 @@ function showBattlePreview(room_id, case_type, player1, player2) {
     
     const title = document.createElement('div');
     title.style.cssText = `
-        font-size: 22px;
+        font-size: 24px;
         font-weight: 800;
         color: ${style.titleColor};
         margin-bottom: 16px;
@@ -1047,7 +1046,7 @@ function showBattlePreview(room_id, case_type, player1, player2) {
         text-shadow: 0 0 40px ${style.glowColor};
         text-align: center;
     `;
-    title.textContent = `👀 ПРЕДПРОСМОТР БИТВЫ`;
+    title.textContent = isBot ? '🤖 БИТВА С БОТОМ' : '⚔️ БИТВА КЕЙСОВ';
     overlay.appendChild(title);
     
     const playersContainer = document.createElement('div');
@@ -1061,7 +1060,6 @@ function showBattlePreview(room_id, case_type, player1, player2) {
         margin-bottom: 16px;
     `;
     
-    // Лента игрока 1
     const p1Container = document.createElement('div');
     p1Container.style.cssText = `flex: 1; text-align: center;`;
     let p1Cards = '';
@@ -1089,10 +1087,9 @@ function showBattlePreview(room_id, case_type, player1, player2) {
         text-shadow: 0 0 30px rgba(255,0,0,0.3);
         flex-shrink: 0;
     `;
-    vsDiv.textContent = '⚔️';
+    vsDiv.textContent = isBot ? '🤖' : '⚔️';
     playersContainer.appendChild(vsDiv);
     
-    // Лента игрока 2
     const p2Container = document.createElement('div');
     p2Container.style.cssText = `flex: 1; text-align: center;`;
     let p2Cards = '';
@@ -1145,7 +1142,16 @@ function showBattlePreview(room_id, case_type, player1, player2) {
         this.textContent = '⏳ ОЖИДАНИЕ...';
         this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
         this.disabled = true;
-        sendBattleReady(room_id);
+        if (isBot) {
+            document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Битва начинается...';
+            setTimeout(() => {
+                const overlay = document.getElementById('battlePreviewOverlay');
+                if (overlay) overlay.remove();
+                startBotBattleAnimation();
+            }, 500);
+        } else {
+            sendBattleReady(room_id);
+        }
     };
     overlay.appendChild(readyBtn);
     
@@ -1156,13 +1162,10 @@ function showBattlePreview(room_id, case_type, player1, player2) {
         font-size: 14px;
         text-align: center;
     `;
-    statusDiv.textContent = 'Нажми «ГОТОВ», чтобы начать битву';
+    statusDiv.textContent = isBot ? 'Нажми «ГОТОВ», чтобы начать битву с ботом' : 'Нажми «ГОТОВ», чтобы начать битву';
     overlay.appendChild(statusDiv);
     
     document.body.appendChild(overlay);
-    
-    overlay._room_id = room_id;
-    overlay._case_type = case_type;
 }
 
 function sendBattleReady(room_id) {
@@ -1182,7 +1185,6 @@ function sendBattleReady(room_id) {
             setTimeout(() => {
                 const overlay = document.getElementById('battlePreviewOverlay');
                 if (overlay) overlay.remove();
-                // Запускаем анимацию битвы
                 startBattleAnimation(room_id);
             }, 1000);
         } else {
@@ -1192,10 +1194,30 @@ function sendBattleReady(room_id) {
 }
 
 function startBattleAnimation(room_id) {
-    // Запрашиваем результат битвы
+    // Получаем результат битвы
     if (window.battleResultInterval) clearInterval(window.battleResultInterval);
     window.battleResultInterval = setInterval(checkBattleResult, 2000);
     checkBattleResult();
+}
+
+function startBotBattleAnimation() {
+    // Запускаем битву с ботом
+    const case_type = selectedBotCase;
+    
+    fetch('/start_bot_battle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, case_type })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
+            return;
+        }
+        closeBotBattle();
+        showBotBattleResult(data);
+    });
 }
 
 function checkBattleResult() {
@@ -1324,19 +1346,19 @@ function closeBotBattle() {
 function startBotBattle() {
     const case_type = selectedBotCase;
     
-    fetch('/start_bot_battle', {
+    fetch('/check_balance_simple', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, case_type })
+        body: JSON.stringify({ user_id, amount: getPrice(case_type) })
     })
     .then(res => res.json())
     .then(data => {
-        if (data.error) {
-            tg.showAlert('❌ ' + data.error);
+        if (data.error || !data.has_enough) {
+            tg.showAlert('❌ Недостаточно звёзд для открытия кейса!');
             return;
         }
         closeBotBattle();
-        showBotBattleResult(data);
+        showBattlePreview(null, case_type, 'ТЫ', 'БОТ', true);
     });
 }
 
