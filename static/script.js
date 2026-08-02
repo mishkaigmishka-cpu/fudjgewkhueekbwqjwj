@@ -966,8 +966,6 @@ function createBattleRoom() {
         currentRoomId = data.room_id;
         closeCreateBattle();
         showWaitingRoom(data.room_id, data.case_type);
-        if (window.battleResultInterval) clearInterval(window.battleResultInterval);
-        window.battleResultInterval = setInterval(checkBattleResult, 2000);
     });
 }
 
@@ -993,7 +991,6 @@ function exitWaitingRoom() {
             document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
             document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
             document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
-            if (window.battleResultInterval) clearInterval(window.battleResultInterval);
             showBattles();
         });
     }
@@ -1011,12 +1008,194 @@ function joinBattleRoom(room_id) {
             tg.showAlert('❌ ' + data.error);
             return;
         }
-        tg.showAlert('⚔️ Битва началась!');
+        // Показываем предпросмотр
+        showBattlePreview(data.room_id, data.case_type, data.player1, data.player2);
         if (window.battleInterval) clearInterval(window.battleInterval);
-        loadBattleRooms();
-        if (window.battleResultInterval) clearInterval(window.battleResultInterval);
-        window.battleResultInterval = setInterval(checkBattleResult, 2000);
     });
+}
+
+// ===================== НОВЫЙ ПРЕДПРОСМОТР БИТВЫ =====================
+function showBattlePreview(room_id, case_type, player1, player2) {
+    const style = getStyle(case_type);
+    const prizes = getPrizes(case_type);
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'battlePreviewOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: ${style.bg};
+        background-image: ${style.bgGradient};
+        backdrop-filter: blur(30px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+        padding: 20px;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    const title = document.createElement('div');
+    title.style.cssText = `
+        font-size: 22px;
+        font-weight: 800;
+        color: ${style.titleColor};
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        text-shadow: 0 0 40px ${style.glowColor};
+        text-align: center;
+    `;
+    title.textContent = `👀 ПРЕДПРОСМОТР БИТВЫ`;
+    overlay.appendChild(title);
+    
+    const playersContainer = document.createElement('div');
+    playersContainer.style.cssText = `
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        max-width: 700px;
+        margin-bottom: 16px;
+    `;
+    
+    // Лента игрока 1
+    const p1Container = document.createElement('div');
+    p1Container.style.cssText = `flex: 1; text-align: center;`;
+    let p1Cards = '';
+    for (let i = 0; i < 3; i++) {
+        prizes.forEach(p => {
+            p1Cards += `<div style="width: 70px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); font-size: ${p > 1000 ? '16px' : '20px'}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
+        });
+    }
+    p1Container.innerHTML = `
+        <div style="font-size: 14px; color: #aaa; margin-bottom: 4px;">👤 ${player1}</div>
+        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px;">
+            <div id="previewTrack1" style="display: flex; gap: 6px; padding: 10px 0; animation: scrollTapeForward 8s linear infinite; will-change: transform; position: relative;">
+                ${p1Cards}
+            </div>
+            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none;">▼</div>
+        </div>
+    `;
+    playersContainer.appendChild(p1Container);
+    
+    const vsDiv = document.createElement('div');
+    vsDiv.style.cssText = `
+        font-size: 28px;
+        font-weight: 900;
+        color: #ff6b6b;
+        text-shadow: 0 0 30px rgba(255,0,0,0.3);
+        flex-shrink: 0;
+    `;
+    vsDiv.textContent = '⚔️';
+    playersContainer.appendChild(vsDiv);
+    
+    // Лента игрока 2
+    const p2Container = document.createElement('div');
+    p2Container.style.cssText = `flex: 1; text-align: center;`;
+    let p2Cards = '';
+    for (let i = 0; i < 3; i++) {
+        prizes.forEach(p => {
+            p2Cards += `<div style="width: 70px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); font-size: ${p > 1000 ? '16px' : '20px'}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
+        });
+    }
+    p2Container.innerHTML = `
+        <div style="font-size: 14px; color: #aaa; margin-bottom: 4px;">👤 ${player2}</div>
+        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px;">
+            <div id="previewTrack2" style="display: flex; gap: 6px; padding: 10px 0; animation: scrollTapeForward 8s linear infinite; will-change: transform; position: relative;">
+                ${p2Cards}
+            </div>
+            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none;">▼</div>
+        </div>
+    `;
+    playersContainer.appendChild(p2Container);
+    
+    overlay.appendChild(playersContainer);
+    
+    const infoDiv = document.createElement('div');
+    infoDiv.style.cssText = `
+        color: #aaa;
+        font-size: 14px;
+        text-align: center;
+        margin-bottom: 16px;
+    `;
+    infoDiv.textContent = `📦 Кейс: ${case_type.toUpperCase()}`;
+    overlay.appendChild(infoDiv);
+    
+    const readyBtn = document.createElement('button');
+    readyBtn.id = 'battleReadyBtn';
+    readyBtn.textContent = '✅ ГОТОВ';
+    readyBtn.style.cssText = `
+        padding: 14px 40px;
+        border: none;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #4caf50, #2e7d32);
+        color: #fff;
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 10px;
+    `;
+    readyBtn.onmouseover = function() { this.style.transform = 'scale(1.05)'; };
+    readyBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
+    readyBtn.onclick = function() {
+        this.textContent = '⏳ ОЖИДАНИЕ...';
+        this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
+        this.disabled = true;
+        sendBattleReady(room_id);
+    };
+    overlay.appendChild(readyBtn);
+    
+    const statusDiv = document.createElement('div');
+    statusDiv.id = 'battlePreviewStatus';
+    statusDiv.style.cssText = `
+        color: #666;
+        font-size: 14px;
+        text-align: center;
+    `;
+    statusDiv.textContent = 'Нажми «ГОТОВ», чтобы начать битву';
+    overlay.appendChild(statusDiv);
+    
+    document.body.appendChild(overlay);
+    
+    overlay._room_id = room_id;
+    overlay._case_type = case_type;
+}
+
+function sendBattleReady(room_id) {
+    fetch('/battle_ready', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, room_id })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
+            return;
+        }
+        if (data.ready) {
+            document.getElementById('battlePreviewStatus').textContent = '✅ Оба игрока готовы! Битва начинается...';
+            setTimeout(() => {
+                const overlay = document.getElementById('battlePreviewOverlay');
+                if (overlay) overlay.remove();
+                // Запускаем анимацию битвы
+                startBattleAnimation(room_id);
+            }, 1000);
+        } else {
+            document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
+        }
+    });
+}
+
+function startBattleAnimation(room_id) {
+    // Запрашиваем результат битвы
+    if (window.battleResultInterval) clearInterval(window.battleResultInterval);
+    window.battleResultInterval = setInterval(checkBattleResult, 2000);
+    checkBattleResult();
 }
 
 function checkBattleResult() {
