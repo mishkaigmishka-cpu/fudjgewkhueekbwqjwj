@@ -87,6 +87,7 @@ header {
     margin-top: 4px;
 }
 
+/* ===== БИТВЫ ===== */
 .battle-stats {
     display: flex;
     justify-content: space-around;
@@ -114,12 +115,16 @@ header {
     background: linear-gradient(135deg, #b388ff, #7c4dff);
     color: #fff;
 }
+.battle-actions button:nth-child(2) {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+    color: #fff;
+}
 .battle-actions button:last-child {
     background: rgba(255,255,255,0.05);
     color: #aaa;
 }
 
-#lobbyList .player-item {
+.room-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -128,17 +133,38 @@ header {
     border-radius: 12px;
     margin-bottom: 8px;
 }
-#lobbyList .player-item .name { color: #fff; font-weight: 600; }
-#lobbyList .player-item .info { color: #aaa; font-size: 14px; }
-#lobbyList .player-item .btn-fight {
-    background: linear-gradient(135deg, #b388ff, #7c4dff);
+.room-item .room-creator { color: #fff; font-weight: 600; }
+.room-item .room-case { color: #ffd700; font-size: 14px; }
+.room-item .room-players { color: #aaa; font-size: 14px; }
+.room-item .btn-join {
+    background: linear-gradient(135deg, #4caf50, #2e7d32);
     color: #fff;
     border: none;
-    padding: 8px 16px;
+    padding: 6px 16px;
     border-radius: 10px;
     font-weight: 700;
     cursor: pointer;
+    font-size: 13px;
 }
+.room-item .btn-join:hover { transform: scale(1.05); }
+
+.battle-case-btn, .bot-case-btn {
+    padding: 8px 14px;
+    border: 2px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    color: #aaa;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.battle-case-btn.active, .bot-case-btn.active {
+    border-color: #b388ff;
+    background: rgba(179,136,255,0.15);
+    color: #b388ff;
+}
+.battle-case-btn:hover, .bot-case-btn:hover { background: rgba(255,255,255,0.08); }
 
 .battle-card {
     background: rgba(255,255,255,0.04);
@@ -297,24 +323,6 @@ header {
 .modal-buttons button { flex: 1; padding: 14px; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; }
 .modal-buttons button:first-child { background: #4caf50; color: #fff; }
 .modal-buttons button:last-child { background: rgba(255,0,0,0.2); color: #ff6b6b; }
-
-.lobby-case-btn {
-    padding: 8px 16px;
-    border: 2px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
-    background: rgba(255,255,255,0.04);
-    color: #aaa;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.lobby-case-btn.active {
-    border-color: #b388ff;
-    background: rgba(179,136,255,0.15);
-    color: #b388ff;
-}
-.lobby-case-btn:hover { background: rgba(255,255,255,0.08); }
 
 /* ===== НАВИГАЦИЯ ===== */
 nav {
