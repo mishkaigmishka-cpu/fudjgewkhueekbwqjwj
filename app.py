@@ -206,24 +206,17 @@ bot_battles = {}
 active_mines_games = {}
 battle_rooms = {}
 battle_results = {}
+battle_ready_status = {}  # {room_id: [player1_ready, player2_ready]}
 
 # ===================== МИНЁР — НОВЫЕ МНОЖИТЕЛИ =====================
 def get_mines_multiplier(opened, mines):
-    """
-    НОВАЯ ТАБЛИЦА:
-    - Множители слегка увеличены (на 0.03–0.15)
-    - Максимум всё ещё x5.0
-    - Игрок выигрывает чаще, но всё равно в минусе
-    """
     base_multipliers = {
         1: 1.05, 2: 1.10, 3: 1.20, 4: 1.35, 5: 1.55,
         6: 1.80, 7: 2.20, 8: 2.70, 9: 3.30, 10: 4.00,
         11: 4.50, 12: 5.00
     }
-    
     if opened > 12:
         return 5.00
-    
     return base_multipliers.get(opened, 1.00)
 
 def update_mines_stats(user_id, won, multiplier, stars):
@@ -497,6 +490,16 @@ def create_battle_room():
     uid = data.get('user_id')
     case_type = data.get('case_type')
     
+    user = get_user(uid)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    
+    # ===== ПРОВЕРКА БАЛАНСА =====
+    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
+    price = prices.get(case_type, 0)
+    if user[1] < price:
+        return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐ для открытия кейса'}), 400
+    
     for rid, room in battle_rooms.items():
         if room['creator'] == uid and room['status'] == 'waiting':
             return jsonify({'error': 'У тебя уже есть активная комната'}), 400
@@ -543,12 +546,30 @@ def join_battle_room():
     if uid in room['players']:
         return jsonify({'error': 'Ты уже в этой комнате'}), 400
     
+    # ===== ПРОВЕРКА БАЛАНСА ДЛЯ ВТОРОГО ИГРОКА =====
+    user = get_user(uid)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
+    price = prices.get(room['case_type'], 0)
+    if user[1] < price:
+        return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐ для открытия кейса'}), 400
+    
     room['players'].append(uid)
     room['status'] = 'active'
     
-    start_battle_opening(room_id)
+    # Показываем предпросмотр обоим игрокам (через WebApp)
+    p1 = get_user(room['players'][0])
+    p2 = get_user(room['players'][1])
     
-    return jsonify({'success': True})
+    # Отправляем данные для предпросмотра
+    return jsonify({
+        'success': True,
+        'room_id': room_id,
+        'case_type': room['case_type'],
+        'player1': p1[8] if p1 else f"ID{room['players'][0]}",
+        'player2': p2[8] if p2 else f"ID{room['players'][1]}"
+    })
 
 @app.route('/exit_battle_room', methods=['POST'])
 def exit_battle_room():
@@ -562,6 +583,35 @@ def exit_battle_room():
             del battle_rooms[room_id]
     
     return jsonify({'success': True})
+
+@app.route('/battle_ready', methods=['POST'])
+def battle_ready():
+    data = request.get_json()
+    uid = data.get('user_id')
+    room_id = data.get('room_id')
+    
+    if room_id not in battle_rooms:
+        return jsonify({'error': 'Комната не найдена'}), 404
+    
+    room = battle_rooms[room_id]
+    if uid not in room['players']:
+        return jsonify({'error': 'Ты не в этой комнате'}), 403
+    
+    if room_id not in battle_ready_status:
+        battle_ready_status[room_id] = [False, False]
+    
+    if uid == room['players'][0]:
+        battle_ready_status[room_id][0] = True
+    else:
+        battle_ready_status[room_id][1] = True
+    
+    if all(battle_ready_status[room_id]):
+        battle_ready_status[room_id] = [False, False]
+        room['status'] = 'active'
+        start_battle_opening(room_id)
+        return jsonify({'ready': True})
+    
+    return jsonify({'ready': False})
 
 @app.route('/start_bot_battle', methods=['POST'])
 def start_bot_battle():
