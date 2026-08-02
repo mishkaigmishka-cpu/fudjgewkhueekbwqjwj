@@ -203,7 +203,8 @@ pending_battles = {}
 user_battles = {}
 bot_battles = {}
 active_mines_games = {}
-lobby_players = {}
+battle_rooms = {}  # {room_id: {'creator': uid, 'case_type': str, 'players': [uid], 'status': 'waiting'|'active'}}
+battle_results = {}  # {user_id: result_data}
 
 def get_mines_multiplier(mines):
     multipliers = {
@@ -261,20 +262,9 @@ def update_battle_stats(user_id, won, stars):
 def battle_cleaner():
     while True:
         current_time = time.time()
-        for battle_id, battle in list(active_battles.items()):
-            if battle['status'] == 'waiting' and current_time - battle['created_at'] > 300:
-                user1 = get_user(battle['player1'])
-                user2 = get_user(battle['player2'])
-                if user1:
-                    update_user(battle['player1'], balance=user1[1] + battle['bet'])
-                if user2:
-                    update_user(battle['player2'], balance=user2[1] + battle['bet'])
-                try:
-                    bot.send_message(battle['player1'], "⏰ Битва отменена (тайм-аут). Ставка возвращена")
-                    bot.send_message(battle['player2'], "⏰ Битва отменена (тайм-аут). Ставка возвращена")
-                except:
-                    pass
-                del active_battles[battle_id]
+        for room_id, room in list(battle_rooms.items()):
+            if room['status'] == 'waiting' and current_time - room['created_at'] > 300:
+                del battle_rooms[room_id]
         time.sleep(60)
 
 threading.Thread(target=battle_cleaner, daemon=True).start()
@@ -586,7 +576,7 @@ def battle_case_select(call):
         if battle['player1_choice'] == battle['player2_choice']:
             battle['case_type'] = case_type
             battle['status'] = 'active'
-            start_battle_opening(battle_id)
+            start_battle_opening_old(battle_id)
         else:
             bot.send_message(battle['player1'], "❌ Вы выбрали разные кейсы! Выберите одинаковый.")
             bot.send_message(battle['player2'], "❌ Вы выбрали разные кейсы! Выберите одинаковый.")
@@ -622,7 +612,7 @@ def battle_decline(call):
     bot.send_message(battle['player2'], "❌ Ты отклонил битву")
     del active_battles[battle_id]
 
-def start_battle_opening(battle_id):
+def start_battle_opening_old(battle_id):
     battle = active_battles.get(battle_id)
     if not battle:
         return
@@ -670,39 +660,98 @@ def start_battle_opening(battle_id):
     add_commission(commission)
     update_battle_stats(winner, won=True, stars=winner_winnings)
     update_battle_stats(loser, won=False, stars=loser_prize)
-    winner_name = get_user(winner)[8] or f"ID{winner}"
-    loser_name = get_user(loser)[8] or f"ID{loser}"
+    winner_name = f"Игрок {winner}"
+    loser_name = f"Игрок {loser}"
     result_text = f"⚔️ **РЕЗУЛЬТАТ БИТВЫ!**\n\n👤 {winner_name} выиграл! 🎉\n👤 {loser_name} проиграл 😢\n\n📦 Кейс: {case_type.upper()}\n🎯 Дроп {winner_name}: {winner_prize}⭐\n🎯 Дроп {loser_name}: {loser_prize}⭐\n\n💰 Общая сумма: {total_drop}⭐\n💸 Комиссия (10%): {commission}⭐\n🏆 {winner_name} получает: {winner_winnings}⭐"
     bot.send_message(winner, result_text)
     bot.send_message(loser, result_text)
     battle['status'] = 'finished'
 
-# ===================== БИТВА С БОТОМ =====================
-@bot.message_handler(commands=['battle_bot'])
-def battle_bot_cmd(msg):
-    uid = msg.from_user.id
-    kb = InlineKeyboardMarkup(row_width=3)
-    kb.add(
-        InlineKeyboardButton("🟫 Грязь", callback_data=f"bot_battle_case_0_mud"),
-        InlineKeyboardButton("🌳 Дерево", callback_data=f"bot_battle_case_0_wood"),
-        InlineKeyboardButton("🪨 Камень", callback_data=f"bot_battle_case_0_stone"),
-        InlineKeyboardButton("🥉 Бронза", callback_data=f"bot_battle_case_0_bronze"),
-        InlineKeyboardButton("🔘 Серебро", callback_data=f"bot_battle_case_0_silver"),
-        InlineKeyboardButton("👑 Золото", callback_data=f"bot_battle_case_0_gold"),
-        InlineKeyboardButton("💎 Алмаз", callback_data=f"bot_battle_case_0_diamond"),
-        InlineKeyboardButton("🔥 Незерит", callback_data=f"bot_battle_case_0_netherite"),
-        InlineKeyboardButton("⛏️ Бедрок", callback_data=f"bot_battle_case_0_bedrock")
-    )
-    bot.send_message(uid, f"🤖 **БИТВА С БОТОМ**\n\n🔥 Без ставок! Победитель забирает свой дроп + дроп бота - 10% комиссии (только с дропа игрока)\n🎯 Выбери кейс:", reply_markup=kb)
+# ===================== КОМНАТЫ (НОВАЯ СИСТЕМА БИТВ) =====================
+@app.route('/create_battle_room', methods=['POST'])
+def create_battle_room():
+    data = request.get_json()
+    uid = data.get('user_id')
+    case_type = data.get('case_type')
+    
+    for rid, room in battle_rooms.items():
+        if room['creator'] == uid and room['status'] == 'waiting':
+            return jsonify({'error': 'У тебя уже есть активная комната'}), 400
+    
+    room_id = f"#{random.randint(1000, 9999)}"
+    battle_rooms[room_id] = {
+        'creator': uid,
+        'case_type': case_type,
+        'players': [uid],
+        'status': 'waiting',
+        'created_at': time.time()
+    }
+    return jsonify({'room_id': room_id, 'case_type': case_type})
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("bot_battle_case_"))
-def bot_battle_case(call):
-    _, _, _, case_type = call.data.split('_')
-    uid = call.from_user.id
+@app.route('/get_battle_rooms', methods=['POST'])
+def get_battle_rooms():
+    data = request.get_json()
+    uid = data.get('user_id')
+    rooms = []
+    for rid, room in battle_rooms.items():
+        if room['status'] == 'waiting' and len(room['players']) < 2:
+            rooms.append({
+                'room_id': rid,
+                'creator_id': room['creator'],
+                'case_type': room['case_type'],
+                'players_count': len(room['players'])
+            })
+    return jsonify({'rooms': rooms})
+
+@app.route('/join_battle_room', methods=['POST'])
+def join_battle_room():
+    data = request.get_json()
+    uid = data.get('user_id')
+    room_id = data.get('room_id')
+    
+    if room_id not in battle_rooms:
+        return jsonify({'error': 'Комната не найдена'}), 404
+    
+    room = battle_rooms[room_id]
+    if room['status'] != 'waiting':
+        return jsonify({'error': 'Битва уже началась'}), 400
+    if len(room['players']) >= 2:
+        return jsonify({'error': 'Комната полна'}), 400
+    if uid in room['players']:
+        return jsonify({'error': 'Ты уже в этой комнате'}), 400
+    
+    room['players'].append(uid)
+    room['status'] = 'active'
+    
+    start_battle_opening(room_id)
+    
+    return jsonify({'success': True})
+
+@app.route('/exit_battle_room', methods=['POST'])
+def exit_battle_room():
+    data = request.get_json()
+    uid = data.get('user_id')
+    room_id = data.get('room_id')
+    
+    if room_id in battle_rooms:
+        room = battle_rooms[room_id]
+        if room['status'] == 'waiting':
+            del battle_rooms[room_id]
+    
+    return jsonify({'success': True})
+
+@app.route('/start_bot_battle', methods=['POST'])
+def start_bot_battle():
+    data = request.get_json()
+    uid = data.get('user_id')
+    case_type = data.get('case_type')
+    
     player_prize = get_prize(case_type)
     bot_prize = get_prize(case_type)
+    
     user = get_user(uid)
     update_user(uid, balance=user[1] + player_prize)
+    
     if player_prize > bot_prize:
         commission = int(player_prize * 0.10)
         winnings = (player_prize - commission) + bot_prize
@@ -710,47 +759,122 @@ def bot_battle_case(call):
         update_user(uid, balance=user[1] + bot_prize - commission)
         add_commission(commission)
         update_battle_stats(uid, won=True, stars=winnings)
-        result_text = f"🎉 **ВЫ ПОБЕДИЛИ БОТА!**\n\n👤 ВЫ: {player_prize}⭐ 🏆\n🤖 БОТ: {bot_prize}⭐\n\n💰 Твой дроп: {player_prize}⭐\n💸 Комиссия (10% с твоего дропа): {commission}⭐\n💰 Дроп бота (без комиссии): {bot_prize}⭐\n🏆 Выигрыш: {winnings}⭐"
+        result = 'win'
+        result_text = f'🎉 Ты выиграл! +{winnings}⭐'
     elif bot_prize > player_prize:
         user = get_user(uid)
         update_user(uid, balance=user[1] - player_prize)
         update_battle_stats(uid, won=False, stars=player_prize)
-        result_text = f"😢 **ВЫ ПРОИГРАЛИ БОТУ...**\n\n👤 ВЫ: {player_prize}⭐\n🤖 БОТ: {bot_prize}⭐ 🏆\n\n❌ Ты потерял свой дроп: {player_prize}⭐"
+        result = 'lose'
+        result_text = f'😢 Ты проиграл! -{player_prize}⭐'
     else:
         commission = int(player_prize * 0.10)
         user = get_user(uid)
         update_user(uid, balance=user[1] - commission)
         add_commission(commission)
-        result_text = f"🤝 **НИЧЬЯ С БОТОМ!**\n\n👤 ВЫ: {player_prize}⭐\n🤖 БОТ: {bot_prize}⭐\n\n💰 Твой дроп: {player_prize}⭐\n💸 Комиссия (10%): {commission}⭐\n💰 Ты получаешь: {player_prize - commission}⭐"
-    bot.edit_message_text(result_text, chat_id=uid, message_id=call.message.message_id)
-    kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(InlineKeyboardButton("🤖 БИТЬСЯ СНОВА", callback_data=f"bot_battle_again_0"), InlineKeyboardButton("🏠 НА ГЛАВНУЮ", callback_data="bot_battle_home"))
-    bot.send_message(uid, "🔽 Выбери действие:", reply_markup=kb)
+        result = 'draw'
+        result_text = f'🤝 Ничья! Ты получил {player_prize - commission}⭐'
+    
+    return jsonify({
+        'result': result,
+        'result_text': result_text,
+        'player_prize': player_prize,
+        'bot_prize': bot_prize,
+        'commission': commission if result != 'win' else 0,
+        'winnings': winnings if result == 'win' else 0
+    })
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("bot_battle_again_"))
-def bot_battle_again(call):
-    uid = call.from_user.id
-    kb = InlineKeyboardMarkup(row_width=3)
-    kb.add(
-        InlineKeyboardButton("🟫 Грязь", callback_data=f"bot_battle_case_0_mud"),
-        InlineKeyboardButton("🌳 Дерево", callback_data=f"bot_battle_case_0_wood"),
-        InlineKeyboardButton("🪨 Камень", callback_data=f"bot_battle_case_0_stone"),
-        InlineKeyboardButton("🥉 Бронза", callback_data=f"bot_battle_case_0_bronze"),
-        InlineKeyboardButton("🔘 Серебро", callback_data=f"bot_battle_case_0_silver"),
-        InlineKeyboardButton("👑 Золото", callback_data=f"bot_battle_case_0_gold"),
-        InlineKeyboardButton("💎 Алмаз", callback_data=f"bot_battle_case_0_diamond"),
-        InlineKeyboardButton("🔥 Незерит", callback_data=f"bot_battle_case_0_netherite"),
-        InlineKeyboardButton("⛏️ Бедрок", callback_data=f"bot_battle_case_0_bedrock")
-    )
-    bot.edit_message_text("🤖 **НОВАЯ БИТВА С БОТОМ**\n\nВыбери кейс:", chat_id=uid, message_id=call.message.message_id, reply_markup=kb)
+def start_battle_opening(room_id):
+    room = battle_rooms.get(room_id)
+    if not room:
+        return
+    
+    case_type = room['case_type']
+    players = room['players']
+    p1 = players[0]
+    p2 = players[1]
+    
+    prize1 = get_prize(case_type)
+    prize2 = get_prize(case_type)
+    
+    if prize1 > prize2:
+        winner = p1
+        loser = p2
+        winner_prize = prize1
+        loser_prize = prize2
+        is_draw = False
+    elif prize2 > prize1:
+        winner = p2
+        loser = p1
+        winner_prize = prize2
+        loser_prize = prize1
+        is_draw = False
+    else:
+        is_draw = True
+        commission1 = int(prize1 * 0.10)
+        commission2 = int(prize2 * 0.10)
+        total_commission = commission1 + commission2
+        user1 = get_user(p1)
+        user2 = get_user(p2)
+        update_user(p1, balance=user1[1] - commission1)
+        update_user(p2, balance=user2[1] - commission2)
+        add_commission(total_commission)
+        
+        draw_result = {
+            'result': 'draw',
+            'result_text': f'🤝 Ничья! Оба получили по {prize1 - commission1}⭐',
+            'player1_prize': prize1,
+            'player2_prize': prize2,
+            'commission1': commission1,
+            'commission2': commission2,
+            'winner_id': None,
+            'loser_id': None,
+            'is_draw': True
+        }
+        battle_results[p1] = draw_result
+        battle_results[p2] = draw_result
+        
+        del battle_rooms[room_id]
+        return
+    
+    total_drop = winner_prize + loser_prize
+    commission = int(total_drop * 0.10)
+    winner_winnings = total_drop - commission
+    winner_user = get_user(winner)
+    loser_user = get_user(loser)
+    update_user(winner, balance=winner_user[1] + winner_winnings)
+    update_user(loser, balance=loser_user[1] - loser_prize)
+    add_commission(commission)
+    update_battle_stats(winner, won=True, stars=winner_winnings)
+    update_battle_stats(loser, won=False, stars=loser_prize)
+    
+    result_data = {
+        'result': 'win' if winner == p1 else 'lose',
+        'result_text': f'🏆 Победитель получил {winner_winnings}⭐!',
+        'player1_prize': prize1,
+        'player2_prize': prize2,
+        'winner_id': winner,
+        'loser_id': loser,
+        'winner_prize': winner_prize,
+        'loser_prize': loser_prize,
+        'commission': commission,
+        'winner_winnings': winner_winnings,
+        'is_draw': False
+    }
+    battle_results[p1] = result_data
+    battle_results[p2] = result_data
+    
+    del battle_rooms[room_id]
 
-@bot.callback_query_handler(func=lambda call: call.data == "bot_battle_home")
-def bot_battle_home(call):
-    bot.answer_callback_query(call.id)
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
-    kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
-    bot.edit_message_text("Добро пожаловать в RANDEVU!", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=kb)
+@app.route('/get_battle_result', methods=['POST'])
+def get_battle_result():
+    data = request.get_json()
+    uid = data.get('user_id')
+    if uid in battle_results:
+        result = battle_results[uid]
+        del battle_results[uid]
+        return jsonify(result)
+    return jsonify({'pending': True})
 
 # ===================== FLASK ЭНДПОИНТЫ =====================
 @app.route('/')
@@ -1081,98 +1205,6 @@ def accept_battle():
     )
     for player_id in [battle['player1'], battle['player2']]:
         bot.send_message(player_id, "⚔️ **ВЫБЕРИТЕ КЕЙС ДЛЯ БИТВЫ:**\nВажно выбрать ОДИНАКОВЫЙ кейс!", reply_markup=kb)
-    return jsonify({'success': True})
-
-@app.route('/get_lobby', methods=['POST'])
-def get_lobby():
-    data = request.get_json()
-    uid = data.get('user_id')
-    players = []
-    for pid, info in lobby_players.items():
-        if pid != uid:
-            players.append({
-                'user_id': pid,
-                'username': info['username'],
-                'case_type': info['case_type'],
-                'bet': info['bet']
-            })
-    return jsonify({'players': players})
-
-@app.route('/join_lobby', methods=['POST'])
-def join_lobby():
-    data = request.get_json()
-    uid = data.get('user_id')
-    case_type = data.get('case_type')
-    bet = data.get('bet')
-    user = get_user(uid)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    if user[1] < bet:
-        return jsonify({'error': f'Недостаточно звёзд! Нужно {bet}⭐'}), 400
-    if uid in lobby_players:
-        return jsonify({'error': 'Ты уже в лобби!'}), 400
-    lobby_players[uid] = {
-        'username': user[8] or f"ID{uid}",
-        'case_type': case_type,
-        'bet': bet
-    }
-    return jsonify({'success': True})
-
-@app.route('/exit_lobby', methods=['POST'])
-def exit_lobby():
-    data = request.get_json()
-    uid = data.get('user_id')
-    if uid in lobby_players:
-        del lobby_players[uid]
-    return jsonify({'success': True})
-
-@app.route('/start_battle_from_lobby', methods=['POST'])
-def start_battle_from_lobby():
-    data = request.get_json()
-    uid = data.get('user_id')
-    target_id = data.get('target_id')
-    
-    if uid not in lobby_players:
-        return jsonify({'error': 'Ты не в лобби!'}), 400
-    if target_id not in lobby_players:
-        return jsonify({'error': 'Соперник уже вышел из лобби'}), 400
-    
-    p1 = lobby_players[uid]
-    p2 = lobby_players[target_id]
-    
-    if p1['case_type'] != p2['case_type']:
-        return jsonify({'error': 'Вы выбрали разные кейсы!'}), 400
-    
-    user1 = get_user(uid)
-    user2 = get_user(target_id)
-    bet = p1['bet']
-    
-    if user1[1] < bet:
-        return jsonify({'error': 'У тебя недостаточно звёзд!'}), 400
-    if user2[1] < bet:
-        return jsonify({'error': 'У соперника недостаточно звёзд!'}), 400
-    
-    battle_id = int(time.time())
-    battle_data = {
-        'id': battle_id,
-        'player1': uid,
-        'player2': target_id,
-        'case_type': p1['case_type'],
-        'status': 'active',
-        'bet': bet,
-        'prize1': None,
-        'prize2': None,
-        'created_at': time.time(),
-        'finished_at': None,
-        'winner_id': None
-    }
-    active_battles[battle_id] = battle_data
-    
-    del lobby_players[uid]
-    del lobby_players[target_id]
-    
-    start_battle_opening(battle_id)
-    
     return jsonify({'success': True})
 
 if __name__ == "__main__":
