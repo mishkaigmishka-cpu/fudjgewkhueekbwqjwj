@@ -14,7 +14,6 @@ let selectedMines = 4;
 let selectedBattleCase = 'gold';
 let selectedBotCase = 'gold';
 let currentRoomId = null;
-let battleResultPending = false;
 
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
@@ -68,7 +67,6 @@ function showBattles() {
     loadBattleRooms();
     if (window.battleInterval) clearInterval(window.battleInterval);
     window.battleInterval = setInterval(loadBattleRooms, 5000);
-    checkBattleResult();
 }
 
 function showMines() {
@@ -1228,6 +1226,7 @@ function initMinesBoard() {
         cell.className = 'mines-cell';
         cell.dataset.index = i;
         cell.textContent = '❓';
+        cell.onclick = () => openMinesCell(i);
         board.appendChild(cell);
     }
 }
@@ -1253,15 +1252,8 @@ document.querySelectorAll('.mines-btn').forEach(btn => {
         document.querySelectorAll('.mines-btn').forEach(b => b.classList.remove('active'));
         this.classList.add('active');
         selectedMines = parseInt(this.dataset.mines);
-        const mult = getMinesMultiplier(selectedMines);
-        document.getElementById('minesMultiplierDisplay').textContent = 'x' + mult;
     });
 });
-
-function getMinesMultiplier(mines) {
-    const map = {3: 1.3, 4: 1.5, 5: 2.0, 6: 2.5, 7: 3.0, 8: 4.0};
-    return map[mines] || 1.0;
-}
 
 function startMinesGame() {
     const bet = getBetFromInput();
@@ -1302,11 +1294,11 @@ function startMinesGame() {
             
             minesGameData = {
                 game_id: gameData.game_id,
-                bet: bet,
-                mines: mines,
+                bet: gameData.bet,
+                mines: gameData.mines,
                 opened: 0,
-                safe_cells: 25 - mines,
-                multiplier: getMinesMultiplier(mines),
+                safe_cells: 25 - gameData.mines,
+                multiplier: 1.0,
                 board: gameData.board,
                 openedCells: gameData.opened,
                 active: true,
@@ -1317,7 +1309,7 @@ function startMinesGame() {
             document.getElementById('minesCountDisplay').textContent = mines;
             document.getElementById('minesTotalSafe').textContent = 25 - mines;
             document.getElementById('minesOpenedDisplay').textContent = '0';
-            document.getElementById('minesMultiplierDisplay').textContent = 'x' + minesGameData.multiplier;
+            document.getElementById('minesMultiplierDisplay').textContent = 'x1.0';
             
             document.getElementById('minesCashoutBtn').style.display = 'inline-block';
             document.getElementById('minesStartBtn').textContent = '🔄 ИГРАТЬ СНОВА';
@@ -1336,7 +1328,7 @@ function renderMinesBoard() {
         cells.forEach(cell => {
             cell.textContent = '❓';
             cell.className = 'mines-cell';
-            cell.onclick = null;
+            cell.onclick = () => openMinesCell(parseInt(cell.dataset.index));
         });
         return;
     }
@@ -1404,9 +1396,9 @@ function openMinesCell(index) {
             renderMinesBoard();
             
             if (data.won) {
-                tg.showAlert('🎉 Ты выиграл! +' + data.winnings + '⭐');
+                showMinesResult('🎉', 'ПОБЕДА!', `Ты выиграл ${data.winnings}⭐!`, '#4caf50');
             } else {
-                tg.showAlert('💥 Взрыв! Ты потерял ' + minesGameData.bet + '⭐');
+                showMinesResult('💥', 'ВЗРЫВ!', `Ты потерял ${data.bet}⭐`, '#f44336');
             }
             loadBalance();
             return;
@@ -1417,10 +1409,43 @@ function openMinesCell(index) {
     });
 }
 
+function showMinesResult(icon, title, text, color) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.92);
+        backdrop-filter: blur(20px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 30px;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    overlay.innerHTML = `
+        <div style="font-size: 80px; margin-bottom: 10px;">${icon}</div>
+        <div style="font-size: 32px; font-weight: 800; color: ${color}; margin-bottom: 10px;">${title}</div>
+        <div style="color: #aaa; font-size: 18px; margin-bottom: 20px; text-align: center;">${text}</div>
+        <div style="display: flex; gap: 16px;">
+            <button onclick="this.closest('div').remove(); startMinesGame();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                🔄 ИГРАТЬ СНОВА
+            </button>
+            <button onclick="this.closest('div').remove(); showMines();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                🏠 МЕНЮ
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+}
+
 function cashoutMinesGame() {
     if (!minesGameData || !minesGameData.active || minesGameData.game_over) return;
-    if (minesGameData.opened === 0) {
-        tg.showAlert('❌ Открой хотя бы одну клетку!');
+    if (minesGameData.opened < 3) {
+        tg.showAlert('❌ Нужно открыть минимум 3 клетки!');
         return;
     }
     
@@ -1443,7 +1468,7 @@ function cashoutMinesGame() {
         minesGameData.game_over = true;
         document.getElementById('minesCashoutBtn').style.display = 'none';
         
-        tg.showAlert('✅ Ты забрал ' + data.winnings + '⭐ (x' + data.multiplier + ')');
+        showMinesResult('💰', 'ВЫИГРЫШ!', `Ты забрал ${data.winnings}⭐ (x${data.multiplier})`, '#ffd700');
         loadBalance();
         loadMinesStats();
     });
