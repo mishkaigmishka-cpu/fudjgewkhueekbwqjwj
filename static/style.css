@@ -119,10 +119,6 @@ header {
     background: linear-gradient(135deg, #ff6b6b, #ee5a24);
     color: #fff;
 }
-.battle-actions button:last-child {
-    background: rgba(255,255,255,0.05);
-    color: #aaa;
-}
 
 .room-item {
     display: flex;
