@@ -9,7 +9,9 @@ let lastOpenedCase = null;
 let _currentPrize = null;
 let _isOpening = false;
 let _tapeContainer = null;
-let minesOverlayData = null;
+let minesGameData = null;
+let selectedMines = 2;
+let selectedLobbyCase = 'gold';
 
 const CASE_PRIZES = {
     'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
@@ -59,6 +61,7 @@ function showBattles() {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.querySelector('.nav-item[data-tab="battles"]').classList.add('active');
     loadBattleData();
+    loadLobby();
 }
 
 function showMines() {
@@ -67,6 +70,17 @@ function showMines() {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.querySelector('.nav-item[data-tab="mines"]').classList.add('active');
     loadMinesStats();
+    if (!minesGameData || !minesGameData.active) {
+        minesGameData = null;
+        document.getElementById('minesCashoutBtn').style.display = 'none';
+        document.getElementById('minesStartBtn').textContent = '🎮 НАЧАТЬ ИГРУ';
+        document.getElementById('minesBetDisplay').textContent = '0';
+        document.getElementById('minesCountDisplay').textContent = '0';
+        document.getElementById('minesTotalSafe').textContent = '0';
+        document.getElementById('minesOpenedDisplay').textContent = '0';
+        document.getElementById('minesMultiplierDisplay').textContent = 'x1.0';
+        initMinesBoard();
+    }
 }
 
 function showProfile() {
@@ -78,7 +92,6 @@ function showProfile() {
 }
 
 function goBack() {
-    hideMinesOverlay();
     closeTape();
     closeResult();
     showMain();
@@ -108,13 +121,12 @@ function updateAllBalances(newBalance) {
     const balanceEl = document.getElementById('balance');
     const balanceValueEl = document.getElementById('balanceValue');
     const profileBalanceEl = document.getElementById('profileBalance');
-    const overlayBalanceEl = document.getElementById('minesOverlayBalance');
     if (balanceEl) balanceEl.textContent = '⭐ ' + newBalance;
     if (balanceValueEl) balanceValueEl.textContent = newBalance + ' ⭐';
     if (profileBalanceEl) profileBalanceEl.textContent = newBalance;
-    if (overlayBalanceEl) overlayBalanceEl.textContent = '⭐ ' + newBalance;
 }
 
+// ===================== КЕЙСЫ =====================
 async function checkBalance(type) {
     try {
         const res = await fetch('/check_balance', {
@@ -833,6 +845,7 @@ function openAgain() {
     }
 }
 
+// ===================== БИТВЫ =====================
 function loadBattleData() {
     fetch('/get_battle_data', {
         method: 'POST',
@@ -881,57 +894,317 @@ function renderBattleHistory(history) {
     `).join('');
 }
 
-function createBattle() {
-    const username = prompt('👤 Введите username соперника (без @):');
-    if (!username) return;
-    fetch('/create_battle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, username })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error) tg.showAlert('❌ ' + data.error);
-        else tg.showAlert('✅ Вызов отправлен!');
-        loadBattleData();
-    })
-    .catch(() => tg.showAlert('❌ Ошибка'));
-}
-
-function acceptBattle() {
-    fetch('/get_pending_battles', {
+// ===================== ЛОББИ =====================
+function loadLobby() {
+    fetch('/get_lobby', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id })
     })
     .then(res => res.json())
     .then(data => {
-        if (!data.battles || data.battles.length === 0) {
-            tg.showAlert('❌ Нет входящих вызовов');
+        const list = document.getElementById('lobbyList');
+        if (data.players && data.players.length > 0) {
+            list.innerHTML = data.players.map(p => `
+                <div class="player-item">
+                    <span class="name">👤 ${p.username}</span>
+                    <span class="info">📦 ${p.case_type} | 💰 ${p.bet}⭐</span>
+                    <button class="btn-fight" onclick="startBattleWith('${p.user_id}')">⚔️ БИТЬСЯ</button>
+                </div>
+            `).join('');
+        } else {
+            list.innerHTML = '<div class="empty-state">😴 Пока никто не ждёт битву</div>';
+        }
+    });
+}
+
+function showJoinLobby() {
+    document.getElementById('joinLobbyModal').classList.add('active');
+}
+
+function closeJoinLobby() {
+    document.getElementById('joinLobbyModal').classList.remove('active');
+}
+
+document.querySelectorAll('.lobby-case-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.lobby-case-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        selectedLobbyCase = this.dataset.case;
+    });
+});
+
+function confirmJoinLobby() {
+    const bet = parseInt(document.getElementById('lobbyBetInput').value);
+    if (isNaN(bet) || bet < 3 || bet > 1000) {
+        tg.showAlert('❌ Ставка должна быть от 3 до 1000⭐');
+        return;
+    }
+    fetch('/join_lobby', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, case_type: selectedLobbyCase, bet })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            tg.showAlert('✅ Ты в лобби! Ожидай соперника.');
+            closeJoinLobby();
+            loadLobby();
+        } else {
+            tg.showAlert('❌ ' + data.error);
+        }
+    });
+}
+
+function startBattleWith(target_id) {
+    fetch('/start_battle_from_lobby', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, target_id })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            tg.showAlert('⚔️ Битва началась!');
+            loadLobby();
+            loadBattleData();
+        } else {
+            tg.showAlert('❌ ' + data.error);
+        }
+    });
+}
+
+// ===================== МИНЁР =====================
+function initMinesBoard() {
+    const board = document.getElementById('minesBoard');
+    board.innerHTML = '';
+    for (let i = 0; i < 25; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'mines-cell';
+        cell.dataset.index = i;
+        cell.textContent = '❓';
+        board.appendChild(cell);
+    }
+}
+
+function getBetFromInput() {
+    const input = document.getElementById('betInput');
+    let val = parseInt(input.value);
+    if (isNaN(val) || val < 3) val = 3;
+    if (val > 1000) val = 1000;
+    input.value = val;
+    return val;
+}
+
+document.getElementById('betInput').addEventListener('change', function() {
+    let val = parseInt(this.value);
+    if (isNaN(val) || val < 3) val = 3;
+    if (val > 1000) val = 1000;
+    this.value = val;
+});
+
+document.querySelectorAll('.mines-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.mines-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        selectedMines = parseInt(this.dataset.mines);
+        const mult = getMinesMultiplier(selectedMines);
+        document.getElementById('minesMultiplierDisplay').textContent = 'x' + mult;
+    });
+});
+
+function getMinesMultiplier(mines) {
+    const map = {1: 1.2, 2: 2.0, 3: 3.0, 4: 5.0, 5: 10.0};
+    return map[mines] || 1.0;
+}
+
+function startMinesGame() {
+    const bet = getBetFromInput();
+    const mines = selectedMines;
+    
+    if (bet < 3 || bet > 1000) {
+        tg.showAlert('❌ Ставка должна быть от 3 до 1000⭐');
+        return;
+    }
+    
+    fetch('/check_balance_simple', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, amount: bet })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error || !data.has_enough) {
+            tg.showAlert('❌ Недостаточно звёзд!');
             return;
         }
-        let msg = '⚔️ **ВХОДЯЩИЕ ВЫЗОВЫ:**\n\n';
-        data.battles.forEach((b, i) => {
-            msg += `${i+1}. @${b.username}\n`;
-        });
-        const choice = prompt(msg + '\nВведите номер для принятия:');
-        if (!choice) return;
-        const idx = parseInt(choice) - 1;
-        if (idx < 0 || idx >= data.battles.length) return;
-        const battle = data.battles[idx];
-        fetch('/accept_battle', {
+        
+        fetch('/start_mines_game', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, battle_id: battle.id })
+            body: JSON.stringify({ user_id, bet, mines })
         })
         .then(res => res.json())
-        .then(result => {
-            if (result.error) tg.showAlert('❌ ' + result.error);
-            else tg.showAlert('✅ Битва принята! Выберите кейс.');
-            loadBattleData();
+        .then(gameData => {
+            if (gameData.error) {
+                tg.showAlert('❌ ' + gameData.error);
+                return;
+            }
+            
+            minesGameData = {
+                game_id: gameData.game_id,
+                bet: bet,
+                mines: mines,
+                opened: 0,
+                safe_cells: 25 - mines,
+                multiplier: 1.0,
+                board: gameData.board,
+                openedCells: gameData.opened,
+                active: true,
+                game_over: false
+            };
+            
+            document.getElementById('minesBetDisplay').textContent = bet;
+            document.getElementById('minesCountDisplay').textContent = mines;
+            document.getElementById('minesTotalSafe').textContent = 25 - mines;
+            document.getElementById('minesOpenedDisplay').textContent = '0';
+            document.getElementById('minesMultiplierDisplay').textContent = 'x1.0';
+            
+            document.getElementById('minesCashoutBtn').style.display = 'inline-block';
+            document.getElementById('minesStartBtn').textContent = '🔄 ИГРАТЬ СНОВА';
+            
+            renderMinesBoard();
+            updateMinesCashoutAmount();
         });
+    });
+}
+
+function renderMinesBoard() {
+    const board = document.getElementById('minesBoard');
+    const cells = board.querySelectorAll('.mines-cell');
+    
+    if (!minesGameData) {
+        cells.forEach(cell => {
+            cell.textContent = '❓';
+            cell.className = 'mines-cell';
+            cell.onclick = null;
+        });
+        return;
+    }
+    
+    const { board: dataBoard, openedCells } = minesGameData;
+    
+    cells.forEach((cell, i) => {
+        if (openedCells[i] === 1) {
+            cell.classList.add('opened');
+            if (dataBoard[i] === 1) {
+                cell.textContent = '💣';
+                cell.classList.add('mine');
+                cell.onclick = null;
+            } else {
+                cell.textContent = '💎';
+                cell.classList.add('safe');
+                cell.onclick = null;
+            }
+        } else {
+            cell.textContent = '❓';
+            cell.className = 'mines-cell';
+            cell.onclick = () => openMinesCell(i);
+        }
+    });
+}
+
+function openMinesCell(index) {
+    if (!minesGameData || !minesGameData.active || minesGameData.game_over) return;
+    if (minesGameData.openedCells[index] === 1) return;
+    
+    fetch('/open_mines_cell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            user_id, 
+            game_id: minesGameData.game_id,
+            index 
+        })
     })
-    .catch(() => tg.showAlert('❌ Ошибка'));
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
+            return;
+        }
+        
+        minesGameData.board = data.board;
+        minesGameData.openedCells = data.opened;
+        minesGameData.opened = data.opened_count;
+        minesGameData.multiplier = data.multiplier;
+        
+        document.getElementById('minesOpenedDisplay').textContent = minesGameData.opened;
+        document.getElementById('minesMultiplierDisplay').textContent = 'x' + minesGameData.multiplier;
+        
+        if (data.game_over) {
+            minesGameData.active = false;
+            minesGameData.game_over = true;
+            document.getElementById('minesCashoutBtn').style.display = 'none';
+            
+            for (let i = 0; i < 25; i++) {
+                if (minesGameData.board[i] === 1) {
+                    minesGameData.openedCells[i] = 1;
+                }
+            }
+            renderMinesBoard();
+            
+            if (data.won) {
+                tg.showAlert('🎉 Ты выиграл! +' + data.winnings + '⭐');
+            } else {
+                tg.showAlert('💥 Взрыв! Ты потерял ' + minesGameData.bet + '⭐');
+            }
+            loadBalance();
+            return;
+        }
+        
+        renderMinesBoard();
+        updateMinesCashoutAmount();
+    });
+}
+
+function cashoutMinesGame() {
+    if (!minesGameData || !minesGameData.active || minesGameData.game_over) return;
+    if (minesGameData.opened === 0) {
+        tg.showAlert('❌ Открой хотя бы одну клетку!');
+        return;
+    }
+    
+    fetch('/cashout_mines', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            user_id, 
+            game_id: minesGameData.game_id 
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
+            return;
+        }
+        
+        minesGameData.active = false;
+        minesGameData.game_over = true;
+        document.getElementById('minesCashoutBtn').style.display = 'none';
+        
+        tg.showAlert('✅ Ты забрал ' + data.winnings + '⭐ (x' + data.multiplier + ')');
+        loadBalance();
+        loadMinesStats();
+    });
+}
+
+function updateMinesCashoutAmount() {
+    if (!minesGameData) return;
+    const amount = Math.floor(minesGameData.bet * minesGameData.multiplier);
+    document.getElementById('minesCashoutAmount').textContent = amount;
 }
 
 function loadMinesStats() {
@@ -950,260 +1223,7 @@ function loadMinesStats() {
     .catch(() => {});
 }
 
-function showMinesOverlay() {
-    document.getElementById('minesOverlay').style.display = 'block';
-    document.body.style.overflow = 'hidden';
-    updateMinesOverlayBalance();
-}
-
-function hideMinesOverlay() {
-    document.getElementById('minesOverlay').style.display = 'none';
-    document.body.style.overflow = 'auto';
-    minesOverlayData = null;
-}
-
-function updateMinesOverlayBalance() {
-    const balance = document.getElementById('balance').textContent.replace('⭐ ', '');
-    document.getElementById('minesOverlayBalance').textContent = '⭐ ' + balance;
-}
-
-function startMinesOverlay() {
-    const bet = prompt('💰 Введите ставку (3-1000⭐):');
-    if (!bet) return;
-    const numBet = parseInt(bet);
-    if (numBet < 3 || numBet > 1000) {
-        tg.showAlert('❌ Ставка должна быть от 3 до 1000⭐');
-        return;
-    }
-    const mines = prompt('💣 Введите количество мин (1-5):');
-    if (!mines) return;
-    const numMines = parseInt(mines);
-    if (numMines < 1 || numMines > 5) {
-        tg.showAlert('❌ Мин должно быть от 1 до 5');
-        return;
-    }
-    fetch('/check_balance_simple', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, amount: numBet })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error) {
-            tg.showAlert('❌ ' + data.error);
-            return;
-        }
-        if (!data.has_enough) {
-            tg.showAlert('❌ Недостаточно звёзд!');
-            return;
-        }
-        fetch('/start_mines_game', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, bet: numBet, mines: numMines })
-        })
-        .then(res => res.json())
-        .then(gameData => {
-            if (gameData.error) {
-                tg.showAlert('❌ ' + gameData.error);
-                return;
-            }
-            minesOverlayData = {
-                game_id: gameData.game_id,
-                bet: numBet,
-                mines: numMines,
-                opened: 0,
-                safe_cells: 25 - numMines,
-                multiplier: 1.0,
-                board: gameData.board,
-                openedCells: gameData.opened,
-                active: true,
-                game_over: false
-            };
-            showMinesOverlay();
-            renderMinesOverlayBoard();
-            updateMinesOverlayInfo();
-            document.getElementById('minesOverlayCashout').style.display = 'inline-block';
-            document.getElementById('minesOverlayPlayAgain').style.display = 'none';
-            document.getElementById('minesOverlayExit').style.display = 'none';
-        });
-    })
-    .catch(() => tg.showAlert('❌ Ошибка'));
-}
-
-function renderMinesOverlayBoard() {
-    const boardEl = document.getElementById('minesOverlayBoard');
-    boardEl.innerHTML = '';
-    if (!minesOverlayData) return;
-    const { board, openedCells } = minesOverlayData;
-    for (let i = 0; i < 25; i++) {
-        const cell = document.createElement('div');
-        cell.className = 'mines-cell-overlay';
-        cell.dataset.index = i;
-        if (openedCells[i] === 1) {
-            cell.classList.add('opened');
-            if (board[i] === 1) {
-                cell.textContent = '💣';
-                cell.classList.add('mine');
-            } else {
-                const nearby = countNearbyMinesOverlay(board, i);
-                cell.textContent = nearby > 0 ? nearby : '💎';
-                cell.classList.add('safe');
-                if (nearby > 0) {
-                    const colors = ['#4caf50', '#ffeb3b', '#ff9800', '#f44336'];
-                    cell.style.color = colors[nearby - 1] || '#fff';
-                }
-            }
-        } else {
-            cell.textContent = '❓';
-            cell.onclick = () => openMinesCellOverlay(i);
-        }
-        boardEl.appendChild(cell);
-    }
-}
-
-function countNearbyMinesOverlay(board, index) {
-    const row = Math.floor(index / 5);
-    const col = index % 5;
-    let count = 0;
-    for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            const r = row + dr;
-            const c = col + dc;
-            if (r >= 0 && r < 5 && c >= 0 && c < 5) {
-                if (board[r * 5 + c] === 1) count++;
-            }
-        }
-    }
-    return count;
-}
-
-function updateMinesOverlayInfo() {
-    if (!minesOverlayData) return;
-    const { bet, mines, opened, safe_cells, multiplier } = minesOverlayData;
-    const potential = Math.floor(bet * multiplier);
-    document.getElementById('minesOverlayBet').textContent = bet;
-    document.getElementById('minesOverlayMines').textContent = mines;
-    document.getElementById('minesOverlayOpened').textContent = opened + '/' + safe_cells;
-    document.getElementById('minesOverlayMultiplier').textContent = 'x' + multiplier.toFixed(1);
-    document.getElementById('minesOverlayPotential').textContent = potential + '⭐';
-    document.getElementById('minesOverlayCashoutAmount').textContent = potential;
-}
-
-function openMinesCellOverlay(index) {
-    if (!minesOverlayData || !minesOverlayData.active || minesOverlayData.game_over) return;
-    if (minesOverlayData.openedCells[index] === 1) return;
-    fetch('/open_mines_cell', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, game_id: minesOverlayData.game_id, index })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error) {
-            tg.showAlert('❌ ' + data.error);
-            return;
-        }
-        minesOverlayData.board = data.board;
-        minesOverlayData.openedCells = data.opened;
-        minesOverlayData.opened = data.opened_count;
-        minesOverlayData.multiplier = data.multiplier;
-        if (data.game_over) {
-            minesOverlayData.active = false;
-            minesOverlayData.game_over = true;
-            document.getElementById('minesOverlayCashout').style.display = 'none';
-            for (let i = 0; i < 25; i++) {
-                if (minesOverlayData.board[i] === 1) {
-                    minesOverlayData.openedCells[i] = 1;
-                }
-            }
-            renderMinesOverlayBoard();
-            updateMinesOverlayInfo();
-            if (data.won) {
-                tg.showAlert('🎉 Ты выиграл! +' + data.winnings + '⭐');
-            } else {
-                tg.showAlert('💥 Взрыв! Ты потерял ' + minesOverlayData.bet + '⭐');
-            }
-            loadBalance();
-            document.getElementById('minesOverlayPlayAgain').style.display = 'inline-block';
-            document.getElementById('minesOverlayExit').style.display = 'inline-block';
-            return;
-        }
-        renderMinesOverlayBoard();
-        updateMinesOverlayInfo();
-    })
-    .catch(() => tg.showAlert('❌ Ошибка'));
-}
-
-function cashoutMinesOverlay() {
-    if (!minesOverlayData || !minesOverlayData.active || minesOverlayData.game_over) return;
-    if (minesOverlayData.opened === 0) {
-        tg.showAlert('❌ Открой хотя бы одну клетку!');
-        return;
-    }
-    fetch('/cashout_mines', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, game_id: minesOverlayData.game_id })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error) {
-            tg.showAlert('❌ ' + data.error);
-            return;
-        }
-        minesOverlayData.active = false;
-        minesOverlayData.game_over = true;
-        document.getElementById('minesOverlayCashout').style.display = 'none';
-        tg.showAlert('✅ Ты забрал ' + data.winnings + '⭐ (x' + data.multiplier + ')');
-        loadBalance();
-        document.getElementById('minesOverlayPlayAgain').style.display = 'inline-block';
-        document.getElementById('minesOverlayExit').style.display = 'inline-block';
-    })
-    .catch(() => tg.showAlert('❌ Ошибка'));
-}
-
-function playMinesAgain() {
-    document.getElementById('minesOverlayPlayAgain').style.display = 'none';
-    document.getElementById('minesOverlayExit').style.display = 'none';
-    hideMinesOverlay();
-    setTimeout(() => {
-        startMinesOverlay();
-    }, 300);
-}
-
-function exitMinesOverlay() {
-    if (!minesOverlayData) {
-        hideMinesOverlay();
-        showMines();
-        return;
-    }
-    if (minesOverlayData.active && !minesOverlayData.game_over) {
-        if (!confirm('⚠️ Ты уверен? Ставка (' + minesOverlayData.bet + '⭐) будет потеряна.')) {
-            return;
-        }
-        fetch('/exit_mines', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, game_id: minesOverlayData.game_id })
-        })
-        .then(() => {
-            tg.showAlert('❌ Ты вышел. Ставка потеряна.');
-            loadBalance();
-            hideMinesOverlay();
-            showMines();
-        })
-        .catch(() => {
-            hideMinesOverlay();
-            showMines();
-        });
-    } else {
-        hideMinesOverlay();
-        showMines();
-    }
-}
-
+// ===================== ПРОФИЛЬ =====================
 function showInvite() {
     document.querySelector('.profile-card').style.display = 'none';
     document.getElementById('inviteSection').style.display = 'block';
@@ -1244,5 +1264,8 @@ function showWithdraw() {
     .catch(() => tg.showAlert('❌ Ошибка соединения'));
 }
 
+// ===== ИНИЦИАЛИЗАЦИЯ =====
+initMinesBoard();
 loadBalance();
+loadMinesStats();
 tg.ready();
