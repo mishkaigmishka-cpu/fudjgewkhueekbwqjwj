@@ -17,12 +17,11 @@
             </div>
         </header>
 
-        <div id="mainScreen">
+        <div id="mainScreen" class="screen active">
             <div class="balance-card">
                 <span class="balance-label">💰 Баланс</span>
                 <span class="balance-value" id="balanceValue">0 ⭐</span>
             </div>
-
             <div class="cases-list">
                 <div class="case-card" data-case="free" onclick="previewCase('free')">
                     <div class="case-icon">🎁</div>
@@ -107,7 +106,43 @@
             </div>
         </div>
 
-        <div id="profileScreen" style="display:none;">
+        <div id="battlesScreen" class="screen">
+            <div class="section-title">⚔️ БИТВЫ</div>
+            <div class="battle-stats">
+                <span>🏆 Побед: <b id="battleWins">0</b></span>
+                <span>💀 Поражений: <b id="battleLosses">0</b></span>
+                <span>💰 Комиссия: <b id="battleCommission">0</b>⭐</span>
+            </div>
+            <div class="battle-actions">
+                <button onclick="createBattle()">🔥 СОЗДАТЬ БИТВУ</button>
+                <button onclick="acceptBattle()">⚔️ ПРИНЯТЬ ВЫЗОВ</button>
+            </div>
+            <div class="battle-list" id="battleList"></div>
+            <div class="battle-history" id="battleHistory"></div>
+            <button onclick="goBack()" class="btn-back">🔙 Назад</button>
+        </div>
+
+        <div id="minesScreen" class="screen">
+            <div class="section-title">💣 МИНЁР</div>
+            <div class="mines-info">
+                <div>💰 Ставка: <b id="minesBet">0</b>⭐</div>
+                <div>💣 Мин: <b id="minesCount">0</b></div>
+                <div>📦 Открыто: <b id="minesOpened">0</b>/0</div>
+                <div>🔥 Множитель: <b id="minesMultiplier">x1.0</b></div>
+            </div>
+            <div class="mines-actions">
+                <button onclick="startMinesOverlay()">🎮 НАЧАТЬ ИГРУ</button>
+            </div>
+            <div class="mines-stats">
+                <span>🎮 Игр: <b id="minesGames">0</b></span>
+                <span>🏆 Побед: <b id="minesWins">0</b></span>
+                <span>💀 Поражений: <b id="minesLosses">0</b></span>
+                <span>🔥 Лучший: <b id="minesBestMultiplier">x1.0</b></span>
+            </div>
+            <button onclick="goBack()" class="btn-back">🔙 Назад</button>
+        </div>
+
+        <div id="profileScreen" class="screen">
             <div class="profile-card">
                 <div class="profile-avatar">👤</div>
                 <div class="profile-name" id="profileName">Игрок</div>
@@ -121,9 +156,8 @@
                     <button onclick="showInvite()">📨 Пригласить</button>
                     <button onclick="showWithdraw()">💸 Вывод</button>
                 </div>
-                <button onclick="showMain()" class="btn-back">🔙 Назад</button>
+                <button onclick="goBack()" class="btn-back">🔙 Назад</button>
             </div>
-
             <div id="inviteSection" style="display:none;margin-top:20px;">
                 <div class="section-card">
                     <p>👥 Твоя реферальная ссылка:</p>
@@ -134,20 +168,57 @@
             </div>
         </div>
 
-        <div id="result">
-            <div id="prizeDisplay"></div>
-            <div id="prizeName"></div>
-            <div id="prizeValue"></div>
+        <!-- ОКНО МИНЁРА -->
+        <div id="minesOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);backdrop-filter:blur(20px);z-index:1000;padding:20px;overflow-y:auto;">
+            <div style="max-width:480px;margin:0 auto;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 16px 0;">
+                    <span style="font-size:24px;font-weight:800;color:#ff6b6b;">💣 МИНЁР</span>
+                    <span id="minesOverlayBalance" style="background:rgba(255,215,0,0.12);padding:8px 18px;border-radius:30px;color:#ffd700;font-weight:700;">⭐ 0</span>
+                </div>
+                <div id="minesGameInfo" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:rgba(255,255,255,0.05);border-radius:16px;padding:14px;margin-bottom:16px;">
+                    <div style="color:#aaa;font-size:14px;">💰 Ставка: <b id="minesOverlayBet" style="color:#fff;">0</b>⭐</div>
+                    <div style="color:#aaa;font-size:14px;">💣 Мин: <b id="minesOverlayMines" style="color:#fff;">0</b></div>
+                    <div style="color:#aaa;font-size:14px;">📦 Открыто: <b id="minesOverlayOpened" style="color:#fff;">0/0</b></div>
+                    <div style="color:#aaa;font-size:14px;">🔥 Множитель: <b id="minesOverlayMultiplier" style="color:#ffd700;">x1.0</b></div>
+                    <div style="color:#aaa;font-size:14px;grid-column:span 2;">💰 Потенциальный выигрыш: <b id="minesOverlayPotential" style="color:#4caf50;">0</b>⭐</div>
+                </div>
+                <div id="minesOverlayBoard" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;max-width:400px;margin:0 auto 16px;"></div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <button id="minesOverlayCashout" onclick="cashoutMinesOverlay()" style="display:none;padding:16px;border:none;border-radius:16px;background:linear-gradient(135deg,#ffd700,#f9a825);color:#000;font-weight:800;font-size:18px;cursor:pointer;">
+                        💰 ЗАБРАТЬ ВЫИГРЫШ (<span id="minesOverlayCashoutAmount">0</span>⭐)
+                    </button>
+                    <div style="display:flex; gap:10px;">
+                        <button id="minesOverlayPlayAgain" onclick="playMinesAgain()" style="display:none; flex:1; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#4caf50,#2e7d32); color:#fff; font-weight:800; font-size:16px; cursor:pointer;">
+                            🔄 ИГРАТЬ СНОВА
+                        </button>
+                        <button id="minesOverlayExit" onclick="exitMinesOverlay()" style="display:none; flex:1; padding:16px; border:none; border-radius:16px; background:rgba(255,255,255,0.05); color:#888; font-weight:700; font-size:16px; cursor:pointer;">
+                            🔙 ВЫЙТИ
+                        </button>
+                    </div>
+                </div>
+                <div style="text-align:center;color:#666;font-size:14px;margin-top:16px;padding:12px;background:rgba(255,255,255,0.03);border-radius:12px;">
+                    💡 Открывай клетки, не наступи на мину! Чем больше откроешь — тем выше множитель.
+                </div>
+            </div>
+        </div>
+
+        <!-- РЕЗУЛЬТАТ ОТКРЫТИЯ КЕЙСА -->
+        <div id="result" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(20px);z-index:100;padding:24px;flex-direction:column;align-items:center;justify-content:center;">
+            <div id="prizeDisplay" style="font-size:90px;margin-bottom:10px;"></div>
+            <div id="prizeName" style="font-size:28px;font-weight:700;margin-bottom:6px;"></div>
+            <div id="prizeValue" style="font-size:44px;font-weight:800;color:#b388ff;"></div>
             <div id="adBlock" style="display:none;margin-top:12px;color:#aaa;">📢 <span id="adText"></span></div>
-            <div class="result-buttons">
-                <button onclick="closeResult()" class="btn-close">🔙 Закрыть</button>
-                <button id="againBtn" onclick="openAgain()" style="display:none;" class="btn-again">🎲 Открыть ещё</button>
+            <div class="result-buttons" style="display:flex;gap:16px;margin-top:20px;flex-wrap:wrap;justify-content:center;">
+                <button onclick="closeResult()" class="btn-close" style="padding:16px 34px;border:none;border-radius:18px;font-size:18px;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.08);color:#fff;">🔙 Закрыть</button>
+                <button id="againBtn" onclick="openAgain()" style="display:none;padding:16px 34px;border:none;border-radius:18px;font-size:18px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#b388ff,#7c4dff);color:#fff;">🎲 Открыть ещё</button>
             </div>
         </div>
 
         <nav>
-            <span onclick="showMain()" class="nav-item active">🏠 Главная</span>
-            <span onclick="showProfile()" class="nav-item">👤 Профиль</span>
+            <span onclick="showMain()" class="nav-item active" data-tab="main">🏠</span>
+            <span onclick="showBattles()" class="nav-item" data-tab="battles">⚔️</span>
+            <span onclick="showMines()" class="nav-item" data-tab="mines">💣</span>
+            <span onclick="showProfile()" class="nav-item" data-tab="profile">👤</span>
         </nav>
     </div>
     <script src="script.js"></script>
