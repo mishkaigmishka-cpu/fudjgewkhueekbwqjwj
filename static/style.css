@@ -32,7 +32,6 @@ header {
 }
 
 .username { font-size: 16px; color: #ccc; }
-
 .stars {
     background: rgba(255,215,0,0.12);
     padding: 8px 18px;
@@ -42,6 +41,9 @@ header {
     font-weight: 700;
     border: 1px solid rgba(255,215,0,0.15);
 }
+
+.screen { display: none; padding: 16px 0 20px 0; }
+.screen.active { display: block; }
 
 .balance-card {
     background: rgba(255,255,255,0.04);
@@ -56,183 +58,144 @@ header {
 .balance-label { font-size: 18px; color: #aaa; font-weight: 500; }
 .balance-value { font-size: 28px; font-weight: 800; color: #b388ff; }
 
-.cases-list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-bottom: 20px;
-}
-
-/* ===== НОВЫЙ ДИЗАЙН КЕЙСОВ (СМАЙЛИК И НАЗВАНИЕ ПО ЦЕНТРУ, ГРАНИЦЫ КАК НА ФОТО) ===== */
+.cases-list { display: flex; flex-direction: column; gap: 16px; }
 .case-card {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    text-align: center;
-    background: rgba(255, 255, 255, 0.03);
+    gap: 16px;
+    background: rgba(255,255,255,0.04);
     backdrop-filter: blur(12px);
-    border-radius: 20px;
-    padding: 20px 16px;
-    border: 1.5px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 18px 20px;
+    border: 1px solid rgba(255,255,255,0.06);
     cursor: pointer;
-    transition: all 0.25s ease;
-    position: relative;
-    overflow: hidden;
-    min-height: 100px;
+    transition: all 0.15s;
 }
-
-/* ===== ТОНКАЯ СВЕТЯЩАЯСЯ ГРАНИЦА ===== */
-.case-card::before {
-    content: '';
-    position: absolute;
-    inset: -1.5px;
-    border-radius: 21px;
-    padding: 1.5px;
-    background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent, rgba(255,255,255,0.02));
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    opacity: 0.6;
-    transition: opacity 0.3s ease;
-}
-
-.case-card:active::before {
-    opacity: 1;
-}
-
-/* ===== УНИКАЛЬНЫЙ ЦВЕТ ГРАНИЦЫ ===== */
-.case-card[data-case="free"] { border-color: rgba(46, 204, 113, 0.25); }
-.case-card[data-case="free"]:active { border-color: rgba(46, 204, 113, 0.7); box-shadow: 0 0 25px rgba(46, 204, 113, 0.15); }
-
-.case-card[data-case="mud"] { border-color: rgba(142, 68, 173, 0.25); }
-.case-card[data-case="mud"]:active { border-color: rgba(142, 68, 173, 0.7); box-shadow: 0 0 25px rgba(142, 68, 173, 0.15); }
-
-.case-card[data-case="wood"] { border-color: rgba(211, 84, 0, 0.25); }
-.case-card[data-case="wood"]:active { border-color: rgba(211, 84, 0, 0.7); box-shadow: 0 0 25px rgba(211, 84, 0, 0.15); }
-
-.case-card[data-case="stone"] { border-color: rgba(127, 140, 141, 0.25); }
-.case-card[data-case="stone"]:active { border-color: rgba(127, 140, 141, 0.7); box-shadow: 0 0 25px rgba(127, 140, 141, 0.15); }
-
-.case-card[data-case="bronze"] { border-color: rgba(205, 127, 50, 0.25); }
-.case-card[data-case="bronze"]:active { border-color: rgba(205, 127, 50, 0.7); box-shadow: 0 0 25px rgba(205, 127, 50, 0.15); }
-
-.case-card[data-case="silver"] { border-color: rgba(189, 195, 199, 0.25); }
-.case-card[data-case="silver"]:active { border-color: rgba(189, 195, 199, 0.7); box-shadow: 0 0 25px rgba(189, 195, 199, 0.15); }
-
-.case-card[data-case="gold"] { border-color: rgba(241, 196, 15, 0.25); }
-.case-card[data-case="gold"]:active { border-color: rgba(241, 196, 15, 0.7); box-shadow: 0 0 25px rgba(241, 196, 15, 0.15); }
-
-.case-card[data-case="diamond"] { border-color: rgba(52, 152, 219, 0.25); }
-.case-card[data-case="diamond"]:active { border-color: rgba(52, 152, 219, 0.7); box-shadow: 0 0 25px rgba(52, 152, 219, 0.15); }
-
-.case-card[data-case="netherite"] { border-color: rgba(231, 76, 60, 0.25); }
-.case-card[data-case="netherite"]:active { border-color: rgba(231, 76, 60, 0.7); box-shadow: 0 0 25px rgba(231, 76, 60, 0.15); }
-
-.case-card[data-case="bedrock"] { border-color: rgba(52, 73, 94, 0.25); }
-.case-card[data-case="bedrock"]:active { border-color: rgba(52, 73, 94, 0.7); box-shadow: 0 0 25px rgba(52, 73, 94, 0.15); }
-
-/* ===== ИКОНКА (СМАЙЛИК) ===== */
-.case-icon {
-    font-size: 48px;
-    margin-bottom: 6px;
-    filter: drop-shadow(0 0 15px rgba(255,255,255,0.03));
-}
-
-/* ===== НАЗВАНИЕ ПО ЦЕНТРУ ===== */
-.case-name {
-    font-size: 18px;
+.case-card:active { transform: scale(0.97); background: rgba(255,255,255,0.08); }
+.case-icon { font-size: 48px; flex-shrink: 0; }
+.case-info { flex: 1; }
+.case-name { font-size: 20px; font-weight: 700; }
+.case-price { font-size: 16px; color: #bbb; }
+.jackpot {
+    font-size: 14px;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    color: #ffd700;
+    background: rgba(255,215,0,0.08);
+    padding: 2px 12px;
+    border-radius: 12px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+.battle-stats {
+    display: flex;
+    justify-content: space-around;
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 14px;
+    margin-bottom: 16px;
+}
+.battle-stats span { font-size: 15px; color: #aaa; }
+.battle-stats b { color: #fff; }
+.battle-actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.battle-actions button {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.battle-actions button:first-child {
+    background: linear-gradient(135deg, #b388ff, #7c4dff);
+    color: #fff;
+}
+.battle-actions button:last-child {
+    background: rgba(255,215,0,0.15);
+    color: #ffd700;
+}
+.battle-card {
+    background: rgba(255,255,255,0.04);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+}
+.history-item.win { background: rgba(76,175,80,0.1); color: #4caf50; }
+.history-item.lose { background: rgba(244,67,54,0.1); color: #f44336; }
+
+.mines-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 14px;
+    margin-bottom: 16px;
+}
+.mines-info div { font-size: 14px; color: #aaa; }
+.mines-info b { color: #fff; }
+
+.mines-actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.mines-actions button {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
     color: #fff;
 }
 
-/* ===== ЦЕНА ===== */
-.case-price {
-    font-size: 14px;
-    color: #aaa;
-    font-weight: 500;
-    margin-top: 2px;
-}
-
-/* ===== ДЖЕКПОТ (ПОД ЦЕНОЙ) ===== */
-.jackpot {
-    font-size: 13px;
-    font-weight: 700;
-    color: #ffd700;
-    background: rgba(255, 215, 0, 0.06);
-    padding: 2px 14px;
-    border-radius: 20px;
-    display: inline-block;
-    margin-top: 4px;
-    border: 1px solid rgba(255, 215, 0, 0.06);
-}
-
-/* ===== НАВИГАЦИЯ ===== */
-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0; right: 0;
-    max-width: 480px;
-    margin: 0 auto;
-    background: rgba(15,12,26,0.95);
-    backdrop-filter: blur(16px);
-    border-top: 1px solid rgba(255,255,255,0.04);
-    display: flex;
-    justify-content: space-around;
-    padding: 16px 0 22px 0;
-}
-.nav-item {
-    font-size: 17px;
-    color: #666;
-    padding: 8px 24px;
+.mines-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: rgba(255,255,255,0.05);
     border-radius: 16px;
-    cursor: pointer;
-    font-weight: 600;
+    padding: 14px;
 }
-.nav-item.active { color: #b388ff; background: rgba(179,136,255,0.08); }
+.mines-stats span { font-size: 14px; color: #aaa; }
+.mines-stats b { color: #fff; }
 
-/* ===== ОСТАЛЬНЫЕ СТИЛИ (БЕЗ ИЗМЕНЕНИЙ) ===== */
-#result {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.92);
-    backdrop-filter: blur(20px);
-    display: none;
-    flex-direction: column;
+.mines-cell-overlay {
+    aspect-ratio: 1;
+    display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 100;
-    padding: 24px;
-}
-#result.show { display: flex; }
-#prizeDisplay { font-size: 90px; margin-bottom: 10px; }
-#prizeName { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
-#prizeValue { font-size: 44px; font-weight: 800; color: #b388ff; }
-
-.result-buttons {
-    display: flex;
-    gap: 16px;
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-.result-buttons button {
-    padding: 16px 34px;
-    border: none;
-    border-radius: 18px;
-    font-size: 18px;
+    font-size: 32px;
     font-weight: 700;
+    background: rgba(255,255,255,0.06);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
     cursor: pointer;
-    min-width: 140px;
+    transition: all 0.15s ease;
+    user-select: none;
+    color: #fff;
+    min-height: 60px;
 }
-.result-buttons button:active { transform: scale(0.94); }
-.btn-close { background: rgba(255,255,255,0.08); color: #fff; }
-.btn-again { background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; }
-
-#profileScreen { display: none; margin-top: 10px; }
-#mainScreen { display: block; }
+.mines-cell-overlay:active { transform: scale(0.92); }
+.mines-cell-overlay.opened { cursor: default; }
+.mines-cell-overlay.mine { background: rgba(255,0,0,0.2) !important; border-color: rgba(255,0,0,0.3) !important; }
+.mines-cell-overlay.safe { background: rgba(0,255,0,0.08) !important; border-color: rgba(0,255,0,0.15) !important; }
 
 .profile-card, .section-card {
     background: rgba(255,255,255,0.04);
@@ -244,7 +207,6 @@ nav {
 .profile-name { font-size: 24px; font-weight: 700; text-align: center; margin: 8px 0 14px 0; }
 .profile-stats { font-size: 17px; color: #ccc; margin-bottom: 18px; }
 .profile-stats div { padding: 6px 0; }
-
 .profile-buttons {
     display: flex;
     flex-wrap: wrap;
@@ -262,7 +224,16 @@ nav {
     color: #b388ff;
 }
 .profile-buttons button:active { transform: scale(0.94); }
-
+#inviteLink {
+    width: 100%;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(0,0,0,0.3);
+    color: #fff;
+    font-size: 15px;
+    margin: 10px 0 14px 0;
+}
 .btn-back, .btn-copy {
     width: 100%;
     margin-top: 14px;
@@ -277,13 +248,25 @@ nav {
 }
 .btn-back:active, .btn-copy:active { transform: scale(0.96); }
 
-#inviteLink {
-    width: 100%;
-    padding: 14px;
-    border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.06);
-    background: rgba(0,0,0,0.3);
-    color: #fff;
-    font-size: 15px;
-    margin: 10px 0 14px 0;
+nav {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    max-width: 480px;
+    margin: 0 auto;
+    background: rgba(15,12,26,0.95);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    justify-content: space-around;
+    padding: 16px 0 22px 0;
 }
+.nav-item {
+    font-size: 28px;
+    color: #666;
+    padding: 8px 24px;
+    border-radius: 16px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.nav-item.active { color: #b388ff; background: rgba(179,136,255,0.08); }
