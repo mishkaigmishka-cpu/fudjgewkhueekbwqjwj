@@ -115,27 +115,19 @@
                 <span>💀 Поражений: <b id="battleLosses">0</b></span>
                 <span>💰 Комиссия: <b id="battleCommission">0</b>⭐</span>
             </div>
-            
             <div class="battle-actions">
-                <button onclick="showJoinLobby()" style="flex:1; padding:14px; border:none; border-radius:14px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-weight:700; cursor:pointer;">
-                    🔥 В ЛОББИ
-                </button>
-                <button onclick="startBattleWithBot()" style="flex:1; padding:14px; border:none; border-radius:14px; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; font-weight:700; cursor:pointer;">
-                    🤖 БИТЬСЯ С БОТОМ
-                </button>
+                <button onclick="showJoinLobby()">🔥 В ЛОББИ</button>
+                <button onclick="loadLobby()">🔄 ОБНОВИТЬ</button>
             </div>
-
-            <div id="lobbyWaiting" style="display:none; background:rgba(255,255,255,0.04); border-radius:16px; padding:30px; text-align:center; margin-bottom:16px;">
-                <div style="font-size:48px; margin-bottom:12px;">⏳</div>
-                <div style="font-size:20px; font-weight:700; color:#fff;">Ожидание соперника...</div>
-                <div style="color:#aaa; font-size:14px; margin-top:8px;">Ты в лобби. Как только появится игрок с таким же кейсом — битва начнётся автоматически.</div>
-                <button onclick="exitLobby()" style="margin-top:16px; padding:12px 30px; border:none; border-radius:12px; background:rgba(255,0,0,0.2); color:#ff6b6b; font-weight:700; cursor:pointer;">❌ Выйти из лобби</button>
-            </div>
-
             <div id="lobbyContainer">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span style="color:#aaa; font-size:14px;">👥 Игроки в лобби:</span>
+                    <button onclick="exitLobby()" style="padding:6px 14px; border:none; border-radius:10px; background:rgba(255,0,0,0.15); color:#ff6b6b; font-size:12px; cursor:pointer;">
+                        🚪 ВЫЙТИ
+                    </button>
+                </div>
                 <div id="lobbyList"></div>
             </div>
-
             <div class="battle-list" id="battleList"></div>
             <div class="battle-history" id="battleHistory"></div>
             <button onclick="goBack()" class="btn-back">🔙 Назад</button>
@@ -156,7 +148,7 @@
 
             <div id="minesGameInfo" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; background:rgba(255,255,255,0.05); border-radius:16px; padding:14px; margin-bottom:16px;">
                 <div style="color:#aaa; font-size:14px;">💰 Ставка: <b id="minesBetDisplay" style="color:#fff;">0</b>⭐</div>
-                <div style="color:#aaa; font-size:14px;">💣 Мин: <b id="minesCountDisplay" style="color:#fff;">0</b></div>
+                <div style="color:#aaa; font-size:14px;">💣 X: <b id="minesCountDisplay" style="color:#fff;">0</b></div>
                 <div style="color:#aaa; font-size:14px;">🔥 Множитель: <b id="minesMultiplierDisplay" style="color:#ffd700;">x1.0</b></div>
                 <div style="color:#aaa; font-size:14px; grid-column:span 3;">📦 Открыто: <b id="minesOpenedDisplay" style="color:#4caf50;">0</b> / <span id="minesTotalSafe">0</span></div>
             </div>
@@ -171,16 +163,14 @@
             </div>
 
             <div style="margin-bottom:16px;">
-                <div style="color:#aaa; font-size:14px; margin-bottom:6px;">🎯 Выбери множитель (цель):</div>
-                <div id="multiplierOptions" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
-                    <button class="multiplier-btn" data-mult="1.5" data-mines="1">x1.5</button>
-                    <button class="multiplier-btn active" data-mult="2.0" data-mines="2">x2.0</button>
-                    <button class="multiplier-btn" data-mult="3.0" data-mines="3">x3.0</button>
-                    <button class="multiplier-btn" data-mult="5.0" data-mines="4">x5.0</button>
-                    <button class="multiplier-btn" data-mult="10.0" data-mines="5">x10</button>
-                </div>
-                <div id="multiplierInfo" style="color:#666; font-size:13px; text-align:center; margin-top:6px;">
-                    ⚡ Чем выше множитель — тем больше мин
+                <div style="color:#aaa; font-size:14px; margin-bottom:6px;">💣 X (количество бомб, 3-8):</div>
+                <div id="minesOptions" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+                    <button class="mines-btn" data-mines="3">3 (x1.3)</button>
+                    <button class="mines-btn active" data-mines="4">4 (x1.5)</button>
+                    <button class="mines-btn" data-mines="5">5 (x2.0)</button>
+                    <button class="mines-btn" data-mines="6">6 (x2.5)</button>
+                    <button class="mines-btn" data-mines="7">7 (x3.0)</button>
+                    <button class="mines-btn" data-mines="8">8 (x4.0)</button>
                 </div>
             </div>
 
@@ -227,18 +217,18 @@
             <div class="modal">
                 <h2>🔥 ВОЙТИ В ЛОББИ</h2>
                 <div style="margin-bottom:12px;">
-                    <div style="color:#aaa; font-size:14px; margin-bottom:6px;">📦 Выбери кейс (кроме бесплатного):</div>
+                    <div style="color:#aaa; font-size:14px; margin-bottom:6px;">📦 Выбери кейс:</div>
                     <div id="lobbyCaseOptions" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
-                        <button class="lobby-case-btn" data-case="mud">🟫 Грязь</button>
-                        <button class="lobby-case-btn" data-case="wood">🌳 Дерево</button>
-                        <button class="lobby-case-btn" data-case="stone">🪨 Камень</button>
-                        <button class="lobby-case-btn" data-case="bronze">🥉 Бронза</button>
-                        <button class="lobby-case-btn" data-case="silver">🔘 Серебро</button>
                         <button class="lobby-case-btn active" data-case="gold">👑 Золото</button>
                         <button class="lobby-case-btn" data-case="diamond">💎 Алмаз</button>
                         <button class="lobby-case-btn" data-case="netherite">🔥 Незерит</button>
                         <button class="lobby-case-btn" data-case="bedrock">⛏️ Бедрок</button>
                     </div>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <div style="color:#aaa; font-size:14px; margin-bottom:6px;">💰 Ставка:</div>
+                    <input type="number" id="lobbyBetInput" min="3" max="1000" value="100" 
+                           style="width:100%; padding:12px 16px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.3); color:#fff; font-size:18px; font-weight:700; text-align:center;">
                 </div>
                 <div class="modal-buttons">
                     <button onclick="confirmJoinLobby()">✅ ВОЙТИ</button>
