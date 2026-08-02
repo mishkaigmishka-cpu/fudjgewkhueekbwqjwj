@@ -87,7 +87,6 @@ header {
     margin-top: 4px;
 }
 
-/* ===== БИТВЫ ===== */
 .battle-stats {
     display: flex;
     justify-content: space-around;
@@ -181,7 +180,6 @@ header {
 .history-item.win { background: rgba(76,175,80,0.1); color: #4caf50; }
 .history-item.lose { background: rgba(244,67,54,0.1); color: #f44336; }
 
-/* ===== МИНЁР ===== */
 #minesBoard .mines-cell {
     aspect-ratio: 1;
     display: flex;
@@ -203,8 +201,14 @@ header {
 #minesBoard .mines-cell.mine { background: rgba(255,0,0,0.2) !important; border-color: rgba(255,0,0,0.3) !important; }
 #minesBoard .mines-cell.safe { background: rgba(0,255,0,0.08) !important; border-color: rgba(0,255,0,0.15) !important; }
 
+#minesOptions {
+    display: inline-flex;
+    gap: 8px;
+    padding: 4px 0;
+}
+
 .mines-btn {
-    padding: 8px 16px;
+    padding: 10px 18px;
     border: 2px solid rgba(255,255,255,0.06);
     border-radius: 12px;
     background: rgba(255,255,255,0.04);
@@ -213,6 +217,8 @@ header {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 .mines-btn.active {
     border-color: #b388ff;
@@ -220,6 +226,21 @@ header {
     color: #b388ff;
 }
 .mines-btn:hover { background: rgba(255,255,255,0.08); }
+
+div[style*="overflow-x: auto"]::-webkit-scrollbar {
+    height: 4px;
+}
+div[style*="overflow-x: auto"]::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.04);
+    border-radius: 4px;
+}
+div[style*="overflow-x: auto"]::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.15);
+    border-radius: 4px;
+}
+div[style*="overflow-x: auto"]::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.25);
+}
 
 .mines-stats {
     display: grid;
@@ -232,7 +253,6 @@ header {
 .mines-stats span { font-size: 14px; color: #aaa; }
 .mines-stats b { color: #fff; }
 
-/* ===== ПРОФИЛЬ ===== */
 .profile-card, .section-card {
     background: rgba(255,255,255,0.04);
     backdrop-filter: blur(12px);
@@ -284,7 +304,6 @@ header {
 }
 .btn-back:active, .btn-copy:active { transform: scale(0.96); }
 
-/* ===== МОДАЛЬНЫЕ ОКНА ===== */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -320,7 +339,6 @@ header {
 .modal-buttons button:first-child { background: #4caf50; color: #fff; }
 .modal-buttons button:last-child { background: rgba(255,0,0,0.2); color: #ff6b6b; }
 
-/* ===== НАВИГАЦИЯ ===== */
 nav {
     position: fixed;
     bottom: 0;
