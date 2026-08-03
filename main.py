@@ -215,7 +215,7 @@ battle_rooms = {}
 battle_results = {}
 battle_ready_status = {}
 
-# ===================== МИНЁР — МНОЖИТЕЛИ =====================
+# ===================== МИНЁР — МНОЖИТЕЛИ (ИСПРАВЛЕНО) =====================
 def get_mines_multiplier(opened, mines):
     base_multipliers = {
         1: 1.05, 2: 1.10, 3: 1.20, 4: 1.35, 5: 1.55,
@@ -223,8 +223,22 @@ def get_mines_multiplier(opened, mines):
         11: 4.50, 12: 5.00
     }
     if opened > 12:
-        return 5.00
-    return base_multipliers.get(opened, 1.00)
+        base = 5.00
+    else:
+        base = base_multipliers.get(opened, 1.00)
+    
+    mine_boost = {
+        3: 1.0,
+        4: 1.2,
+        5: 1.5,
+        6: 1.8,
+        7: 2.2,
+        8: 2.8
+    }
+    boost = mine_boost.get(mines, 1.0)
+    
+    total = base * boost
+    return round(total, 2)
 
 def update_mines_stats(user_id, won, multiplier, stars):
     cursor.execute("SELECT * FROM mines_stats WHERE user_id=?", (user_id,))
@@ -618,6 +632,7 @@ def exit_battle_room():
         room['status'] = 'waiting'
         return jsonify({'success': True, 'room_kept': True})
 
+# ===== ИСПРАВЛЕНО: BATTLE_READY (ВЫЛЕТ ПРИ ГОТОВ) =====
 @app.route('/battle_ready', methods=['POST', 'OPTIONS'])
 def battle_ready():
     if request.method == 'OPTIONS':
@@ -643,8 +658,16 @@ def battle_ready():
     
     if all(battle_ready_status[room_id]):
         battle_ready_status[room_id] = [False, False]
+        
+        if room_id not in battle_rooms:
+            return jsonify({'error': 'Комната удалена'}), 404
+        
+        room = battle_rooms[room_id]
         room['status'] = 'active'
-        start_battle_opening(room_id)
+        
+        import threading
+        threading.Thread(target=start_battle_opening, args=(room_id,), daemon=True).start()
+        
         return jsonify({'ready': True})
     
     return jsonify({'ready': False})
@@ -799,9 +822,18 @@ def get_user_room():
     
     return jsonify({'room_id': None})
 
+# ===== ИСПРАВЛЕНО: START_BATTLE_OPENING (ЗАЩИТА ОТ ПОВТОРНОГО ЗАПУСКА) =====
 def start_battle_opening(room_id):
+    if room_id not in battle_rooms:
+        print(f"⚠️ Комната {room_id} уже удалена")
+        return
+    
     room = battle_rooms.get(room_id)
     if not room:
+        return
+    
+    if room.get('status') != 'active':
+        print(f"⚠️ Битва в комнате {room_id} уже не активна")
         return
     
     case_type = room['case_type']
@@ -1338,9 +1370,14 @@ def accept_battle():
         bot.send_message(player_id, "⚔️ **ВЫБЕРИТЕ КЕЙС ДЛЯ БИТВЫ:**\nВажно выбрать ОДИНАКОВЫЙ кейс!", reply_markup=kb)
     return jsonify({'success': True})
 
+# ===================== ЗАПУСК =====================
 if __name__ == "__main__":
-    print("✅ БОТ ЗАПУЩЕН")
+    import threading
+    print("✅ БОТ ЗАПУЩЕН (POLLING MODE)")
     bot.remove_webhook()
-    bot.set_webhook(url="https://randevu-bot-production.up.railway.app/webhook")
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    
+    def run_flask():
+        app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    
+    threading.Thread(target=run_flask, daemon=True).start()
+    bot.polling(none_stop=True, interval=0)
