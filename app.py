@@ -264,7 +264,7 @@ def battle_cleaner():
     while True:
         current_time = time.time()
         for room_id, room in list(battle_rooms.items()):
-            if room['status'] == 'waiting' and current_time - room['created_at'] > 300:
+            if room['status'] == 'waiting' and current_time - room['created_at'] > 900:
                 del battle_rooms[room_id]
         time.sleep(60)
 
@@ -517,28 +517,23 @@ def get_battle_rooms():
     data = request.get_json()
     uid = data.get('user_id')
     rooms = []
-    my_rooms = []
     
     for rid, room in battle_rooms.items():
         if room['status'] == 'waiting' and len(room['players']) < 2:
             p1 = get_user(room['players'][0])
             p2 = get_user(room['players'][1]) if len(room['players']) > 1 else None
             
-            room_data = {
+            rooms.append({
                 'room_id': rid,
                 'creator_id': room['creator'],
                 'case_type': room['case_type'],
                 'players_count': len(room['players']),
                 'player1': p1[8] if p1 else f"ID{room['players'][0]}",
-                'player2': p2[8] if p2 else 'ОЖИДАНИЕ...'
-            }
-            
-            if uid in room['players']:
-                my_rooms.append(room_data)
-            else:
-                rooms.append(room_data)
+                'player2': p2[8] if p2 else 'ОЖИДАНИЕ...',
+                'is_my_room': uid in room['players']
+            })
     
-    return jsonify({'rooms': rooms, 'my_rooms': my_rooms})
+    return jsonify({'rooms': rooms})
 
 @app.route('/join_battle_room', methods=['POST'])
 def join_battle_room():
@@ -591,14 +586,15 @@ def exit_battle_room():
     
     room = battle_rooms[room_id]
     
-    if len(room['players']) > 1:
-        if uid in room['players']:
-            room['players'].remove(uid)
-            room['status'] = 'waiting'
-        return jsonify({'success': True, 'room_kept': True})
-    else:
+    if uid in room['players']:
+        room['players'].remove(uid)
+    
+    if len(room['players']) == 0:
         del battle_rooms[room_id]
         return jsonify({'success': True, 'room_kept': False})
+    else:
+        room['status'] = 'waiting'
+        return jsonify({'success': True, 'room_kept': True})
 
 @app.route('/battle_ready', methods=['POST'])
 def battle_ready():
