@@ -909,42 +909,36 @@ function loadBattleRooms() {
     .then(res => res.json())
     .then(data => {
         const list = document.getElementById('battleRoomsList');
-        const myRooms = data.my_rooms || [];
-        const otherRooms = data.rooms || [];
+        const rooms = data.rooms || [];
+        
+        if (rooms.length === 0) {
+            list.innerHTML = '<div class="empty-state">🏠 Нет активных комнат. Создай свою!</div>';
+            return;
+        }
         
         let html = '';
-        
-        if (myRooms.length > 0) {
-            html += `<div style="color: #ffd700; font-size: 14px; margin-bottom: 8px;">⭐ ТВОИ КОМНАТЫ:</div>`;
-            myRooms.forEach(r => {
-                html += `
-                    <div class="room-item" style="border-color: rgba(255,215,0,0.3);">
-                        <span class="room-creator">👤 ${r.player1} vs ${r.player2}</span>
-                        <span class="room-case">📦 ${r.case_type}</span>
-                        <span class="room-players">👥 ${r.players_count}/2</span>
-                        <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ВЕРНУТЬСЯ</button>
+        rooms.forEach(r => {
+            const isMy = r.is_my_room;
+            const borderColor = isMy ? 'rgba(255,215,0,0.3)' : 'rgba(255,255,255,0.06)';
+            const btnText = isMy ? '⚔️ ВЕРНУТЬСЯ' : '⚔️ ПРИСОЕДИНИТЬСЯ';
+            const btnBg = isMy ? 'background: linear-gradient(135deg, #ffd700, #f9a825); color: #000;' : '';
+            
+            html += `
+                <div class="room-item" style="border-color: ${borderColor}; ${isMy ? 'background: rgba(255,215,0,0.05);' : ''}">
+                    <div class="room-info" style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                        <span class="room-creator">👤 ${r.player1} ${r.players_count > 1 ? 'vs ' + r.player2 : 'ожидает...'}</span>
+                        <span style="display: flex; gap: 12px; font-size: 13px;">
+                            <span class="room-case">📦 ${r.case_type}</span>
+                            <span class="room-players">👥 ${r.players_count}/2</span>
+                            ${isMy ? '<span style="color: #ffd700;">⭐</span>' : ''}
+                        </span>
                     </div>
-                `;
-            });
-        }
-        
-        if (otherRooms.length > 0) {
-            html += `<div style="color: #aaa; font-size: 14px; margin: 8px 0;">📋 ДРУГИЕ КОМНАТЫ:</div>`;
-            otherRooms.forEach(r => {
-                html += `
-                    <div class="room-item">
-                        <span class="room-creator">👤 Игрок (ID: ${r.creator_id})</span>
-                        <span class="room-case">📦 ${r.case_type}</span>
-                        <span class="room-players">👥 ${r.players_count}/2</span>
-                        <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ПРИСОЕДИНИТЬСЯ</button>
-                    </div>
-                `;
-            });
-        }
-        
-        if (!html) {
-            html = '<div class="empty-state">🏠 Нет активных комнат. Создай свою!</div>';
-        }
+                    <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')" style="${btnBg}">
+                        ${btnText}
+                    </button>
+                </div>
+            `;
+        });
         
         list.innerHTML = html;
     })
@@ -1011,7 +1005,6 @@ function createBattleRoom() {
         }
         currentRoomId = data.room_id;
         closeCreateBattle();
-        // ===== ПОКАЗЫВАЕМ ТОЛЬКО ОКНО ОЖИДАНИЯ =====
         showWaitingRoom(data.room_id, data.case_type);
         startListeningForOpponent(data.room_id);
         startOpponentChecker(data.room_id);
@@ -1028,21 +1021,35 @@ function showWaitingRoom(room_id, case_type) {
 }
 
 function exitWaitingRoom() {
-    if (currentRoomId) {
-        fetch('/exit_battle_room', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, room_id: currentRoomId })
-        })
-        .then(() => {
-            currentRoomId = null;
-            document.getElementById('waitingRoom').style.display = 'none';
-            document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
-            document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
-            document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
-            showBattles();
-        });
+    if (!currentRoomId) {
+        document.getElementById('waitingRoom').style.display = 'none';
+        document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
+        document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
+        document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
+        showBattles();
+        return;
     }
+    
+    fetch('/exit_battle_room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, room_id: currentRoomId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        currentRoomId = null;
+        document.getElementById('waitingRoom').style.display = 'none';
+        document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
+        document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
+        document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
+        if (window.opponentInterval) clearInterval(window.opponentInterval);
+        if (window.opponentChecker) clearInterval(window.opponentChecker);
+        showBattles();
+        tg.showAlert('✅ Ты вышел из комнаты');
+    })
+    .catch(() => {
+        tg.showAlert('❌ Ошибка при выходе из комнаты');
+    });
 }
 
 function joinBattleRoom(room_id) {
@@ -1204,7 +1211,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     readyBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
     
     if (isBot) {
-        // ===== БОТ — КНОПКА ЗАПУСКАЕТ БИТВУ =====
         readyBtn.onclick = function() {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
@@ -1218,7 +1224,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         };
         document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Нажми «ГОТОВ», чтобы начать';
     } else {
-        // ===== ИГРОК — КНОПКА ОТПРАВЛЯЕТ ЗАПРОС =====
         readyBtn.onclick = function() {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
@@ -1375,7 +1380,7 @@ function startOpponentChecker(room_id) {
         .then(data => {
             if (data.error || !data.room_exists) {
                 clearInterval(window.opponentChecker);
-                tg.showAlert('❌ Комната была удалена');
+                tg.showAlert('⏰ Комната была удалена');
                 const overlay = document.getElementById('battlePreviewOverlay');
                 if (overlay) overlay.remove();
                 showBattles();
@@ -1404,13 +1409,19 @@ function startListeningForOpponent(room_id) {
         })
         .then(res => res.json())
         .then(data => {
-            if (data.error) {
+            if (data.error || !data.room_exists) {
                 clearInterval(window.opponentInterval);
+                document.getElementById('waitingRoom').style.display = 'none';
+                document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
+                document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
+                document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
+                tg.showAlert('⏰ Комната была удалена');
+                showBattles();
                 return;
             }
+            
             if (data.opponent_joined) {
                 clearInterval(window.opponentInterval);
-                // ===== СОПЕРНИК ПРИСОЕДИНИЛСЯ → ПОКАЗЫВАЕМ ПРЕДПРОСМОТР =====
                 document.getElementById('waitingRoom').style.display = 'none';
                 document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
                 document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
@@ -1428,7 +1439,7 @@ function startListeningForOpponent(room_id) {
             }
         })
         .catch(() => {});
-    }, 2000);
+    }, 3000);
 }
 
 // ===== БИТВА С БОТОМ =====
@@ -1442,22 +1453,29 @@ function closeBotBattle() {
 
 function startBotBattle() {
     const case_type = selectedBotCase;
+    const price = getPrice(case_type);
     
     fetch('/check_balance_simple', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, amount: getPrice(case_type) })
+        body: JSON.stringify({ user_id, amount: price })
     })
     .then(res => res.json())
     .then(data => {
-        if (data.error || !data.has_enough) {
-            tg.showAlert('❌ Недостаточно звёзд для открытия кейса!');
+        if (data.error) {
+            tg.showAlert('❌ Ошибка: ' + data.error);
+            return;
+        }
+        if (!data.has_enough) {
+            tg.showAlert('❌ Недостаточно звёзд! Нужно ' + price + '⭐ для открытия кейса');
             return;
         }
         closeBotBattle();
         showBattlePreview(null, case_type, 'ТЫ', 'БОТ', true);
     })
-    .catch(() => tg.showAlert('❌ Ошибка проверки баланса'));
+    .catch(() => {
+        tg.showAlert('❌ Ошибка проверки баланса');
+    });
 }
 
 function startBotBattleAnimation() {
@@ -2191,7 +2209,6 @@ function openMinesCell(index) {
             minesGameData.game_over = true;
             document.getElementById('minesCashoutBtn').style.display = 'none';
             
-            // ===== ПОКАЗЫВАЕМ ВСЕ МИНЫ НА БОЛЬШОМ ПОЛЕ =====
             for (let i = 0; i < 25; i++) {
                 if (minesGameData.board[i] === 1) {
                     minesGameData.openedCells[i] = 1;
@@ -2232,7 +2249,6 @@ function showMinesResult(icon, title, text, color) {
         animation: fadeIn 0.3s ease;
     `;
     
-    // ===== БОЛЬШОЕ ПОЛЕ 5×5 С МИНАМИ =====
     let boardHTML = '';
     if (board) {
         boardHTML = `
