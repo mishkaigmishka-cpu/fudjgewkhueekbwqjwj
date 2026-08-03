@@ -851,8 +851,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
                     body: JSON.stringify({ 
                         user_id: user_id, 
                         case_type: type
-                        // ===== УБРАНО: prize: targetPrize =====
-                        // ===== ТЕПЕРЬ НАГРАДА ГЕНЕРИРУЕТСЯ НА СЕРВЕРЕ =====
                     })
                 });
                 const data = await res.json();
@@ -971,22 +969,22 @@ function loadBattleRooms() {
         let html = '';
         rooms.forEach(r => {
             const isMy = r.is_my_room;
-            const borderColor = isMy ? 'rgba(255,215,0,0.3)' : 'rgba(255,255,255,0.06)';
-            const btnText = isMy ? '⚔️ ВЕРНУТЬСЯ' : '⚔️ ПРИСОЕДИНИТЬСЯ';
-            const btnBg = isMy ? 'background: linear-gradient(135deg, #ffd700, #f9a825); color: #000;' : '';
+            const player1Icon = r.player1 === 'ТЫ' || r.player1 === user_id.toString() ? '⭐' : '👤';
+            const player2Icon = r.player2 === 'ОЖИДАНИЕ...' ? '⏳' : '👤';
             
             html += `
-                <div class="room-item" style="border-color: ${borderColor}; ${isMy ? 'background: rgba(255,215,0,0.05);' : ''}">
-                    <div class="room-info" style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
-                        <span class="room-creator">👤 ${r.player1} ${r.players_count > 1 ? 'vs ' + r.player2 : 'ожидает...'}</span>
+                <div class="room-item" style="border-color: ${isMy ? 'rgba(255,215,0,0.3)' : 'rgba(255,255,255,0.06)'}; ${isMy ? 'background: rgba(255,215,0,0.05);' : ''}">
+                    <div class="room-info" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                        <span class="room-creator">${player1Icon} ${r.player1}</span>
+                        <span class="room-creator" style="font-size: 13px; color: #aaa;">${player2Icon} ${r.player2}</span>
                         <span style="display: flex; gap: 12px; font-size: 13px;">
                             <span class="room-case">📦 ${r.case_type}</span>
                             <span class="room-players">👥 ${r.players_count}/2</span>
                             ${isMy ? '<span style="color: #ffd700;">⭐</span>' : ''}
                         </span>
                     </div>
-                    <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')" style="${btnBg}">
-                        ${btnText}
+                    <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')" style="${isMy ? 'background: linear-gradient(135deg, #ffd700, #f9a825); color: #000;' : ''}">
+                        ${isMy ? '⚔️ ВЕРНУТЬСЯ' : '⚔️ ПРИСОЕДИНИТЬСЯ'}
                     </button>
                 </div>
             `;
@@ -1265,11 +1263,21 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     infoDiv.textContent = `📦 Кейс: ${case_type.toUpperCase()}`;
     overlay.appendChild(infoDiv);
     
+    // ===== ДВЕ КНОПКИ: ГОТОВ И НЕ ГОТОВ =====
+    const btnContainer = document.createElement('div');
+    btnContainer.style.cssText = `
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+    `;
+    
     const readyBtn = document.createElement('button');
     readyBtn.id = 'battleReadyBtn';
     readyBtn.textContent = '✅ ГОТОВ';
     readyBtn.style.cssText = `
-        padding: 14px 40px;
+        padding: 14px 30px;
         border: none;
         border-radius: 14px;
         background: linear-gradient(135deg, #4caf50, #2e7d32);
@@ -1278,17 +1286,71 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         font-weight: 700;
         cursor: pointer;
         transition: all 0.2s;
-        margin-bottom: 10px;
+        min-width: 140px;
     `;
     readyBtn.onmouseover = function() { this.style.transform = 'scale(1.05)'; };
     readyBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
     
+    const notReadyBtn = document.createElement('button');
+    notReadyBtn.id = 'battleNotReadyBtn';
+    notReadyBtn.textContent = '❌ НЕ ГОТОВ';
+    notReadyBtn.style.cssText = `
+        padding: 14px 30px;
+        border: none;
+        border-radius: 14px;
+        background: rgba(255,0,0,0.2);
+        color: #ff6b6b;
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-width: 140px;
+    `;
+    notReadyBtn.onmouseover = function() { this.style.transform = 'scale(1.05)'; };
+    notReadyBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
+    
+    btnContainer.appendChild(readyBtn);
+    btnContainer.appendChild(notReadyBtn);
+    overlay.appendChild(btnContainer);
+    
+    // ===== ЛОГИКА ДЛЯ NOT READY =====
+    notReadyBtn.onclick = function() {
+        if (currentRoomId) {
+            showLoader();
+            fetch('/exit_battle_room', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id, room_id: currentRoomId })
+            })
+            .then(() => {
+                hideLoader();
+                currentRoomId = null;
+                if (window.opponentInterval) clearInterval(window.opponentInterval);
+                if (window.opponentChecker) clearInterval(window.opponentChecker);
+                const overlay = document.getElementById('battlePreviewOverlay');
+                if (overlay) overlay.remove();
+                showBattles();
+            })
+            .catch(() => {
+                hideLoader();
+                tg.showAlert('❌ Ошибка выхода');
+            });
+        } else {
+            const overlay = document.getElementById('battlePreviewOverlay');
+            if (overlay) overlay.remove();
+            showBattles();
+        }
+    };
+    
+    // ===== ЛОГИКА ДЛЯ READY =====
     if (isBot) {
         readyBtn.onclick = function() {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
             this.disabled = true;
             document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Битва начинается...';
+            notReadyBtn.disabled = true;
+            notReadyBtn.style.opacity = '0.5';
             setTimeout(() => {
                 const overlay = document.getElementById('battlePreviewOverlay');
                 if (overlay) overlay.remove();
@@ -1301,6 +1363,8 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
             this.disabled = true;
+            notReadyBtn.disabled = true;
+            notReadyBtn.style.opacity = '0.5';
             document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
             sendBattleReady(room_id);
         };
@@ -1313,10 +1377,12 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         color: #666;
         font-size: 14px;
         text-align: center;
+        margin-top: 6px;
     `;
     statusDiv.textContent = isBot ? 'Нажми «ГОТОВ», чтобы начать битву с ботом' : 'Нажми «ГОТОВ», чтобы начать битву';
     overlay.appendChild(statusDiv);
     
+    // Кнопка "Назад" (дублирующая)
     const backBtn = document.createElement('button');
     backBtn.textContent = '🔙 НАЗАД';
     backBtn.style.cssText = `
@@ -1328,7 +1394,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        margin-top: 6px;
+        margin-top: 10px;
         transition: all 0.2s;
     `;
     backBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.12)'; };
@@ -1388,6 +1454,11 @@ function sendBattleReady(room_id) {
                 btn.textContent = '✅ ГОТОВ';
                 btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
                 btn.disabled = false;
+            }
+            const notBtn = document.getElementById('battleNotReadyBtn');
+            if (notBtn) {
+                notBtn.disabled = false;
+                notBtn.style.opacity = '1';
             }
             return;
         }
@@ -1517,6 +1588,11 @@ function startListeningForOpponent(room_id) {
                     btn.textContent = '✅ ГОТОВ';
                     btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
                 }
+                const notBtn = document.getElementById('battleNotReadyBtn');
+                if (notBtn) {
+                    notBtn.disabled = false;
+                    notBtn.style.opacity = '1';
+                }
                 document.getElementById('battlePreviewStatus').textContent = 'Нажми «ГОТОВ», чтобы начать битву';
                 startOpponentChecker(room_id);
             }
@@ -1539,13 +1615,23 @@ function startBotBattle() {
     let price = getPrice(case_type);
     if (price === 0) price = 5;
     
+    if (!user_id || user_id === 0) {
+        tg.showAlert('❌ Ошибка: пользователь не авторизован');
+        return;
+    }
+    
     showLoader();
     fetch('/check_balance_simple', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, amount: price })
+        body: JSON.stringify({ user_id: user_id, amount: price })
     })
-    .then(res => res.json())
+    .then(res => {
+        if (!res.ok) {
+            throw new Error('Сервер вернул ошибку: ' + res.status);
+        }
+        return res.json();
+    })
     .then(data => {
         hideLoader();
         if (data.error) {
@@ -1559,9 +1645,10 @@ function startBotBattle() {
         closeBotBattle();
         showBattlePreview(null, case_type, 'ТЫ', 'БОТ', true);
     })
-    .catch(() => {
+    .catch(err => {
         hideLoader();
-        tg.showAlert('❌ Ошибка проверки баланса');
+        console.error('Ошибка:', err);
+        tg.showAlert('❌ Ошибка соединения с сервером. Проверь интернет.');
     });
 }
 
