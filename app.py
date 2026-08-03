@@ -749,6 +749,27 @@ def get_battle_result():
         return jsonify(result)
     return jsonify({'pending': True})
 
+@app.route('/get_battle_animation_data', methods=['POST'])
+def get_battle_animation_data():
+    data = request.get_json()
+    room_id = data.get('room_id')
+    
+    if room_id not in battle_rooms:
+        return jsonify({'error': 'Комната не найдена'}), 404
+    
+    room = battle_rooms[room_id]
+    if room['status'] != 'active':
+        return jsonify({'error': 'Битва ещё не началась'}), 400
+    
+    p1 = get_user(room['players'][0])
+    p2 = get_user(room['players'][1])
+    
+    return jsonify({
+        'case_type': room['case_type'],
+        'player1': p1[8] if p1 else f"ID{room['players'][0]}",
+        'player2': p2[8] if p2 else f"ID{room['players'][1]}"
+    })
+
 # ===================== МИНЁР (ЭНДПОИНТЫ) =====================
 @app.route('/start_mines_game', methods=['POST'])
 def start_mines_game():
