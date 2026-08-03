@@ -49,12 +49,23 @@ function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
 function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
 function getPrice(type) { return CASE_PRICES[type] || 0; }
 
+// ===================== ЛОАДЕР =====================
+function showLoader() {
+    document.getElementById('loader').classList.add('active');
+}
+
+function hideLoader() {
+    document.getElementById('loader').classList.remove('active');
+}
+
+// ===================== НАВИГАЦИЯ =====================
 function showMain() {
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
     document.getElementById('mainScreen').classList.add('active');
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.querySelector('.nav-item[data-tab="main"]').classList.add('active');
     loadBalance();
+    updateFreeCaseTimer();
 }
 
 function showBattles() {
@@ -102,6 +113,7 @@ function goBack() {
     showMain();
 }
 
+// ===================== БАЛАНС =====================
 async function loadBalance() {
     try {
         const res = await fetch('/get_balance', {
@@ -118,6 +130,8 @@ async function loadBalance() {
             document.getElementById('profileStatus').textContent = data.status;
             document.getElementById('profileRefs').textContent = data.refs;
             document.getElementById('inviteLink').value = 'https://t.me/Randevucase_bot?start=' + user_id;
+            document.getElementById('username').textContent = tg.initDataUnsafe?.user?.username || 'Игрок';
+            document.getElementById('profileName').textContent = tg.initDataUnsafe?.user?.username || 'Игрок';
         }
     } catch(e) { console.error(e); }
 }
@@ -129,6 +143,40 @@ function updateAllBalances(newBalance) {
     if (balanceEl) balanceEl.textContent = '⭐ ' + newBalance;
     if (balanceValueEl) balanceValueEl.textContent = newBalance + ' ⭐';
     if (profileBalanceEl) profileBalanceEl.textContent = newBalance;
+}
+
+// ===================== ТАЙМЕР ДЛЯ FREE КЕЙСА =====================
+function updateFreeCaseTimer() {
+    const freeCard = document.querySelector('.case-card[data-case="free"]');
+    if (!freeCard) return;
+    
+    fetch('/check_balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, case_type: 'free' })
+    })
+    .then(res => res.json())
+    .then(data => {
+        const priceEl = freeCard.querySelector('.case-price');
+        if (!priceEl) return;
+        
+        if (data.can_open) {
+            freeCard.style.opacity = '1';
+            priceEl.textContent = '0⭐ (доступен)';
+            priceEl.style.color = '#4caf50';
+        } else if (data.error && data.error.includes('Жди')) {
+            const match = data.error.match(/\d+/);
+            const minutes = match ? match[0] : '?';
+            freeCard.style.opacity = '0.5';
+            priceEl.textContent = `⏳ ${minutes} мин`;
+            priceEl.style.color = '#ff9800';
+        } else {
+            freeCard.style.opacity = '0.5';
+            priceEl.textContent = '⏳ 120 мин';
+            priceEl.style.color = '#ff9800';
+        }
+    })
+    .catch(() => {});
 }
 
 // ===================== КЕЙСЫ =====================
@@ -795,17 +843,20 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         document.body.appendChild(resultContainer);
 
         setTimeout(async () => {
+            showLoader();
             try {
                 const res = await fetch('/open_case', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         user_id: user_id, 
-                        case_type: type,
-                        prize: targetPrize
+                        case_type: type
+                        // ===== УБРАНО: prize: targetPrize =====
+                        // ===== ТЕПЕРЬ НАГРАДА ГЕНЕРИРУЕТСЯ НА СЕРВЕРЕ =====
                     })
                 });
                 const data = await res.json();
+                hideLoader();
                 if (data.error) {
                     tg.showAlert('❌ ' + data.error);
                 } else {
@@ -816,6 +867,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
                     }
                 }
             } catch(e) {
+                hideLoader();
                 tg.showAlert('❌ Ошибка при открытии кейса');
             }
         }, 300);
@@ -992,6 +1044,7 @@ document.querySelectorAll('.bot-case-btn').forEach(btn => {
 function createBattleRoom() {
     const case_type = selectedBattleCase;
     
+    showLoader();
     fetch('/create_battle_room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -999,8 +1052,13 @@ function createBattleRoom() {
     })
     .then(res => res.json())
     .then(data => {
+        hideLoader();
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
+            return;
+        }
+        if (!data.room_id) {
+            tg.showAlert('❌ Не удалось создать комнату');
             return;
         }
         currentRoomId = data.room_id;
@@ -1008,6 +1066,10 @@ function createBattleRoom() {
         showWaitingRoom(data.room_id, data.case_type);
         startListeningForOpponent(data.room_id);
         startOpponentChecker(data.room_id);
+    })
+    .catch(() => {
+        hideLoader();
+        tg.showAlert('❌ Ошибка создания комнаты');
     });
 }
 
@@ -1021,6 +1083,9 @@ function showWaitingRoom(room_id, case_type) {
 }
 
 function exitWaitingRoom() {
+    if (window.opponentInterval) clearInterval(window.opponentInterval);
+    if (window.opponentChecker) clearInterval(window.opponentChecker);
+    
     if (!currentRoomId) {
         document.getElementById('waitingRoom').style.display = 'none';
         document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
@@ -1030,6 +1095,7 @@ function exitWaitingRoom() {
         return;
     }
     
+    showLoader();
     fetch('/exit_battle_room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1037,22 +1103,23 @@ function exitWaitingRoom() {
     })
     .then(res => res.json())
     .then(data => {
+        hideLoader();
         currentRoomId = null;
         document.getElementById('waitingRoom').style.display = 'none';
         document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
         document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
         document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
-        if (window.opponentInterval) clearInterval(window.opponentInterval);
-        if (window.opponentChecker) clearInterval(window.opponentChecker);
         showBattles();
         tg.showAlert('✅ Ты вышел из комнаты');
     })
     .catch(() => {
+        hideLoader();
         tg.showAlert('❌ Ошибка при выходе из комнаты');
     });
 }
 
 function joinBattleRoom(room_id) {
+    showLoader();
     fetch('/join_battle_room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1060,7 +1127,12 @@ function joinBattleRoom(room_id) {
     })
     .then(res => res.json())
     .then(data => {
+        hideLoader();
         if (data.error) {
+            if (data.already_in_room) {
+                tg.showAlert('⚠️ Ты уже в этой комнате');
+                return;
+            }
             if (data.error.includes('пользователь не найден')) {
                 tg.showAlert('❌ Не удалось найти пользователя. Попробуйте перезапустить бота.');
             } else {
@@ -1073,6 +1145,10 @@ function joinBattleRoom(room_id) {
             syncPreviewStart(data.room_id);
             startOpponentChecker(data.room_id);
         }
+    })
+    .catch(() => {
+        hideLoader();
+        tg.showAlert('❌ Ошибка соединения');
     });
 }
 
@@ -1123,7 +1199,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         margin-bottom: 16px;
     `;
     
-    // Лента 1
     const p1Container = document.createElement('div');
     p1Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
     let p1Cards = '';
@@ -1158,7 +1233,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     vsDiv.textContent = isBot ? '🤖' : '⚔️';
     playersContainer.appendChild(vsDiv);
     
-    // Лента 2
     const p2Container = document.createElement('div');
     p2Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
     let p2Cards = '';
@@ -1191,7 +1265,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     infoDiv.textContent = `📦 Кейс: ${case_type.toUpperCase()}`;
     overlay.appendChild(infoDiv);
     
-    // ===== КНОПКА «ГОТОВ» =====
     const readyBtn = document.createElement('button');
     readyBtn.id = 'battleReadyBtn';
     readyBtn.textContent = '✅ ГОТОВ';
@@ -1244,7 +1317,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     statusDiv.textContent = isBot ? 'Нажми «ГОТОВ», чтобы начать битву с ботом' : 'Нажми «ГОТОВ», чтобы начать битву';
     overlay.appendChild(statusDiv);
     
-    // Кнопка "Назад"
     const backBtn = document.createElement('button');
     backBtn.textContent = '🔙 НАЗАД';
     backBtn.style.cssText = `
@@ -1263,18 +1335,24 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     backBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.06)'; };
     backBtn.onclick = function() {
         if (currentRoomId) {
+            showLoader();
             fetch('/exit_battle_room', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id, room_id: currentRoomId })
             })
             .then(() => {
+                hideLoader();
                 currentRoomId = null;
                 if (window.opponentInterval) clearInterval(window.opponentInterval);
                 if (window.opponentChecker) clearInterval(window.opponentChecker);
                 const overlay = document.getElementById('battlePreviewOverlay');
                 if (overlay) overlay.remove();
                 showBattles();
+            })
+            .catch(() => {
+                hideLoader();
+                tg.showAlert('❌ Ошибка выхода');
             });
         } else {
             const overlay = document.getElementById('battlePreviewOverlay');
@@ -1288,6 +1366,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
 }
 
 function sendBattleReady(room_id) {
+    showLoader();
     fetch('/battle_ready', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1295,6 +1374,7 @@ function sendBattleReady(room_id) {
     })
     .then(res => res.json())
     .then(data => {
+        hideLoader();
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
             if (data.error.includes('не в этой комнате') || data.error.includes('не найдена')) {
@@ -1323,7 +1403,10 @@ function sendBattleReady(room_id) {
             document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
         }
     })
-    .catch(() => {});
+    .catch(() => {
+        hideLoader();
+        tg.showAlert('❌ Ошибка готовности');
+    });
 }
 
 function syncPreviewStart(room_id) {
@@ -1453,8 +1536,10 @@ function closeBotBattle() {
 
 function startBotBattle() {
     const case_type = selectedBotCase;
-    const price = getPrice(case_type);
+    let price = getPrice(case_type);
+    if (price === 0) price = 5;
     
+    showLoader();
     fetch('/check_balance_simple', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1462,6 +1547,7 @@ function startBotBattle() {
     })
     .then(res => res.json())
     .then(data => {
+        hideLoader();
         if (data.error) {
             tg.showAlert('❌ Ошибка: ' + data.error);
             return;
@@ -1474,6 +1560,7 @@ function startBotBattle() {
         showBattlePreview(null, case_type, 'ТЫ', 'БОТ', true);
     })
     .catch(() => {
+        hideLoader();
         tg.showAlert('❌ Ошибка проверки баланса');
     });
 }
@@ -1483,6 +1570,7 @@ function startBotBattleAnimation() {
     
     showBotRouletteAnimation(case_type);
     
+    showLoader();
     fetch('/start_bot_battle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1490,6 +1578,7 @@ function startBotBattleAnimation() {
     })
     .then(res => res.json())
     .then(data => {
+        hideLoader();
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
             const overlay = document.getElementById('botRouletteOverlay');
@@ -1503,6 +1592,7 @@ function startBotBattleAnimation() {
         }, 6500);
     })
     .catch(() => {
+        hideLoader();
         tg.showAlert('❌ Ошибка при запуске битвы с ботом');
         const overlay = document.getElementById('botRouletteOverlay');
         if (overlay) overlay.remove();
@@ -1665,6 +1755,10 @@ function showBotBattleResult(data) {
     const titleMap = { 'win': 'ПОБЕДА!', 'lose': 'ПОРАЖЕНИЕ...', 'draw': 'НИЧЬЯ!' };
     const colorMap = { 'win': '#4caf50', 'lose': '#f44336', 'draw': '#ffd700' };
     
+    const commissionHtml = (data.commission !== undefined && data.commission > 0) 
+        ? `<div style="color: #888; font-size: 12px;">💸 Комиссия: ${data.commission}⭐</div>` 
+        : '';
+    
     overlay.innerHTML = `
         <div style="font-size: 80px; margin-bottom: 10px;">${iconMap[data.result]}</div>
         <div style="font-size: 32px; font-weight: 800; color: ${colorMap[data.result]}; margin-bottom: 20px;">
@@ -1685,7 +1779,7 @@ function showBotBattleResult(data) {
         </div>
         <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 16px 24px; margin-bottom: 20px; text-align: center;">
             <div style="color: #aaa; font-size: 14px;">${data.result_text}</div>
-            ${data.commission ? `<div style="color: #888; font-size: 12px;">💸 Комиссия: ${data.commission}⭐</div>` : ''}
+            ${commissionHtml}
         </div>
         <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
             <button onclick="this.closest('div').remove(); showBotBattle();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
@@ -1703,6 +1797,7 @@ function showBotBattleResult(data) {
 
 // ===== АНИМАЦИЯ БИТВЫ (2 РУЛЕТКИ) =====
 function startBattleAnimation(room_id) {
+    showLoader();
     fetch('/get_battle_animation_data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1710,8 +1805,11 @@ function startBattleAnimation(room_id) {
     })
     .then(res => res.json())
     .then(data => {
+        hideLoader();
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
+            const overlay = document.getElementById('battleRouletteOverlay');
+            if (overlay) overlay.remove();
             return;
         }
         
@@ -1851,6 +1949,12 @@ function startBattleAnimation(room_id) {
         
         if (window.battleResultInterval) clearInterval(window.battleResultInterval);
         window.battleResultInterval = setInterval(checkBattleResultWithRoulette, 2000);
+    })
+    .catch(() => {
+        hideLoader();
+        tg.showAlert('❌ Ошибка загрузки анимации');
+        const overlay = document.getElementById('battleRouletteOverlay');
+        if (overlay) overlay.remove();
     });
 }
 
@@ -2089,6 +2193,7 @@ function startMinesGame() {
         return;
     }
     
+    showLoader();
     fetch('/check_balance_simple', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2097,6 +2202,7 @@ function startMinesGame() {
     .then(res => res.json())
     .then(data => {
         if (data.error || !data.has_enough) {
+            hideLoader();
             tg.showAlert('❌ Недостаточно звёзд!');
             return;
         }
@@ -2108,6 +2214,7 @@ function startMinesGame() {
         })
         .then(res => res.json())
         .then(gameData => {
+            hideLoader();
             if (gameData.error) {
                 tg.showAlert('❌ ' + gameData.error);
                 return;
@@ -2137,7 +2244,15 @@ function startMinesGame() {
             
             renderMinesBoard();
             updateMinesCashoutAmount();
+        })
+        .catch(() => {
+            hideLoader();
+            tg.showAlert('❌ Ошибка запуска игры');
         });
+    })
+    .catch(() => {
+        hideLoader();
+        tg.showAlert('❌ Ошибка проверки баланса');
     });
 }
 
@@ -2180,6 +2295,7 @@ function openMinesCell(index) {
     if (!minesGameData || !minesGameData.active || minesGameData.game_over) return;
     if (minesGameData.openedCells[index] === 1) return;
     
+    showLoader();
     fetch('/open_mines_cell', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2191,6 +2307,7 @@ function openMinesCell(index) {
     })
     .then(res => res.json())
     .then(data => {
+        hideLoader();
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
             return;
@@ -2227,6 +2344,10 @@ function openMinesCell(index) {
         
         renderMinesBoard();
         updateMinesCashoutAmount();
+    })
+    .catch(() => {
+        hideLoader();
+        tg.showAlert('❌ Ошибка открытия клетки');
     });
 }
 
@@ -2338,6 +2459,7 @@ function cashoutMinesGame() {
         return;
     }
     
+    showLoader();
     fetch('/cashout_mines', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2348,6 +2470,7 @@ function cashoutMinesGame() {
     })
     .then(res => res.json())
     .then(data => {
+        hideLoader();
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
             return;
@@ -2360,6 +2483,10 @@ function cashoutMinesGame() {
         showMinesResult('💰', 'ВЫИГРЫШ!', `Ты забрал ${data.winnings}⭐ (x${data.multiplier})`, '#ffd700');
         loadBalance();
         loadMinesStats();
+    })
+    .catch(() => {
+        hideLoader();
+        tg.showAlert('❌ Ошибка вывода');
     });
 }
 
@@ -2410,6 +2537,7 @@ function showWithdraw() {
         tg.showAlert('❌ Минимум 1000⭐');
         return;
     }
+    showLoader();
     fetch('/withdraw_request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2417,17 +2545,23 @@ function showWithdraw() {
     })
     .then(res => res.json())
     .then(data => {
+        hideLoader();
         if (data.success) {
             tg.showAlert('✅ Заявка отправлена! Админ свяжется с вами.');
         } else {
             tg.showAlert('❌ ' + data.error);
         }
     })
-    .catch(() => tg.showAlert('❌ Ошибка соединения'));
+    .catch(() => {
+        hideLoader();
+        tg.showAlert('❌ Ошибка соединения');
+    });
 }
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====
 initMinesBoard();
 loadBalance();
 loadMinesStats();
+updateFreeCaseTimer();
+setInterval(updateFreeCaseTimer, 30000);
 tg.ready();
