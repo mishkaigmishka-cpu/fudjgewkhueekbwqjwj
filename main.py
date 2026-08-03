@@ -5,7 +5,7 @@ import time
 import os
 import threading
 from flask import Flask, request, jsonify, send_from_directory
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice, WebAppInfo
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 if not TOKEN:
@@ -15,6 +15,14 @@ ADMIN_ID = 7819642052
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
+
+# ===================== CORS =====================
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    return response
 
 conn = sqlite3.connect('cases.db', check_same_thread=False)
 cursor = conn.cursor()
@@ -301,7 +309,10 @@ def start(msg):
             pass
     update_user(uid, username=username)
     kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
+    kb.add(InlineKeyboardButton(
+        "🎮 Открыть кейсы", 
+        web_app={"url": "https://randevu-bot-production.up.railway.app"}
+    ))
     kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
     bot.send_message(msg.chat.id, "Добро пожаловать в RANDEVU!", reply_markup=kb)
 
@@ -330,7 +341,10 @@ def process_topup_amount(message, msg_id):
 def cancel_topup(call):
     bot.answer_callback_query(call.id)
     kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
+    kb.add(InlineKeyboardButton(
+        "🎮 Открыть кейсы", 
+        web_app={"url": "https://randevu-bot-production.up.railway.app"}
+    ))
     kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
     bot.edit_message_text("Добро пожаловать в RANDEVU!", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=kb)
 
@@ -483,8 +497,10 @@ def mines_stats_cmd(msg):
     bot.reply_to(msg, text)
 
 # ===================== КОМНАТЫ (БИТВЫ) =====================
-@app.route('/create_battle_room', methods=['POST'])
+@app.route('/create_battle_room', methods=['POST', 'OPTIONS'])
 def create_battle_room():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     case_type = data.get('case_type')
@@ -512,8 +528,10 @@ def create_battle_room():
     }
     return jsonify({'room_id': room_id, 'case_type': case_type})
 
-@app.route('/get_battle_rooms', methods=['POST'])
+@app.route('/get_battle_rooms', methods=['POST', 'OPTIONS'])
 def get_battle_rooms():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     rooms = []
@@ -535,8 +553,10 @@ def get_battle_rooms():
     
     return jsonify({'rooms': rooms})
 
-@app.route('/join_battle_room', methods=['POST'])
+@app.route('/join_battle_room', methods=['POST', 'OPTIONS'])
 def join_battle_room():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     room_id = data.get('room_id')
@@ -575,8 +595,10 @@ def join_battle_room():
         'player2': p2[8] if p2 else f"ID{room['players'][1]}"
     })
 
-@app.route('/exit_battle_room', methods=['POST'])
+@app.route('/exit_battle_room', methods=['POST', 'OPTIONS'])
 def exit_battle_room():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     room_id = data.get('room_id')
@@ -596,8 +618,10 @@ def exit_battle_room():
         room['status'] = 'waiting'
         return jsonify({'success': True, 'room_kept': True})
 
-@app.route('/battle_ready', methods=['POST'])
+@app.route('/battle_ready', methods=['POST', 'OPTIONS'])
 def battle_ready():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     room_id = data.get('room_id')
@@ -625,8 +649,10 @@ def battle_ready():
     
     return jsonify({'ready': False})
 
-@app.route('/start_bot_battle', methods=['POST'])
+@app.route('/start_bot_battle', methods=['POST', 'OPTIONS'])
 def start_bot_battle():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     case_type = data.get('case_type')
@@ -675,8 +701,10 @@ def start_bot_battle():
         'winnings': winnings if result == 'win' else 0
     })
 
-@app.route('/check_room_status', methods=['POST'])
+@app.route('/check_room_status', methods=['POST', 'OPTIONS'])
 def check_room_status():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     room_id = data.get('room_id')
     
@@ -696,8 +724,10 @@ def check_room_status():
         'case_type': room['case_type']
     })
 
-@app.route('/sync_battle_preview', methods=['POST'])
+@app.route('/sync_battle_preview', methods=['POST', 'OPTIONS'])
 def sync_battle_preview():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     room_id = data.get('room_id')
     uid = data.get('user_id')
@@ -724,8 +754,10 @@ def sync_battle_preview():
         'ready_status': battle_ready_status.get(room_id, [False, False])
     })
 
-@app.route('/exit_battle_room_notify', methods=['POST'])
+@app.route('/exit_battle_room_notify', methods=['POST', 'OPTIONS'])
 def exit_battle_room_notify():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     room_id = data.get('room_id')
@@ -744,8 +776,10 @@ def exit_battle_room_notify():
         'opponent_id': opponent_id
     })
 
-@app.route('/get_user_room', methods=['POST'])
+@app.route('/get_user_room', methods=['POST', 'OPTIONS'])
 def get_user_room():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     
@@ -854,8 +888,10 @@ def start_battle_opening(room_id):
     
     del battle_rooms[room_id]
 
-@app.route('/get_battle_result', methods=['POST'])
+@app.route('/get_battle_result', methods=['POST', 'OPTIONS'])
 def get_battle_result():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     if uid in battle_results:
@@ -864,8 +900,10 @@ def get_battle_result():
         return jsonify(result)
     return jsonify({'pending': True})
 
-@app.route('/get_battle_animation_data', methods=['POST'])
+@app.route('/get_battle_animation_data', methods=['POST', 'OPTIONS'])
 def get_battle_animation_data():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     room_id = data.get('room_id')
     
@@ -886,8 +924,10 @@ def get_battle_animation_data():
     })
 
 # ===================== МИНЁР (ЭНДПОИНТЫ) =====================
-@app.route('/start_mines_game', methods=['POST'])
+@app.route('/start_mines_game', methods=['POST', 'OPTIONS'])
 def start_mines_game():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     bet = data.get('bet')
@@ -929,8 +969,10 @@ def start_mines_game():
         'multiplier': 1.0
     })
 
-@app.route('/open_mines_cell', methods=['POST'])
+@app.route('/open_mines_cell', methods=['POST', 'OPTIONS'])
 def open_mines_cell():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     game_id = data.get('game_id')
@@ -992,8 +1034,10 @@ def open_mines_cell():
         'won': False
     })
 
-@app.route('/cashout_mines', methods=['POST'])
+@app.route('/cashout_mines', methods=['POST', 'OPTIONS'])
 def cashout_mines():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     game_id = data.get('game_id')
@@ -1022,16 +1066,20 @@ def cashout_mines():
         'won': True
     })
 
-@app.route('/exit_mines', methods=['POST'])
+@app.route('/exit_mines', methods=['POST', 'OPTIONS'])
 def exit_mines():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     game_id = data.get('game_id')
     if game_id in active_mines_games:
         del active_mines_games[game_id]
     return jsonify({'success': True})
 
-@app.route('/get_mines_stats', methods=['POST'])
+@app.route('/get_mines_stats', methods=['POST', 'OPTIONS'])
 def get_mines_stats():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     cursor.execute("SELECT * FROM mines_stats WHERE user_id=?", (uid,))
@@ -1058,8 +1106,10 @@ def webhook():
         return ''
     return '', 400
 
-@app.route('/get_prize', methods=['POST'])
+@app.route('/get_prize', methods=['POST', 'OPTIONS'])
 def get_prize_endpoint():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     if not data:
         return jsonify({'error': 'No data provided'}), 400
@@ -1069,8 +1119,10 @@ def get_prize_endpoint():
     prize = get_prize(case_type)
     return jsonify({'prize': prize})
 
-@app.route('/check_balance', methods=['POST'])
+@app.route('/check_balance', methods=['POST', 'OPTIONS'])
 def check_balance():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     user_id = data.get('user_id')
     case_type = data.get('case_type')
@@ -1086,15 +1138,14 @@ def check_balance():
         return jsonify({'error': f'Жди {wait} мин', 'can_open': False}), 400
     return jsonify({'can_open': True})
 
-@app.route('/open_case', methods=['POST'])
+@app.route('/open_case', methods=['POST', 'OPTIONS'])
 def open_case():
+    if request.method == 'OPTIONS':
+        return '', 200
     try:
         data = request.get_json()
         user_id = data.get('user_id')
         case_type = data.get('case_type')
-        
-        # ===== УБРАНО: prize_from_client = data.get('prize') =====
-        # ===== ТЕПЕРЬ НАГРАДА ВСЕГДА ГЕНЕРИРУЕТСЯ НА СЕРВЕРЕ =====
         
         user = get_user(user_id)
         if not user:
@@ -1107,7 +1158,6 @@ def open_case():
             wait = int((7200 - (time.time() - user[4])) // 60)
             return jsonify({'error': f'Жди {wait} мин'}), 400
         
-        # ===== НАГРАДА ГЕНЕРИРУЕТСЯ НА СЕРВЕРЕ =====
         prize = get_prize(case_type)
         
         new_bal = user[1] - price + prize
@@ -1123,16 +1173,20 @@ def open_case():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/get_balance', methods=['POST'])
+@app.route('/get_balance', methods=['POST', 'OPTIONS'])
 def get_balance():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     user = get_user(data.get('user_id'))
     if not user:
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'balance': user[1], 'total_cases': user[2], 'status': user[5], 'refs': user[6]})
 
-@app.route('/withdraw_request', methods=['POST'])
+@app.route('/withdraw_request', methods=['POST', 'OPTIONS'])
 def withdraw_request():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     user_id = data.get('user_id')
     amount = data.get('amount')
@@ -1150,8 +1204,10 @@ def withdraw_request():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/check_balance_simple', methods=['POST'])
+@app.route('/check_balance_simple', methods=['POST', 'OPTIONS'])
 def check_balance_simple():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     amount = data.get('amount', 0)
@@ -1160,8 +1216,10 @@ def check_balance_simple():
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'has_enough': user[1] >= amount})
 
-@app.route('/get_battle_data', methods=['POST'])
+@app.route('/get_battle_data', methods=['POST', 'OPTIONS'])
 def get_battle_data():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     cursor.execute("SELECT * FROM battle_stats WHERE user_id=?", (uid,))
@@ -1199,8 +1257,10 @@ def get_battle_data():
             })
     return jsonify({'wins': wins, 'losses': losses, 'commission': commission, 'active_battles': active, 'history': history})
 
-@app.route('/create_battle', methods=['POST'])
+@app.route('/create_battle', methods=['POST', 'OPTIONS'])
 def create_battle():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     username = data.get('username')
@@ -1236,8 +1296,10 @@ def create_battle():
     bot.send_message(target[0], f"⚔️ @{user[8]} вызывает тебя на БИТВУ КЕЙСОВ!\n\n🔥 Без ставок! Победитель забирает свой дроп + дроп соперника - 10% комиссии", reply_markup=kb)
     return jsonify({'success': True})
 
-@app.route('/get_pending_battles', methods=['POST'])
+@app.route('/get_pending_battles', methods=['POST', 'OPTIONS'])
 def get_pending_battles():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     battles = []
@@ -1247,8 +1309,10 @@ def get_pending_battles():
             battles.append({'id': bid, 'username': user[8] if user else str(battle['player1'])})
     return jsonify({'battles': battles})
 
-@app.route('/accept_battle', methods=['POST'])
+@app.route('/accept_battle', methods=['POST', 'OPTIONS'])
 def accept_battle():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json()
     uid = data.get('user_id')
     battle_id = data.get('battle_id')
