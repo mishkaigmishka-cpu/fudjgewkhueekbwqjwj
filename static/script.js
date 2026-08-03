@@ -1011,7 +1011,8 @@ function createBattleRoom() {
         }
         currentRoomId = data.room_id;
         closeCreateBattle();
-        showBattlePreview(data.room_id, data.case_type, 'ТЫ', 'ОЖИДАНИЕ...', false);
+        // ===== ПОКАЗЫВАЕМ ТОЛЬКО ОКНО ОЖИДАНИЯ =====
+        showWaitingRoom(data.room_id, data.case_type);
         startListeningForOpponent(data.room_id);
         startOpponentChecker(data.room_id);
     });
@@ -1203,6 +1204,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     readyBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
     
     if (isBot) {
+        // ===== БОТ — КНОПКА ЗАПУСКАЕТ БИТВУ =====
         readyBtn.onclick = function() {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
@@ -1216,6 +1218,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         };
         document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Нажми «ГОТОВ», чтобы начать';
     } else {
+        // ===== ИГРОК — КНОПКА ОТПРАВЛЯЕТ ЗАПРОС =====
         readyBtn.onclick = function() {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
@@ -1370,7 +1373,16 @@ function startOpponentChecker(room_id) {
         })
         .then(res => res.json())
         .then(data => {
-            if (data.error || !data.opponent_joined) {
+            if (data.error || !data.room_exists) {
+                clearInterval(window.opponentChecker);
+                tg.showAlert('❌ Комната была удалена');
+                const overlay = document.getElementById('battlePreviewOverlay');
+                if (overlay) overlay.remove();
+                showBattles();
+                return;
+            }
+            
+            if (data.opponent_joined === false && data.players_count === 1) {
                 clearInterval(window.opponentChecker);
                 tg.showAlert('❌ Ваш соперник вышел из комнаты!');
                 const overlay = document.getElementById('battlePreviewOverlay');
@@ -1392,10 +1404,19 @@ function startListeningForOpponent(room_id) {
         })
         .then(res => res.json())
         .then(data => {
-            if (data.error) return;
+            if (data.error) {
+                clearInterval(window.opponentInterval);
+                return;
+            }
             if (data.opponent_joined) {
                 clearInterval(window.opponentInterval);
-                updatePreviewNames('ТЫ', data.player2);
+                // ===== СОПЕРНИК ПРИСОЕДИНИЛСЯ → ПОКАЗЫВАЕМ ПРЕДПРОСМОТР =====
+                document.getElementById('waitingRoom').style.display = 'none';
+                document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
+                document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
+                document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
+                
+                showBattlePreview(room_id, data.case_type, 'ТЫ', data.player2, false);
                 const btn = document.getElementById('battleReadyBtn');
                 if (btn) {
                     btn.disabled = false;
@@ -1403,6 +1424,7 @@ function startListeningForOpponent(room_id) {
                     btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
                 }
                 document.getElementById('battlePreviewStatus').textContent = 'Нажми «ГОТОВ», чтобы начать битву';
+                startOpponentChecker(room_id);
             }
         })
         .catch(() => {});
@@ -1452,6 +1474,8 @@ function startBotBattleAnimation() {
     .then(data => {
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
+            const overlay = document.getElementById('botRouletteOverlay');
+            if (overlay) overlay.remove();
             return;
         }
         setTimeout(() => {
@@ -1460,7 +1484,11 @@ function startBotBattleAnimation() {
             showBotBattleResult(data);
         }, 6500);
     })
-    .catch(() => tg.showAlert('❌ Ошибка при запуске битвы с ботом'));
+    .catch(() => {
+        tg.showAlert('❌ Ошибка при запуске битвы с ботом');
+        const overlay = document.getElementById('botRouletteOverlay');
+        if (overlay) overlay.remove();
+    });
 }
 
 function showBotRouletteAnimation(case_type) {
@@ -2163,6 +2191,7 @@ function openMinesCell(index) {
             minesGameData.game_over = true;
             document.getElementById('minesCashoutBtn').style.display = 'none';
             
+            // ===== ПОКАЗЫВАЕМ ВСЕ МИНЫ НА БОЛЬШОМ ПОЛЕ =====
             for (let i = 0; i < 25; i++) {
                 if (minesGameData.board[i] === 1) {
                     minesGameData.openedCells[i] = 1;
@@ -2186,6 +2215,7 @@ function openMinesCell(index) {
 
 function showMinesResult(icon, title, text, color) {
     const board = minesGameData ? minesGameData.board : null;
+    const openedCells = minesGameData ? minesGameData.openedCells : null;
     
     const overlay = document.createElement('div');
     overlay.style.cssText = `
@@ -2202,15 +2232,56 @@ function showMinesResult(icon, title, text, color) {
         animation: fadeIn 0.3s ease;
     `;
     
-    let miniBoardHTML = '';
+    // ===== БОЛЬШОЕ ПОЛЕ 5×5 С МИНАМИ =====
+    let boardHTML = '';
     if (board) {
-        miniBoardHTML = `
-            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; max-width: 200px; margin: 10px auto 16px auto;">
-                ${board.map(cell => `
-                    <div style="aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 20px; background: ${cell === 1 ? 'rgba(255,0,0,0.2)' : 'rgba(0,255,0,0.08)'}; border-radius: 6px; border: 1px solid ${cell === 1 ? 'rgba(255,0,0,0.3)' : 'rgba(255,255,255,0.06)'};">
-                        ${cell === 1 ? '💣' : '💎'}
-                    </div>
-                `).join('')}
+        boardHTML = `
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-width: 350px; margin: 16px auto; width: 100%;">
+                ${board.map((cell, i) => {
+                    const isMine = cell === 1;
+                    const isOpened = openedCells && openedCells[i] === 1;
+                    let bgColor = 'rgba(255,255,255,0.04)';
+                    let borderColor = 'rgba(255,255,255,0.06)';
+                    let textColor = '#888';
+                    let symbol = '❓';
+                    
+                    if (isOpened) {
+                        if (isMine) {
+                            bgColor = 'rgba(255,0,0,0.2)';
+                            borderColor = 'rgba(255,0,0,0.3)';
+                            textColor = '#ff4444';
+                            symbol = '💣';
+                        } else {
+                            bgColor = 'rgba(0,255,0,0.08)';
+                            borderColor = 'rgba(0,255,0,0.15)';
+                            textColor = '#4caf50';
+                            symbol = '💎';
+                        }
+                    } else if (isMine) {
+                        bgColor = 'rgba(255,0,0,0.15)';
+                        borderColor = 'rgba(255,0,0,0.2)';
+                        textColor = '#ff4444';
+                        symbol = '💣';
+                    }
+                    
+                    return `
+                        <div style="
+                            aspect-ratio: 1;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 36px;
+                            background: ${bgColor};
+                            border-radius: 10px;
+                            border: 2px solid ${borderColor};
+                            color: ${textColor};
+                            transition: all 0.2s;
+                            font-weight: 700;
+                        ">
+                            ${symbol}
+                        </div>
+                    `;
+                }).join('')}
             </div>
         `;
     }
@@ -2219,8 +2290,8 @@ function showMinesResult(icon, title, text, color) {
         <div style="font-size: 80px; margin-bottom: 10px;">${icon}</div>
         <div style="font-size: 32px; font-weight: 800; color: ${color}; margin-bottom: 10px;">${title}</div>
         <div style="color: #aaa; font-size: 18px; margin-bottom: 10px; text-align: center;">${text}</div>
-        ${miniBoardHTML}
-        <div style="color: #666; font-size: 12px; margin-bottom: 16px;">💣 — мины | 💎 — безопасные клетки</div>
+        ${boardHTML}
+        <div style="color: #666; font-size: 13px; margin-bottom: 16px;">💣 — мины | 💎 — безопасные клетки</div>
         <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
             <button id="minesPlayAgainBtn" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
                 🔄 ИГРАТЬ СНОВА
