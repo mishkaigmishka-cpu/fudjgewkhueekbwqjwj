@@ -1136,6 +1136,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     infoDiv.textContent = `📦 Кейс: ${case_type.toUpperCase()}`;
     overlay.appendChild(infoDiv);
     
+    // ===== КНОПКА «ГОТОВ» =====
     const readyBtn = document.createElement('button');
     readyBtn.id = 'battleReadyBtn';
     readyBtn.textContent = '✅ ГОТОВ';
@@ -1155,11 +1156,11 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     readyBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
     
     if (isBot) {
+        // ===== БОТ — КНОПКА СРАЗУ АКТИВНА =====
         readyBtn.onclick = function() {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
             this.disabled = true;
-            document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
             document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Битва начинается...';
             setTimeout(() => {
                 const overlay = document.getElementById('battlePreviewOverlay');
@@ -1169,6 +1170,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         };
         document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Нажми «ГОТОВ», чтобы начать';
     } else {
+        // ===== ИГРОК — КНОПКА ОТПРАВЛЯЕТ ЗАПРОС =====
         readyBtn.onclick = function() {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
@@ -2008,16 +2010,28 @@ function showMinesResult(icon, title, text, color) {
         <div style="font-size: 32px; font-weight: 800; color: ${color}; margin-bottom: 10px;">${title}</div>
         <div style="color: #aaa; font-size: 18px; margin-bottom: 20px; text-align: center;">${text}</div>
         <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
-            <button onclick="this.closest('div').remove(); startMinesGame();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+            <button id="minesPlayAgainBtn" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
                 🔄 ИГРАТЬ СНОВА
             </button>
-            <button onclick="this.closest('div').remove(); showMines();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+            <button id="minesBackBtn" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
                 🔙 НАЗАД
             </button>
         </div>
     `;
     
     document.body.appendChild(overlay);
+    
+    // ===== КНОПКА «ИГРАТЬ СНОВА» =====
+    document.getElementById('minesPlayAgainBtn').onclick = function() {
+        overlay.remove();
+        startMinesGame();
+    };
+    
+    // ===== КНОПКА «НАЗАД» =====
+    document.getElementById('minesBackBtn').onclick = function() {
+        overlay.remove();
+        showMines();
+    };
 }
 
 function cashoutMinesGame() {
