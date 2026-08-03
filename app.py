@@ -673,7 +673,8 @@ def check_room_status():
     return jsonify({
         'opponent_joined': len(room['players']) > 1,
         'player1': p1[8] if p1 else f"ID{room['players'][0]}",
-        'player2': p2[8] if p2 else 'ОЖИДАНИЕ...'
+        'player2': p2[8] if p2 else 'ОЖИДАНИЕ...',
+        'room_exists': True
     })
 
 @app.route('/sync_battle_preview', methods=['POST'])
