@@ -64,6 +64,7 @@ function showBattles() {
     document.querySelector('.nav-item[data-tab="battles"]').classList.add('active');
     loadBattleData();
     loadBattleRooms();
+    checkActiveRoom();
     if (window.battleInterval) clearInterval(window.battleInterval);
     window.battleInterval = setInterval(loadBattleRooms, 5000);
 }
@@ -908,17 +909,63 @@ function loadBattleRooms() {
     .then(res => res.json())
     .then(data => {
         const list = document.getElementById('battleRoomsList');
-        if (data.rooms && data.rooms.length > 0) {
-            list.innerHTML = data.rooms.map(r => `
-                <div class="room-item">
-                    <span class="room-creator">👤 Игрок (ID: ${r.creator_id})</span>
-                    <span class="room-case">📦 ${r.case_type}</span>
-                    <span class="room-players">👥 ${r.players_count}/2</span>
-                    <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ПРИСОЕДИНИТЬСЯ</button>
-                </div>
-            `).join('');
-        } else {
-            list.innerHTML = '<div class="empty-state">🏠 Нет активных комнат. Создай свою!</div>';
+        const myRooms = data.my_rooms || [];
+        const otherRooms = data.rooms || [];
+        
+        let html = '';
+        
+        if (myRooms.length > 0) {
+            html += `<div style="color: #ffd700; font-size: 14px; margin-bottom: 8px;">⭐ ТВОИ КОМНАТЫ:</div>`;
+            myRooms.forEach(r => {
+                html += `
+                    <div class="room-item" style="border-color: rgba(255,215,0,0.3);">
+                        <span class="room-creator">👤 ${r.player1} vs ${r.player2}</span>
+                        <span class="room-case">📦 ${r.case_type}</span>
+                        <span class="room-players">👥 ${r.players_count}/2</span>
+                        <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ВЕРНУТЬСЯ</button>
+                    </div>
+                `;
+            });
+        }
+        
+        if (otherRooms.length > 0) {
+            html += `<div style="color: #aaa; font-size: 14px; margin: 8px 0;">📋 ДРУГИЕ КОМНАТЫ:</div>`;
+            otherRooms.forEach(r => {
+                html += `
+                    <div class="room-item">
+                        <span class="room-creator">👤 Игрок (ID: ${r.creator_id})</span>
+                        <span class="room-case">📦 ${r.case_type}</span>
+                        <span class="room-players">👥 ${r.players_count}/2</span>
+                        <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ПРИСОЕДИНИТЬСЯ</button>
+                    </div>
+                `;
+            });
+        }
+        
+        if (!html) {
+            html = '<div class="empty-state">🏠 Нет активных комнат. Создай свою!</div>';
+        }
+        
+        list.innerHTML = html;
+    })
+    .catch(() => {});
+}
+
+function checkActiveRoom() {
+    fetch('/get_user_room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.room_id) {
+            const room = data.room;
+            if (confirm('⚠️ У тебя есть активная комната! Вернуться?')) {
+                showBattlePreview(data.room_id, room.case_type, room.player1, room.player2, false);
+                startListeningForOpponent(data.room_id);
+                startOpponentChecker(data.room_id);
+            }
         }
     })
     .catch(() => {});
@@ -1156,7 +1203,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     readyBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
     
     if (isBot) {
-        // ===== БОТ — КНОПКА СРАЗУ АКТИВНА =====
         readyBtn.onclick = function() {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
@@ -1170,7 +1216,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         };
         document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Нажми «ГОТОВ», чтобы начать';
     } else {
-        // ===== ИГРОК — КНОПКА ОТПРАВЛЯЕТ ЗАПРОС =====
         readyBtn.onclick = function() {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
@@ -1364,6 +1409,252 @@ function startListeningForOpponent(room_id) {
     }, 2000);
 }
 
+// ===== БИТВА С БОТОМ =====
+function showBotBattle() {
+    document.getElementById('botBattleModal').classList.add('active');
+}
+
+function closeBotBattle() {
+    document.getElementById('botBattleModal').classList.remove('active');
+}
+
+function startBotBattle() {
+    const case_type = selectedBotCase;
+    
+    fetch('/check_balance_simple', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, amount: getPrice(case_type) })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error || !data.has_enough) {
+            tg.showAlert('❌ Недостаточно звёзд для открытия кейса!');
+            return;
+        }
+        closeBotBattle();
+        showBattlePreview(null, case_type, 'ТЫ', 'БОТ', true);
+    })
+    .catch(() => tg.showAlert('❌ Ошибка проверки баланса'));
+}
+
+function startBotBattleAnimation() {
+    const case_type = selectedBotCase;
+    
+    showBotRouletteAnimation(case_type);
+    
+    fetch('/start_bot_battle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, case_type })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
+            return;
+        }
+        setTimeout(() => {
+            const overlay = document.getElementById('botRouletteOverlay');
+            if (overlay) overlay.remove();
+            showBotBattleResult(data);
+        }, 6500);
+    })
+    .catch(() => tg.showAlert('❌ Ошибка при запуске битвы с ботом'));
+}
+
+function showBotRouletteAnimation(case_type) {
+    const style = getStyle(case_type);
+    const prizes = getPrizes(case_type);
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'botRouletteOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: ${style.bg};
+        background-image: ${style.bgGradient};
+        backdrop-filter: blur(30px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+        padding: 20px;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    const title = document.createElement('div');
+    title.style.cssText = `
+        font-size: 22px;
+        font-weight: 800;
+        color: ${style.titleColor};
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        text-shadow: 0 0 40px ${style.glowColor};
+        text-align: center;
+    `;
+    title.textContent = `🤖 ${case_type.toUpperCase()} BATTLE`;
+    overlay.appendChild(title);
+    
+    const playersContainer = document.createElement('div');
+    playersContainer.style.cssText = `
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        align-items: stretch;
+        width: 100%;
+        max-width: 700px;
+        margin-bottom: 16px;
+    `;
+    
+    const cardWidth = 130;
+    const cardGap = 8;
+    
+    const p1Container = document.createElement('div');
+    p1Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
+    let cards1 = '';
+    for (let i = 0; i < 60; i++) {
+        const p = prizes[Math.floor(Math.random() * prizes.length)];
+        const isLarge = p > 1000;
+        const fontSize = isLarge ? '22px' : '28px';
+        cards1 += `<div class="roulette-card" style="width: ${cardWidth}px; height: 120px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); font-size: ${fontSize}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
+    }
+    p1Container.innerHTML = `
+        <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 ТЫ</div>
+        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
+            <div id="botRouletteTrack1" style="display: flex; gap: ${cardGap}px; padding: 10px 0; transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change: transform; position: relative;">
+                ${cards1}
+            </div>
+            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
+        </div>
+    `;
+    playersContainer.appendChild(p1Container);
+    
+    const vsDiv = document.createElement('div');
+    vsDiv.style.cssText = `
+        display: flex;
+        align-items: center;
+        font-size: 28px;
+        font-weight: 900;
+        color: #ff6b6b;
+        text-shadow: 0 0 30px rgba(255,0,0,0.3);
+        flex-shrink: 0;
+    `;
+    vsDiv.textContent = '🤖';
+    playersContainer.appendChild(vsDiv);
+    
+    const p2Container = document.createElement('div');
+    p2Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
+    let cards2 = '';
+    for (let i = 0; i < 60; i++) {
+        const p = prizes[Math.floor(Math.random() * prizes.length)];
+        const isLarge = p > 1000;
+        const fontSize = isLarge ? '22px' : '28px';
+        cards2 += `<div class="roulette-card" style="width: ${cardWidth}px; height: 120px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); font-size: ${fontSize}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
+    }
+    p2Container.innerHTML = `
+        <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 БОТ</div>
+        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
+            <div id="botRouletteTrack2" style="display: flex; gap: ${cardGap}px; padding: 10px 0; transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change: transform; position: relative;">
+                ${cards2}
+            </div>
+            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
+        </div>
+    `;
+    playersContainer.appendChild(p2Container);
+    
+    overlay.appendChild(playersContainer);
+    
+    const infoDiv = document.createElement('div');
+    infoDiv.style.cssText = `
+        color: #888;
+        font-size: 14px;
+        text-align: center;
+        margin-bottom: 10px;
+    `;
+    infoDiv.textContent = `📦 Кейс: ${case_type.toUpperCase()}`;
+    overlay.appendChild(infoDiv);
+    
+    const statusDiv = document.createElement('div');
+    statusDiv.id = 'botRouletteStatus';
+    statusDiv.style.cssText = `
+        color: ${style.titleColor};
+        font-size: 16px;
+        font-weight: 600;
+        opacity: 0.6;
+        text-align: center;
+        letter-spacing: 1px;
+    `;
+    statusDiv.textContent = '🎰 Открытие...';
+    overlay.appendChild(statusDiv);
+    
+    document.body.appendChild(overlay);
+    
+    overlay._track1 = document.getElementById('botRouletteTrack1');
+    overlay._track2 = document.getElementById('botRouletteTrack2');
+    overlay._style = style;
+    overlay._winPos = 40;
+    overlay._totalCardWidth = cardWidth + cardGap;
+}
+
+function showBotBattleResult(data) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.92);
+        backdrop-filter: blur(20px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 30px;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    const iconMap = { 'win': '🎉', 'lose': '😢', 'draw': '🤝' };
+    const titleMap = { 'win': 'ПОБЕДА!', 'lose': 'ПОРАЖЕНИЕ...', 'draw': 'НИЧЬЯ!' };
+    const colorMap = { 'win': '#4caf50', 'lose': '#f44336', 'draw': '#ffd700' };
+    
+    overlay.innerHTML = `
+        <div style="font-size: 80px; margin-bottom: 10px;">${iconMap[data.result]}</div>
+        <div style="font-size: 32px; font-weight: 800; color: ${colorMap[data.result]}; margin-bottom: 20px;">
+            ${titleMap[data.result]}
+        </div>
+        <div style="display: flex; gap: 40px; margin-bottom: 20px;">
+            <div style="text-align: center;">
+                <div style="font-size: 40px;">👤</div>
+                <div style="font-weight: 700; color: ${data.result === 'win' ? '#4caf50' : '#aaa'};">ТЫ</div>
+                <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.player_prize}⭐</div>
+            </div>
+            <div style="display: flex; align-items: center; font-size: 36px; color: #ff6b6b;">🤖</div>
+            <div style="text-align: center;">
+                <div style="font-size: 40px;">🤖</div>
+                <div style="font-weight: 700; color: ${data.result === 'lose' ? '#4caf50' : '#aaa'};">БОТ</div>
+                <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.bot_prize}⭐</div>
+            </div>
+        </div>
+        <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 16px 24px; margin-bottom: 20px; text-align: center;">
+            <div style="color: #aaa; font-size: 14px;">${data.result_text}</div>
+            ${data.commission ? `<div style="color: #888; font-size: 12px;">💸 Комиссия: ${data.commission}⭐</div>` : ''}
+        </div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
+            <button onclick="this.closest('div').remove(); showBotBattle();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                🤖 СНОВА
+            </button>
+            <button onclick="this.closest('div').remove(); showMain();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                🔙 НАЗАД
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    loadBattleData();
+}
+
 // ===== АНИМАЦИЯ БИТВЫ (2 РУЛЕТКИ) =====
 function startBattleAnimation(room_id) {
     fetch('/get_battle_animation_data', {
@@ -1426,7 +1717,6 @@ function startBattleAnimation(room_id) {
         const cardWidth = 130;
         const cardGap = 8;
         
-        // Рулетка 1
         const p1Container = document.createElement('div');
         p1Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
         let cards1 = '';
@@ -1460,7 +1750,6 @@ function startBattleAnimation(room_id) {
         vsDiv.textContent = '⚔️';
         playersContainer.appendChild(vsDiv);
         
-        // Рулетка 2
         const p2Container = document.createElement('div');
         p2Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
         let cards2 = '';
@@ -1596,25 +1885,6 @@ function checkBattleResultWithRoulette() {
     .catch(() => {});
 }
 
-function startBotBattleAnimation() {
-    const case_type = selectedBotCase;
-    
-    fetch('/start_bot_battle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, case_type })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error) {
-            tg.showAlert('❌ ' + data.error);
-            return;
-        }
-        closeBotBattle();
-        showBotBattleResult(data);
-    });
-}
-
 // ===== РЕЗУЛЬТАТЫ =====
 function showBattleResult(data) {
     document.getElementById('waitingRoom').style.display = 'none';
@@ -1713,90 +1983,6 @@ function showBattleResult(data) {
     loadBattleData();
 }
 
-// ===================== БИТВА С БОТОМ =====================
-function showBotBattle() {
-    document.getElementById('botBattleModal').classList.add('active');
-}
-
-function closeBotBattle() {
-    document.getElementById('botBattleModal').classList.remove('active');
-}
-
-function startBotBattle() {
-    const case_type = selectedBotCase;
-    
-    fetch('/check_balance_simple', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, amount: getPrice(case_type) })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error || !data.has_enough) {
-            tg.showAlert('❌ Недостаточно звёзд для открытия кейса!');
-            return;
-        }
-        closeBotBattle();
-        showBattlePreview(null, case_type, 'ТЫ', 'БОТ', true);
-    });
-}
-
-function showBotBattleResult(data) {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.92);
-        backdrop-filter: blur(20px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        padding: 30px;
-        animation: fadeIn 0.3s ease;
-    `;
-    
-    const iconMap = { 'win': '🎉', 'lose': '😢', 'draw': '🤝' };
-    const titleMap = { 'win': 'ПОБЕДА!', 'lose': 'ПОРАЖЕНИЕ...', 'draw': 'НИЧЬЯ!' };
-    const colorMap = { 'win': '#4caf50', 'lose': '#f44336', 'draw': '#ffd700' };
-    
-    overlay.innerHTML = `
-        <div style="font-size: 80px; margin-bottom: 10px;">${iconMap[data.result]}</div>
-        <div style="font-size: 32px; font-weight: 800; color: ${colorMap[data.result]}; margin-bottom: 20px;">
-            ${titleMap[data.result]}
-        </div>
-        <div style="display: flex; gap: 40px; margin-bottom: 20px;">
-            <div style="text-align: center;">
-                <div style="font-size: 40px;">👤</div>
-                <div style="font-weight: 700; color: ${data.result === 'win' ? '#4caf50' : '#aaa'};">ТЫ</div>
-                <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.player_prize}⭐</div>
-            </div>
-            <div style="display: flex; align-items: center; font-size: 36px; color: #ff6b6b;">⚔️</div>
-            <div style="text-align: center;">
-                <div style="font-size: 40px;">🤖</div>
-                <div style="font-weight: 700; color: ${data.result === 'lose' ? '#4caf50' : '#aaa'};">БОТ</div>
-                <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.bot_prize}⭐</div>
-            </div>
-        </div>
-        <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 16px 24px; margin-bottom: 20px; text-align: center;">
-            <div style="color: #aaa; font-size: 14px;">${data.result_text}</div>
-            ${data.commission ? `<div style="color: #888; font-size: 12px;">💸 Комиссия: ${data.commission}⭐</div>` : ''}
-        </div>
-        <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
-            <button onclick="this.closest('div').remove(); showBotBattle();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
-                🤖 СНОВА
-            </button>
-            <button onclick="this.closest('div').remove(); showMain();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
-                🔙 НАЗАД
-            </button>
-        </div>
-    `;
-    
-    document.body.appendChild(overlay);
-    loadBattleData();
-}
-
 // ===================== МИНЁР =====================
 function initMinesBoard() {
     const board = document.getElementById('minesBoard');
@@ -1834,6 +2020,15 @@ document.querySelectorAll('.mines-btn').forEach(btn => {
         selectedMines = parseInt(this.dataset.mines);
     });
 });
+
+function getMinesMultiplier(opened) {
+    const multipliers = {
+        1: 1.05, 2: 1.10, 3: 1.20, 4: 1.35, 5: 1.55,
+        6: 1.80, 7: 2.20, 8: 2.70, 9: 3.30, 10: 4.00,
+        11: 4.50, 12: 5.00
+    };
+    return multipliers[opened] || 5.00;
+}
 
 function startMinesGame() {
     const bet = getBetFromInput();
@@ -1990,6 +2185,8 @@ function openMinesCell(index) {
 }
 
 function showMinesResult(icon, title, text, color) {
+    const board = minesGameData ? minesGameData.board : null;
+    
     const overlay = document.createElement('div');
     overlay.style.cssText = `
         position: fixed;
@@ -2005,10 +2202,25 @@ function showMinesResult(icon, title, text, color) {
         animation: fadeIn 0.3s ease;
     `;
     
+    let miniBoardHTML = '';
+    if (board) {
+        miniBoardHTML = `
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; max-width: 200px; margin: 10px auto 16px auto;">
+                ${board.map(cell => `
+                    <div style="aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 20px; background: ${cell === 1 ? 'rgba(255,0,0,0.2)' : 'rgba(0,255,0,0.08)'}; border-radius: 6px; border: 1px solid ${cell === 1 ? 'rgba(255,0,0,0.3)' : 'rgba(255,255,255,0.06)'};">
+                        ${cell === 1 ? '💣' : '💎'}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
     overlay.innerHTML = `
         <div style="font-size: 80px; margin-bottom: 10px;">${icon}</div>
         <div style="font-size: 32px; font-weight: 800; color: ${color}; margin-bottom: 10px;">${title}</div>
-        <div style="color: #aaa; font-size: 18px; margin-bottom: 20px; text-align: center;">${text}</div>
+        <div style="color: #aaa; font-size: 18px; margin-bottom: 10px; text-align: center;">${text}</div>
+        ${miniBoardHTML}
+        <div style="color: #666; font-size: 12px; margin-bottom: 16px;">💣 — мины | 💎 — безопасные клетки</div>
         <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
             <button id="minesPlayAgainBtn" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
                 🔄 ИГРАТЬ СНОВА
@@ -2021,13 +2233,11 @@ function showMinesResult(icon, title, text, color) {
     
     document.body.appendChild(overlay);
     
-    // ===== КНОПКА «ИГРАТЬ СНОВА» =====
     document.getElementById('minesPlayAgainBtn').onclick = function() {
         overlay.remove();
         startMinesGame();
     };
     
-    // ===== КНОПКА «НАЗАД» =====
     document.getElementById('minesBackBtn').onclick = function() {
         overlay.remove();
         showMines();
