@@ -1054,34 +1054,39 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         display: flex;
         gap: 20px;
         justify-content: center;
-        align-items: center;
+        align-items: stretch;
         width: 100%;
         max-width: 700px;
         margin-bottom: 16px;
     `;
     
+    // Лента 1
     const p1Container = document.createElement('div');
-    p1Container.style.cssText = `flex: 1; text-align: center;`;
+    p1Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
     let p1Cards = '';
     for (let r = 0; r < 4; r++) {
         prizes.forEach(p => {
-            p1Cards += `<div style="width: 70px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); font-size: ${p > 1000 ? '16px' : '20px'}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
+            const isLarge = p > 1000;
+            p1Cards += `<div class="preview-card" style="width: 70px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); font-size: ${isLarge ? '16px' : '20px'}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
         });
     }
     const totalWidth = prizes.length * 76 * 4;
     p1Container.innerHTML = `
-        <div style="font-size: 14px; color: #aaa; margin-bottom: 4px;">👤 ${player1}</div>
-        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px;">
+        <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 ${player1}</div>
+        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
             <div id="previewTrack1" style="display: flex; gap: 6px; padding: 10px 0; animation: scrollTapeForward ${prizes.length * 2}s linear infinite; will-change: transform; position: relative; width: ${totalWidth}px;">
                 ${p1Cards}
             </div>
-            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none;">▼</div>
+            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
         </div>
     `;
     playersContainer.appendChild(p1Container);
     
+    // VS
     const vsDiv = document.createElement('div');
     vsDiv.style.cssText = `
+        display: flex;
+        align-items: center;
         font-size: 28px;
         font-weight: 900;
         color: #ff6b6b;
@@ -1091,21 +1096,23 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     vsDiv.textContent = isBot ? '🤖' : '⚔️';
     playersContainer.appendChild(vsDiv);
     
+    // Лента 2
     const p2Container = document.createElement('div');
-    p2Container.style.cssText = `flex: 1; text-align: center;`;
+    p2Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
     let p2Cards = '';
     for (let r = 0; r < 4; r++) {
         prizes.forEach(p => {
-            p2Cards += `<div style="width: 70px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); font-size: ${p > 1000 ? '16px' : '20px'}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
+            const isLarge = p > 1000;
+            p2Cards += `<div class="preview-card" style="width: 70px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); font-size: ${isLarge ? '16px' : '20px'}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
         });
     }
     p2Container.innerHTML = `
-        <div style="font-size: 14px; color: #aaa; margin-bottom: 4px;">👤 ${player2}</div>
-        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px;">
+        <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 ${player2}</div>
+        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
             <div id="previewTrack2" style="display: flex; gap: 6px; padding: 10px 0; animation: scrollTapeForward ${prizes.length * 2}s linear infinite; will-change: transform; position: relative; width: ${totalWidth}px;">
                 ${p2Cards}
             </div>
-            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none;">▼</div>
+            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
         </div>
     `;
     playersContainer.appendChild(p2Container);
@@ -1143,6 +1150,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         this.textContent = '⏳ ОЖИДАНИЕ...';
         this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
         this.disabled = true;
+        document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
         if (isBot) {
             document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Битва начинается...';
             setTimeout(() => {
@@ -1179,6 +1187,12 @@ function sendBattleReady(room_id) {
     .then(data => {
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
+            const btn = document.getElementById('battleReadyBtn');
+            if (btn) {
+                btn.textContent = '✅ ГОТОВ';
+                btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
+                btn.disabled = false;
+            }
             return;
         }
         if (data.ready) {
@@ -1194,19 +1208,12 @@ function sendBattleReady(room_id) {
     });
 }
 
+// ===== АНИМАЦИЯ БИТВЫ (2 РУЛЕТКИ) =====
 function startBattleAnimation(room_id) {
-    if (window.battleResultInterval) clearInterval(window.battleResultInterval);
-    window.battleResultInterval = setInterval(checkBattleResultWithRoulette, 2000);
-    checkBattleResultWithRoulette();
-}
-
-function startBotBattleAnimation() {
-    const case_type = selectedBotCase;
-    
-    fetch('/start_bot_battle', {
+    fetch('/get_battle_animation_data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, case_type })
+        body: JSON.stringify({ room_id })
     })
     .then(res => res.json())
     .then(data => {
@@ -1214,8 +1221,144 @@ function startBotBattleAnimation() {
             tg.showAlert('❌ ' + data.error);
             return;
         }
-        closeBotBattle();
-        showBotBattleResult(data);
+        
+        const style = getStyle(data.case_type);
+        const prizes = getPrizes(data.case_type);
+        
+        const overlay = document.createElement('div');
+        overlay.id = 'battleRouletteOverlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: ${style.bg};
+            background-image: ${style.bgGradient};
+            backdrop-filter: blur(30px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            padding: 20px;
+            animation: fadeIn 0.3s ease;
+        `;
+        
+        const title = document.createElement('div');
+        title.style.cssText = `
+            font-size: 22px;
+            font-weight: 800;
+            color: ${style.titleColor};
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 40px ${style.glowColor};
+            text-align: center;
+        `;
+        title.textContent = `⚔️ ${data.case_type.toUpperCase()} BATTLE`;
+        overlay.appendChild(title);
+        
+        const playersContainer = document.createElement('div');
+        playersContainer.style.cssText = `
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: stretch;
+            width: 100%;
+            max-width: 700px;
+            margin-bottom: 16px;
+        `;
+        
+        // Рулетка 1
+        const p1Container = document.createElement('div');
+        p1Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
+        const cardWidth = 130;
+        const cardGap = 8;
+        let cards1 = '';
+        for (let i = 0; i < 60; i++) {
+            const p = prizes[Math.floor(Math.random() * prizes.length)];
+            const isLarge = p > 1000;
+            const fontSize = isLarge ? '22px' : '28px';
+            cards1 += `<div class="roulette-card" data-index="${i}" style="width: ${cardWidth}px; height: 120px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); font-size: ${fontSize}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor}; transition: all 0.2s ease;">${p}⭐</div>`;
+        }
+        p1Container.innerHTML = `
+            <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 ${data.player1}</div>
+            <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
+                <div id="rouletteTrack1" style="display: flex; gap: ${cardGap}px; padding: 10px 0; transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change: transform; position: relative;">
+                    ${cards1}
+                </div>
+                <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
+            </div>
+        `;
+        playersContainer.appendChild(p1Container);
+        
+        const vsDiv = document.createElement('div');
+        vsDiv.style.cssText = `
+            display: flex;
+            align-items: center;
+            font-size: 28px;
+            font-weight: 900;
+            color: #ff6b6b;
+            text-shadow: 0 0 30px rgba(255,0,0,0.3);
+            flex-shrink: 0;
+        `;
+        vsDiv.textContent = '⚔️';
+        playersContainer.appendChild(vsDiv);
+        
+        // Рулетка 2
+        const p2Container = document.createElement('div');
+        p2Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
+        let cards2 = '';
+        for (let i = 0; i < 60; i++) {
+            const p = prizes[Math.floor(Math.random() * prizes.length)];
+            const isLarge = p > 1000;
+            const fontSize = isLarge ? '22px' : '28px';
+            cards2 += `<div class="roulette-card" data-index="${i}" style="width: ${cardWidth}px; height: 120px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); font-size: ${fontSize}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor}; transition: all 0.2s ease;">${p}⭐</div>`;
+        }
+        p2Container.innerHTML = `
+            <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 ${data.player2}</div>
+            <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
+                <div id="rouletteTrack2" style="display: flex; gap: ${cardGap}px; padding: 10px 0; transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change: transform; position: relative;">
+                    ${cards2}
+                </div>
+                <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
+            </div>
+        `;
+        playersContainer.appendChild(p2Container);
+        
+        overlay.appendChild(playersContainer);
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = `
+            color: #888;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 10px;
+        `;
+        infoDiv.textContent = `📦 Кейс: ${data.case_type.toUpperCase()}`;
+        overlay.appendChild(infoDiv);
+        
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'battleRouletteStatus';
+        statusDiv.style.cssText = `
+            color: ${style.titleColor};
+            font-size: 16px;
+            font-weight: 600;
+            opacity: 0.6;
+            text-align: center;
+            letter-spacing: 1px;
+        `;
+        statusDiv.textContent = '🎰 Открытие...';
+        overlay.appendChild(statusDiv);
+        
+        document.body.appendChild(overlay);
+        
+        overlay._track1 = document.getElementById('rouletteTrack1');
+        overlay._track2 = document.getElementById('rouletteTrack2');
+        overlay._style = style;
+        overlay._winPos = 40;
+        overlay._totalCardWidth = cardWidth + cardGap;
+        
+        if (window.battleResultInterval) clearInterval(window.battleResultInterval);
+        window.battleResultInterval = setInterval(checkBattleResultWithRoulette, 2000);
     });
 }
 
@@ -1237,8 +1380,11 @@ function checkBattleResultWithRoulette() {
                 return;
             }
             
-            const track1 = document.getElementById('rouletteTrack1');
-            const track2 = document.getElementById('rouletteTrack2');
+            const track1 = overlay._track1;
+            const track2 = overlay._track2;
+            const style = overlay._style;
+            const winPos = overlay._winPos || 40;
+            const totalCardWidth = overlay._totalCardWidth || 138;
             
             if (!track1 || !track2) {
                 showBattleResult(data);
@@ -1247,37 +1393,42 @@ function checkBattleResultWithRoulette() {
             
             const cards1 = track1.querySelectorAll('.roulette-card');
             const cards2 = track2.querySelectorAll('.roulette-card');
-            const winPos = 20;
             
             if (cards1[winPos]) {
                 cards1[winPos].textContent = `${data.player1_prize}⭐`;
                 cards1[winPos].style.background = 'rgba(255,215,0,0.15)';
-                cards1[winPos].style.border = '2px solid #ffd700';
+                cards1[winPos].style.border = `2px solid ${style.highlightColor}`;
                 cards1[winPos].style.color = '#FFFFFF';
-                cards1[winPos].style.textShadow = '0 0 30px #ffd700';
+                cards1[winPos].style.textShadow = `0 0 30px ${style.highlightColor}`;
                 cards1[winPos].style.fontSize = '24px';
+                cards1[winPos].classList.add('win');
             }
             
             if (cards2[winPos]) {
                 cards2[winPos].textContent = `${data.player2_prize}⭐`;
                 cards2[winPos].style.background = 'rgba(255,215,0,0.15)';
-                cards2[winPos].style.border = '2px solid #ffd700';
+                cards2[winPos].style.border = `2px solid ${style.highlightColor}`;
                 cards2[winPos].style.color = '#FFFFFF';
-                cards2[winPos].style.textShadow = '0 0 30px #ffd700';
+                cards2[winPos].style.textShadow = `0 0 30px ${style.highlightColor}`;
                 cards2[winPos].style.fontSize = '24px';
+                cards2[winPos].classList.add('win');
             }
             
-            const cardWidth = 76;
             const viewportWidth = window.innerWidth * 0.45;
             const centerOffset = viewportWidth / 2;
-            const shift = (winPos * cardWidth) - centerOffset + (cardWidth / 2);
-            const noise1 = Math.floor(Math.random() * 30) - 15;
-            const noise2 = Math.floor(Math.random() * 30) - 15;
+            const shift = (winPos * totalCardWidth) - centerOffset + (totalCardWidth / 2);
+            const noise1 = Math.floor(Math.random() * 40) - 20;
+            const noise2 = Math.floor(Math.random() * 40) - 20;
             
             track1.style.transform = `translateX(-${shift + noise1}px)`;
             track2.style.transform = `translateX(-${shift + noise2}px)`;
             
-            document.getElementById('battleRouletteStatus').textContent = '⏳ Результат...';
+            const statusDiv = document.getElementById('battleRouletteStatus');
+            if (statusDiv) {
+                statusDiv.textContent = '⏳ Результат...';
+                statusDiv.style.color = '#ffd700';
+                statusDiv.style.opacity = '1';
+            }
             
             setTimeout(() => {
                 if (overlay.parentNode) overlay.remove();
@@ -1286,6 +1437,25 @@ function checkBattleResultWithRoulette() {
         }
     })
     .catch(() => {});
+}
+
+function startBotBattleAnimation() {
+    const case_type = selectedBotCase;
+    
+    fetch('/start_bot_battle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, case_type })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
+            return;
+        }
+        closeBotBattle();
+        showBotBattleResult(data);
+    });
 }
 
 function showBattleResult(data) {
