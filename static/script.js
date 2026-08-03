@@ -964,7 +964,9 @@ function createBattleRoom() {
         }
         currentRoomId = data.room_id;
         closeCreateBattle();
-        showWaitingRoom(data.room_id, data.case_type);
+        showBattlePreview(data.room_id, data.case_type, 'ТЫ', 'ОЖИДАНИЕ...', false);
+        startListeningForOpponent(data.room_id);
+        startOpponentChecker(data.room_id);
     });
 }
 
@@ -1004,16 +1006,22 @@ function joinBattleRoom(room_id) {
     .then(res => res.json())
     .then(data => {
         if (data.error) {
-            tg.showAlert('❌ ' + data.error);
+            if (data.error.includes('пользователь не найден')) {
+                tg.showAlert('❌ Не удалось найти пользователя. Попробуйте перезапустить бота.');
+            } else {
+                tg.showAlert('❌ ' + data.error);
+            }
             return;
         }
         if (data.success) {
             showBattlePreview(data.room_id, data.case_type, data.player1, data.player2, false);
+            syncPreviewStart(data.room_id);
+            startOpponentChecker(data.room_id);
         }
     });
 }
 
-// ===================== ПРЕДПРОСМОТР БИТВЫ =====================
+// ===== ПРЕДПРОСМОТР БИТВЫ =====
 function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     const style = getStyle(case_type);
     const prizes = getPrizes(case_type);
@@ -1082,7 +1090,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     `;
     playersContainer.appendChild(p1Container);
     
-    // VS
     const vsDiv = document.createElement('div');
     vsDiv.style.cssText = `
         display: flex;
@@ -1146,22 +1153,30 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     `;
     readyBtn.onmouseover = function() { this.style.transform = 'scale(1.05)'; };
     readyBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
-    readyBtn.onclick = function() {
-        this.textContent = '⏳ ОЖИДАНИЕ...';
-        this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
-        this.disabled = true;
-        document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
-        if (isBot) {
+    
+    if (isBot) {
+        readyBtn.onclick = function() {
+            this.textContent = '⏳ ОЖИДАНИЕ...';
+            this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
+            this.disabled = true;
+            document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
             document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Битва начинается...';
             setTimeout(() => {
                 const overlay = document.getElementById('battlePreviewOverlay');
                 if (overlay) overlay.remove();
                 startBotBattleAnimation();
             }, 500);
-        } else {
+        };
+        document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Нажми «ГОТОВ», чтобы начать';
+    } else {
+        readyBtn.onclick = function() {
+            this.textContent = '⏳ ОЖИДАНИЕ...';
+            this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
+            this.disabled = true;
+            document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
             sendBattleReady(room_id);
-        }
-    };
+        };
+    }
     overlay.appendChild(readyBtn);
     
     const statusDiv = document.createElement('div');
@@ -1173,6 +1188,46 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     `;
     statusDiv.textContent = isBot ? 'Нажми «ГОТОВ», чтобы начать битву с ботом' : 'Нажми «ГОТОВ», чтобы начать битву';
     overlay.appendChild(statusDiv);
+    
+    // Кнопка "Назад"
+    const backBtn = document.createElement('button');
+    backBtn.textContent = '🔙 НАЗАД';
+    backBtn.style.cssText = `
+        padding: 12px 30px;
+        border: none;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.06);
+        color: #888;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 6px;
+        transition: all 0.2s;
+    `;
+    backBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.12)'; };
+    backBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.06)'; };
+    backBtn.onclick = function() {
+        if (currentRoomId) {
+            fetch('/exit_battle_room', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id, room_id: currentRoomId })
+            })
+            .then(() => {
+                currentRoomId = null;
+                if (window.opponentInterval) clearInterval(window.opponentInterval);
+                if (window.opponentChecker) clearInterval(window.opponentChecker);
+                const overlay = document.getElementById('battlePreviewOverlay');
+                if (overlay) overlay.remove();
+                showBattles();
+            });
+        } else {
+            const overlay = document.getElementById('battlePreviewOverlay');
+            if (overlay) overlay.remove();
+            showBattles();
+        }
+    };
+    overlay.appendChild(backBtn);
     
     document.body.appendChild(overlay);
 }
@@ -1187,6 +1242,12 @@ function sendBattleReady(room_id) {
     .then(data => {
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
+            if (data.error.includes('не в этой комнате') || data.error.includes('не найдена')) {
+                tg.showAlert('❌ Соперник вышел из комнаты!');
+                const overlay = document.getElementById('battlePreviewOverlay');
+                if (overlay) overlay.remove();
+                showBattles();
+            }
             const btn = document.getElementById('battleReadyBtn');
             if (btn) {
                 btn.textContent = '✅ ГОТОВ';
@@ -1195,6 +1256,7 @@ function sendBattleReady(room_id) {
             }
             return;
         }
+        
         if (data.ready) {
             document.getElementById('battlePreviewStatus').textContent = '✅ Оба игрока готовы! Битва начинается...';
             setTimeout(() => {
@@ -1205,7 +1267,99 @@ function sendBattleReady(room_id) {
         } else {
             document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
         }
+    })
+    .catch(() => {});
+}
+
+function syncPreviewStart(room_id) {
+    fetch('/sync_battle_preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, room_id })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Sync error:', data.error);
+            return;
+        }
+        updatePreviewNames(data.me, data.opponent);
+        updateReadyStatus(data.ready_status);
     });
+}
+
+function updatePreviewNames(me, opponent) {
+    const previewTrack1 = document.querySelector('#previewTrack1')?.closest('div')?.previousElementSibling;
+    const previewTrack2 = document.querySelector('#previewTrack2')?.closest('div')?.previousElementSibling;
+    
+    if (previewTrack1) previewTrack1.textContent = '👤 ' + me;
+    if (previewTrack2) previewTrack2.textContent = '👤 ' + opponent;
+}
+
+function updateReadyStatus(readyStatus) {
+    const btn = document.getElementById('battleReadyBtn');
+    if (!btn) return;
+    
+    if (readyStatus && readyStatus[0] && readyStatus[1]) {
+        btn.textContent = '✅ ГОТОВЫ';
+        btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
+        btn.disabled = true;
+        document.getElementById('battlePreviewStatus').textContent = '✅ Оба игрока готовы!';
+    } else if (readyStatus && (readyStatus[0] || readyStatus[1])) {
+        btn.textContent = '⏳ ОЖИДАНИЕ...';
+        btn.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
+        btn.disabled = true;
+        document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
+    }
+}
+
+function startOpponentChecker(room_id) {
+    if (window.opponentChecker) clearInterval(window.opponentChecker);
+    window.opponentChecker = setInterval(() => {
+        fetch('/check_room_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error || !data.opponent_joined) {
+                clearInterval(window.opponentChecker);
+                tg.showAlert('❌ Ваш соперник вышел из комнаты!');
+                const overlay = document.getElementById('battlePreviewOverlay');
+                if (overlay) overlay.remove();
+                showBattles();
+            }
+        })
+        .catch(() => {});
+    }, 3000);
+}
+
+function startListeningForOpponent(room_id) {
+    if (window.opponentInterval) clearInterval(window.opponentInterval);
+    window.opponentInterval = setInterval(() => {
+        fetch('/check_room_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) return;
+            if (data.opponent_joined) {
+                clearInterval(window.opponentInterval);
+                updatePreviewNames('ТЫ', data.player2);
+                const btn = document.getElementById('battleReadyBtn');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '✅ ГОТОВ';
+                    btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
+                }
+                document.getElementById('battlePreviewStatus').textContent = 'Нажми «ГОТОВ», чтобы начать битву';
+            }
+        })
+        .catch(() => {});
+    }, 2000);
 }
 
 // ===== АНИМАЦИЯ БИТВЫ (2 РУЛЕТКИ) =====
@@ -1267,11 +1421,12 @@ function startBattleAnimation(room_id) {
             margin-bottom: 16px;
         `;
         
+        const cardWidth = 130;
+        const cardGap = 8;
+        
         // Рулетка 1
         const p1Container = document.createElement('div');
         p1Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
-        const cardWidth = 130;
-        const cardGap = 8;
         let cards1 = '';
         for (let i = 0; i < 60; i++) {
             const p = prizes[Math.floor(Math.random() * prizes.length)];
@@ -1458,6 +1613,7 @@ function startBotBattleAnimation() {
     });
 }
 
+// ===== РЕЗУЛЬТАТЫ =====
 function showBattleResult(data) {
     document.getElementById('waitingRoom').style.display = 'none';
     document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
@@ -1502,12 +1658,12 @@ function showBattleResult(data) {
             <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 16px 24px; margin-bottom: 20px; text-align: center; color: #aaa;">
                 ${data.result_text}
             </div>
-            <div style="display: flex; gap: 16px;">
+            <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
                 <button onclick="this.closest('div').remove(); showBattles();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
                     ⚔️ НОВАЯ БИТВА
                 </button>
                 <button onclick="this.closest('div').remove(); showMain();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
-                    🏠 ГЛАВНАЯ
+                    🔙 НАЗАД
                 </button>
             </div>
         `;
@@ -1540,12 +1696,12 @@ function showBattleResult(data) {
                 <div style="color: #888; font-size: 12px;">💸 Комиссия: ${data.commission}⭐</div>
                 ${isWin ? `<div style="color: #4caf50; font-size: 16px; font-weight: 700;">🏆 Ты получил: ${data.winner_winnings}⭐</div>` : ''}
             </div>
-            <div style="display: flex; gap: 16px;">
+            <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
                 <button onclick="this.closest('div').remove(); showBattles();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
                     ⚔️ НОВАЯ БИТВА
                 </button>
                 <button onclick="this.closest('div').remove(); showMain();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
-                    🏠 ГЛАВНАЯ
+                    🔙 НАЗАД
                 </button>
             </div>
         `;
@@ -1625,12 +1781,12 @@ function showBotBattleResult(data) {
             <div style="color: #aaa; font-size: 14px;">${data.result_text}</div>
             ${data.commission ? `<div style="color: #888; font-size: 12px;">💸 Комиссия: ${data.commission}⭐</div>` : ''}
         </div>
-        <div style="display: flex; gap: 16px;">
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
             <button onclick="this.closest('div').remove(); showBotBattle();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
                 🤖 СНОВА
             </button>
             <button onclick="this.closest('div').remove(); showMain();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
-                🏠 ГЛАВНАЯ
+                🔙 НАЗАД
             </button>
         </div>
     `;
@@ -1851,12 +2007,12 @@ function showMinesResult(icon, title, text, color) {
         <div style="font-size: 80px; margin-bottom: 10px;">${icon}</div>
         <div style="font-size: 32px; font-weight: 800; color: ${color}; margin-bottom: 10px;">${title}</div>
         <div style="color: #aaa; font-size: 18px; margin-bottom: 20px; text-align: center;">${text}</div>
-        <div style="display: flex; gap: 16px;">
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
             <button onclick="this.closest('div').remove(); startMinesGame();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
                 🔄 ИГРАТЬ СНОВА
             </button>
             <button onclick="this.closest('div').remove(); showMines();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
-                🏠 МЕНЮ
+                🔙 НАЗАД
             </button>
         </div>
     `;
