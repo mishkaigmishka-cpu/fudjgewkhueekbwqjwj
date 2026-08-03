@@ -8,6 +8,12 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- ===== ЛОАДЕР ===== -->
+    <div class="loader" id="loader">
+        <div class="loader-spinner"></div>
+        <div style="color:#aaa; margin-top:16px; font-size:18px;">Загрузка...</div>
+    </div>
+
     <div id="app">
         <header>
             <div class="logo">⚡ RANDEVU</div>
@@ -17,6 +23,7 @@
             </div>
         </header>
 
+        <!-- ГЛАВНАЯ -->
         <div id="mainScreen" class="screen active">
             <div class="balance-card">
                 <span class="balance-label">💰 Баланс</span>
@@ -27,7 +34,7 @@
                     <div class="case-icon">🎁</div>
                     <div class="case-info">
                         <div class="case-name">Бесплатный</div>
-                        <div class="case-price">0⭐</div>
+                        <div class="case-price" id="freeCasePrice">0⭐</div>
                         <div class="jackpot">🎯 1000⭐</div>
                     </div>
                 </div>
@@ -106,6 +113,7 @@
             </div>
         </div>
 
+        <!-- БИТВЫ -->
         <div id="battlesScreen" class="screen">
             <div class="section-title">⚔️ БИТВЫ</div>
             <div class="battle-stats">
@@ -140,6 +148,7 @@
             <button onclick="goBack()" class="btn-back">🔙 Назад</button>
         </div>
 
+        <!-- МИНЁР -->
         <div id="minesScreen" class="screen">
             <div class="section-title">💣 МИНЁР</div>
             
@@ -190,6 +199,7 @@
             <button onclick="goBack()" class="btn-back" style="margin-top:12px;">🔙 Назад</button>
         </div>
 
+        <!-- ПРОФИЛЬ -->
         <div id="profileScreen" class="screen">
             <div class="profile-card">
                 <div class="profile-avatar">👤</div>
@@ -216,6 +226,7 @@
             </div>
         </div>
 
+        <!-- МОДАЛКА: СОЗДАНИЕ БИТВЫ -->
         <div id="createBattleModal" class="modal-overlay">
             <div class="modal">
                 <h2>🔥 СОЗДАНИЕ БИТВЫ</h2>
@@ -240,6 +251,7 @@
             </div>
         </div>
 
+        <!-- МОДАЛКА: БИТВА С БОТОМ -->
         <div id="botBattleModal" class="modal-overlay">
             <div class="modal">
                 <h2>🤖 БИТВА С БОТОМ</h2>
@@ -264,6 +276,7 @@
             </div>
         </div>
 
+        <!-- РЕЗУЛЬТАТ ОТКРЫТИЯ КЕЙСА -->
         <div id="result" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(20px);z-index:100;padding:24px;flex-direction:column;align-items:center;justify-content:center;">
             <div id="prizeDisplay" style="font-size:90px;margin-bottom:10px;"></div>
             <div id="prizeName" style="font-size:28px;font-weight:700;margin-bottom:6px;"></div>
