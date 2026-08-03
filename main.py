@@ -1373,9 +1373,9 @@ if __name__ == "__main__":
     import threading
     print("✅ БОТ ЗАПУЩЕН (POLLING MODE)")
     bot.remove_webhook()
-    
+
     def run_flask():
         app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
-    
+
     threading.Thread(target=run_flask, daemon=True).start()
     bot.polling(none_stop=True, interval=0)
