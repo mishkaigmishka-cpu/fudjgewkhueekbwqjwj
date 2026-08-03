@@ -554,7 +554,7 @@ def join_battle_room():
     if len(room['players']) >= 2:
         return jsonify({'error': 'Комната полна'}), 400
     if uid in room['players']:
-        return jsonify({'error': 'Ты уже в этой комнате'}), 400
+        return jsonify({'error': 'Ты уже в этой комнате', 'already_in_room': True}), 400
     
     prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
     price = prices.get(room['case_type'], 0)
@@ -640,7 +640,7 @@ def start_bot_battle():
     player_prize = get_prize(case_type)
     bot_prize = get_prize(case_type)
     
-    update_user(uid, balance=user[1] + player_prize)
+    update_user(uid, balance=user[1] - price + player_prize)
     
     if player_prize > bot_prize:
         commission = int(player_prize * 0.10)
@@ -662,6 +662,7 @@ def start_bot_battle():
         user = get_user(uid)
         update_user(uid, balance=user[1] - commission)
         add_commission(commission)
+        update_battle_stats(uid, won=False, stars=commission)
         result = 'draw'
         result_text = f'🤝 Ничья! Ты получил {player_prize - commission}⭐'
     
@@ -774,6 +775,11 @@ def start_battle_opening(room_id):
     p1 = players[0]
     p2 = players[1]
     
+    p1_user = get_user(p1)
+    p2_user = get_user(p2)
+    if not p1_user or not p2_user:
+        return
+    
     prize1 = get_prize(case_type)
     prize2 = get_prize(case_type)
     
@@ -799,6 +805,8 @@ def start_battle_opening(room_id):
         update_user(p1, balance=user1[1] - commission1)
         update_user(p2, balance=user2[1] - commission2)
         add_commission(total_commission)
+        update_battle_stats(p1, won=False, stars=commission1)
+        update_battle_stats(p2, won=False, stars=commission2)
         
         draw_result = {
             'result': 'draw',
@@ -941,6 +949,7 @@ def open_mines_cell():
     
     if game['board'][index] == 1:
         game['status'] = 'lost'
+        update_user(uid, last_open=int(time.time()))
         update_mines_stats(uid, won=False, multiplier=0, stars=0)
         return jsonify({
             'board': game['board'],
@@ -960,7 +969,7 @@ def open_mines_cell():
         raw_winnings = int(game['bet'] * game['multiplier'])
         final_winnings = min(raw_winnings, 5000)
         user = get_user(uid)
-        update_user(uid, balance=user[1] + final_winnings)
+        update_user(uid, balance=user[1] + final_winnings, last_open=int(time.time()))
         game['status'] = 'won'
         update_mines_stats(uid, won=True, multiplier=game['multiplier'], stars=final_winnings)
         return jsonify({
@@ -1083,7 +1092,10 @@ def open_case():
         data = request.get_json()
         user_id = data.get('user_id')
         case_type = data.get('case_type')
-        prize_from_client = data.get('prize')
+        
+        # ===== УБРАНО: prize_from_client = data.get('prize') =====
+        # ===== ТЕПЕРЬ НАГРАДА ВСЕГДА ГЕНЕРИРУЕТСЯ НА СЕРВЕРЕ =====
+        
         user = get_user(user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 404
@@ -1094,10 +1106,10 @@ def open_case():
         if case_type == "free" and time.time() - user[4] < 7200:
             wait = int((7200 - (time.time() - user[4])) // 60)
             return jsonify({'error': f'Жди {wait} мин'}), 400
-        if prize_from_client is not None:
-            prize = prize_from_client
-        else:
-            prize = get_prize(case_type)
+        
+        # ===== НАГРАДА ГЕНЕРИРУЕТСЯ НА СЕРВЕРЕ =====
+        prize = get_prize(case_type)
+        
         new_bal = user[1] - price + prize
         new_total = user[2] + 1
         new_streak = user[3] + 1
@@ -1170,7 +1182,7 @@ def get_battle_data():
                 'status': battle['status']
             })
     history = []
-    for bid, battle in list(active_battles.items())[-5:]:
+    for bid, battle in list(active_battles.items()):
         if battle['status'] == 'finished' and (battle['player1'] == uid or battle['player2'] == uid):
             if battle['winner_id'] == uid:
                 won = True
