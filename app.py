@@ -517,15 +517,28 @@ def get_battle_rooms():
     data = request.get_json()
     uid = data.get('user_id')
     rooms = []
+    my_rooms = []
+    
     for rid, room in battle_rooms.items():
         if room['status'] == 'waiting' and len(room['players']) < 2:
-            rooms.append({
+            p1 = get_user(room['players'][0])
+            p2 = get_user(room['players'][1]) if len(room['players']) > 1 else None
+            
+            room_data = {
                 'room_id': rid,
                 'creator_id': room['creator'],
                 'case_type': room['case_type'],
-                'players_count': len(room['players'])
-            })
-    return jsonify({'rooms': rooms})
+                'players_count': len(room['players']),
+                'player1': p1[8] if p1 else f"ID{room['players'][0]}",
+                'player2': p2[8] if p2 else 'ОЖИДАНИЕ...'
+            }
+            
+            if uid in room['players']:
+                my_rooms.append(room_data)
+            else:
+                rooms.append(room_data)
+    
+    return jsonify({'rooms': rooms, 'my_rooms': my_rooms})
 
 @app.route('/join_battle_room', methods=['POST'])
 def join_battle_room():
@@ -541,8 +554,8 @@ def join_battle_room():
         return jsonify({'error': 'Комната не найдена'}), 404
     
     room = battle_rooms[room_id]
-    if room['status'] != 'waiting':
-        return jsonify({'error': 'Битва уже началась'}), 400
+    if room['status'] != 'waiting' and room['status'] != 'active':
+        return jsonify({'error': 'Битва уже началась или завершена'}), 400
     if len(room['players']) >= 2:
         return jsonify({'error': 'Комната полна'}), 400
     if uid in room['players']:
@@ -573,12 +586,19 @@ def exit_battle_room():
     uid = data.get('user_id')
     room_id = data.get('room_id')
     
-    if room_id in battle_rooms:
-        room = battle_rooms[room_id]
-        if room['status'] == 'waiting':
-            del battle_rooms[room_id]
+    if room_id not in battle_rooms:
+        return jsonify({'error': 'Комната не найдена'}), 404
     
-    return jsonify({'success': True})
+    room = battle_rooms[room_id]
+    
+    if len(room['players']) > 1:
+        if uid in room['players']:
+            room['players'].remove(uid)
+            room['status'] = 'waiting'
+        return jsonify({'success': True, 'room_kept': True})
+    else:
+        del battle_rooms[room_id]
+        return jsonify({'success': True, 'room_kept': False})
 
 @app.route('/battle_ready', methods=['POST'])
 def battle_ready():
@@ -724,6 +744,27 @@ def exit_battle_room_notify():
         'opponent_left': True,
         'opponent_id': opponent_id
     })
+
+@app.route('/get_user_room', methods=['POST'])
+def get_user_room():
+    data = request.get_json()
+    uid = data.get('user_id')
+    
+    for rid, room in battle_rooms.items():
+        if uid in room['players'] and room['status'] != 'finished':
+            p1 = get_user(room['players'][0])
+            p2 = get_user(room['players'][1]) if len(room['players']) > 1 else None
+            return jsonify({
+                'room_id': rid,
+                'room': {
+                    'case_type': room['case_type'],
+                    'player1': p1[8] if p1 else f"ID{room['players'][0]}",
+                    'player2': p2[8] if p2 else 'ОЖИДАНИЕ...',
+                    'players_count': len(room['players'])
+                }
+            })
+    
+    return jsonify({'room_id': None})
 
 def start_battle_opening(room_id):
     room = battle_rooms.get(room_id)
