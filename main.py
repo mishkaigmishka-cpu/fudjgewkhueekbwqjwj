@@ -785,7 +785,6 @@ def exit_battle_room():
         room['status'] = 'waiting'
         return jsonify({'success': True, 'room_kept': True})
 
-# ===== ИСПРАВЛЕНО: BATTLE_READY (ВЫЛЕТ ПРИ ГОТОВ) =====
 @app.route('/battle_ready', methods=['POST', 'OPTIONS'])
 def battle_ready():
     if request.method == 'OPTIONS':
@@ -975,7 +974,6 @@ def get_user_room():
     
     return jsonify({'room_id': None})
 
-# ===== ИСПРАВЛЕНО: START_BATTLE_OPENING (ЗАЩИТА ОТ ПОВТОРНОГО ЗАПУСКА) =====
 def start_battle_opening(room_id):
     if room_id not in battle_rooms:
         print(f"⚠️ Комната {room_id} уже удалена")
@@ -1273,7 +1271,7 @@ def get_mines_stats():
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
-# ===================== ЗАПУСК (ВЕБХУК) =====================
+# ===================== ЗАПУСК =====================
 if __name__ == "__main__":
     print("✅ БОТ ЗАПУЩЕН")
     bot.remove_webhook()
