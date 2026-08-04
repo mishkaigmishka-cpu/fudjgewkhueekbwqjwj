@@ -19,7 +19,7 @@ app = Flask(__name__)
 conn = sqlite3.connect('cases.db', check_same_thread=False)
 cursor = conn.cursor()
 
-# ===================== ТАБЛИЦЫ БД (ВСЕ ЕСТЬ) =====================
+# ===================== ТАБЛИЦЫ БД =====================
 cursor.execute('''CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     balance INTEGER DEFAULT 10,
@@ -554,7 +554,6 @@ def open_case():
         data = request.get_json()
         user_id = data.get('user_id')
         case_type = data.get('case_type')
-        
         user = get_user(user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 404
@@ -1274,10 +1273,10 @@ def get_mines_stats():
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
-# ===================== ЗАПУСК (ВЕБХУК — КАК В РАБОЧЕЙ ВЕРСИИ) =====================
+# ===================== ЗАПУСК (ВЕБХУК) =====================
 if __name__ == "__main__":
     print("✅ БОТ ЗАПУЩЕН")
     bot.remove_webhook()
     bot.set_webhook(url="https://randevu-bot-production.up.railway.app/webhook")
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
