@@ -24,67 +24,8 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     return response
 
+# ===================== БАЗА ДАННЫХ =====================
 conn = sqlite3.connect('cases.db', check_same_thread=False)
-cursor = conn.cursor()
-
-# ===================== ТАБЛИЦЫ БД =====================
-cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY,
-    balance INTEGER DEFAULT 10,
-    total_cases INTEGER DEFAULT 0,
-    streak INTEGER DEFAULT 0,
-    last_open INTEGER DEFAULT 0,
-    status TEXT DEFAULT '🟢 Новичок',
-    refs INTEGER DEFAULT 0,
-    daily_claimed INTEGER DEFAULT 0,
-    username TEXT DEFAULT '',
-    promo_used INTEGER DEFAULT 0
-)''')
-conn.commit()
-
-cursor.execute('''CREATE TABLE IF NOT EXISTS invited (
-    inviter_id INTEGER,
-    invited_id INTEGER,
-    PRIMARY KEY (inviter_id, invited_id)
-)''')
-conn.commit()
-
-cursor.execute('''CREATE TABLE IF NOT EXISTS battle_stats (
-    user_id INTEGER PRIMARY KEY,
-    battles_played INTEGER DEFAULT 0,
-    battles_won INTEGER DEFAULT 0,
-    battles_lost INTEGER DEFAULT 0,
-    total_won_stars INTEGER DEFAULT 0,
-    total_lost_stars INTEGER DEFAULT 0,
-    commission_paid INTEGER DEFAULT 0
-)''')
-conn.commit()
-
-cursor.execute('''CREATE TABLE IF NOT EXISTS mines_stats (
-    user_id INTEGER PRIMARY KEY,
-    games INTEGER DEFAULT 0,
-    wins INTEGER DEFAULT 0,
-    losses INTEGER DEFAULT 0,
-    best_multiplier REAL DEFAULT 1.0,
-    total_won INTEGER DEFAULT 0,
-    total_lost INTEGER DEFAULT 0
-)''')
-conn.commit()
-
-cursor.execute('''CREATE TABLE IF NOT EXISTS system_balance (
-    id INTEGER PRIMARY KEY,
-    balance INTEGER DEFAULT 0
-)''')
-conn.commit()
-cursor.execute("INSERT OR IGNORE INTO system_balance (id, balance) VALUES (1, 0)")
-conn.commit()
-
-cursor.execute('''CREATE TABLE IF NOT EXISTS commission_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    amount INTEGER,
-    timestamp INTEGER
-)''')
-conn.commit()
 
 # ===================== КЕЙСЫ =====================
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
@@ -146,16 +87,21 @@ def get_prize(case_type):
     else:
         return random.choice(data["epic"])
 
+# ===================== РАБОТА С БД (ИСПРАВЛЕНО) =====================
 def get_user(uid):
-    cursor.execute("SELECT * FROM users WHERE id=?", (uid,))
-    return cursor.fetchone()
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE id=?", (uid,))
+    return c.fetchone()
 
 def get_user_by_username(username):
-    cursor.execute("SELECT * FROM users WHERE username=?", (username,))
-    return cursor.fetchone()
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username=?", (username,))
+    return c.fetchone()
 
 def update_user(uid, **kwargs):
-    user = get_user(uid)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE id=?", (uid,))
+    user = c.fetchone()
     if not user:
         return
     data = list(user)
@@ -178,8 +124,8 @@ def update_user(uid, **kwargs):
             data[8] = val
         elif key == 'promo_used':
             data[9] = val
-    cursor.execute("UPDATE users SET balance=?, total_cases=?, streak=?, last_open=?, status=?, refs=?, daily_claimed=?, username=?, promo_used=? WHERE id=?",
-                   (data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], uid))
+    c.execute("UPDATE users SET balance=?, total_cases=?, streak=?, last_open=?, status=?, refs=?, daily_claimed=?, username=?, promo_used=? WHERE id=?",
+              (data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], uid))
     conn.commit()
 
 def update_status(uid, total_cases):
@@ -198,9 +144,10 @@ def update_status(uid, total_cases):
     update_user(uid, status=status)
 
 def add_commission(amount):
-    cursor.execute("UPDATE system_balance SET balance = balance + ? WHERE id = 1", (amount,))
+    c = conn.cursor()
+    c.execute("UPDATE system_balance SET balance = balance + ? WHERE id = 1", (amount,))
     conn.commit()
-    cursor.execute("INSERT INTO commission_log (amount, timestamp) VALUES (?, ?)", (amount, int(time.time())))
+    c.execute("INSERT INTO commission_log (amount, timestamp) VALUES (?, ?)", (amount, int(time.time())))
     conn.commit()
 
 PROMO_CODE = "RANDEVU50"
@@ -241,10 +188,11 @@ def get_mines_multiplier(opened, mines):
     return round(total, 2)
 
 def update_mines_stats(user_id, won, multiplier, stars):
-    cursor.execute("SELECT * FROM mines_stats WHERE user_id=?", (user_id,))
-    stats = cursor.fetchone()
+    c = conn.cursor()
+    c.execute("SELECT * FROM mines_stats WHERE user_id=?", (user_id,))
+    stats = c.fetchone()
     if not stats:
-        cursor.execute('''INSERT INTO mines_stats 
+        c.execute('''INSERT INTO mines_stats 
                         (user_id, games, wins, losses, best_multiplier, total_won, total_lost)
                         VALUES (?, 1, ?, 0, ?, ?, 0)''',
                         (user_id, 1 if won else 0, multiplier, stars if won else 0))
@@ -255,17 +203,18 @@ def update_mines_stats(user_id, won, multiplier, stars):
         best_multiplier = max(stats[4], multiplier)
         total_won = stats[5] + (stars if won else 0)
         total_lost = stats[6] + (0 if won else 0)
-        cursor.execute('''UPDATE mines_stats SET 
+        c.execute('''UPDATE mines_stats SET 
                         games=?, wins=?, losses=?, best_multiplier=?, total_won=?, total_lost=?
                         WHERE user_id=?''',
                         (games, wins, losses, best_multiplier, total_won, total_lost, user_id))
     conn.commit()
 
 def update_battle_stats(user_id, won, stars):
-    cursor.execute("SELECT * FROM battle_stats WHERE user_id=?", (user_id,))
-    stats = cursor.fetchone()
+    c = conn.cursor()
+    c.execute("SELECT * FROM battle_stats WHERE user_id=?", (user_id,))
+    stats = c.fetchone()
     if not stats:
-        cursor.execute('''INSERT INTO battle_stats 
+        c.execute('''INSERT INTO battle_stats 
                         (user_id, battles_played, battles_won, battles_lost, total_won_stars, total_lost_stars, commission_paid)
                         VALUES (?, 1, ?, 0, ?, 0, 0)''',
                         (user_id, 1 if won else 0, stars if won else 0))
@@ -275,7 +224,7 @@ def update_battle_stats(user_id, won, stars):
         battles_lost = stats[3] + (0 if won else 1)
         total_won_stars = stats[4] + (stars if won else 0)
         total_lost_stars = stats[5] + (0 if won else stars)
-        cursor.execute('''UPDATE battle_stats SET 
+        c.execute('''UPDATE battle_stats SET 
                         battles_played=?, battles_won=?, battles_lost=?, 
                         total_won_stars=?, total_lost_stars=?
                         WHERE user_id=?''', 
@@ -298,14 +247,15 @@ def start(msg):
     uid = msg.from_user.id
     username = msg.from_user.username or ""
     args = msg.text.split()
-    cursor.execute("INSERT OR IGNORE INTO users (id) VALUES (?)", (uid,))
+    c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO users (id) VALUES (?)", (uid,))
     conn.commit()
     user = get_user(uid)
     if len(args) > 1:
         try:
             inviter_id = int(args[1])
             if inviter_id != uid:
-                cursor.execute("INSERT OR IGNORE INTO invited (inviter_id, invited_id) VALUES (?, ?)", (inviter_id, uid))
+                c.execute("INSERT OR IGNORE INTO invited (inviter_id, invited_id) VALUES (?, ?)", (inviter_id, uid))
                 conn.commit()
                 inviter = get_user(inviter_id)
                 if inviter:
@@ -457,10 +407,11 @@ def balance_cmd(msg):
 def treasury_cmd(msg):
     if msg.from_user.id != ADMIN_ID:
         return
-    cursor.execute("SELECT balance FROM system_balance WHERE id=1")
-    balance = cursor.fetchone()
-    cursor.execute("SELECT COUNT(*) FROM commission_log")
-    total_transactions = cursor.fetchone()[0]
+    c = conn.cursor()
+    c.execute("SELECT balance FROM system_balance WHERE id=1")
+    balance = c.fetchone()
+    c.execute("SELECT COUNT(*) FROM commission_log")
+    total_transactions = c.fetchone()[0]
     text = f"🏦 **КАЗНА БОТА:**\n💰 Баланс: {balance[0]}⭐\n📊 Всего транзакций: {total_transactions}"
     bot.reply_to(msg, text)
 
@@ -477,12 +428,13 @@ def treasury_withdraw(msg):
     except:
         bot.reply_to(msg, "❌ Сумма должна быть числом")
         return
-    cursor.execute("SELECT balance FROM system_balance WHERE id=1")
-    balance = cursor.fetchone()[0]
+    c = conn.cursor()
+    c.execute("SELECT balance FROM system_balance WHERE id=1")
+    balance = c.fetchone()[0]
     if balance < amount:
         bot.reply_to(msg, f"❌ В казне только {balance}⭐")
         return
-    cursor.execute("UPDATE system_balance SET balance = balance - ? WHERE id = 1", (amount,))
+    c.execute("UPDATE system_balance SET balance = balance - ? WHERE id = 1", (amount,))
     conn.commit()
     admin = get_user(ADMIN_ID)
     update_user(ADMIN_ID, balance=admin[1] + amount)
@@ -491,8 +443,9 @@ def treasury_withdraw(msg):
 @bot.message_handler(commands=['battle_stats'])
 def battle_stats_cmd(msg):
     uid = msg.from_user.id
-    cursor.execute("SELECT * FROM battle_stats WHERE user_id=?", (uid,))
-    stats = cursor.fetchone()
+    c = conn.cursor()
+    c.execute("SELECT * FROM battle_stats WHERE user_id=?", (uid,))
+    stats = c.fetchone()
     if not stats:
         bot.reply_to(msg, "⚔️ Ты ещё не участвовал в битвах!")
         return
@@ -502,8 +455,9 @@ def battle_stats_cmd(msg):
 @bot.message_handler(commands=['mines_stats'])
 def mines_stats_cmd(msg):
     uid = msg.from_user.id
-    cursor.execute("SELECT * FROM mines_stats WHERE user_id=?", (uid,))
-    stats = cursor.fetchone()
+    c = conn.cursor()
+    c.execute("SELECT * FROM mines_stats WHERE user_id=?", (uid,))
+    stats = c.fetchone()
     if not stats:
         bot.reply_to(msg, "💣 Ты ещё не играл в Минёр!")
         return
@@ -644,8 +598,9 @@ def get_battle_data():
         return '', 200
     data = request.get_json()
     uid = data.get('user_id')
-    cursor.execute("SELECT * FROM battle_stats WHERE user_id=?", (uid,))
-    stats = cursor.fetchone()
+    c = conn.cursor()
+    c.execute("SELECT * FROM battle_stats WHERE user_id=?", (uid,))
+    stats = c.fetchone()
     wins = stats[2] if stats else 0
     losses = stats[3] if stats else 0
     commission = stats[6] if stats else 0
@@ -1280,8 +1235,9 @@ def get_mines_stats():
         return '', 200
     data = request.get_json()
     uid = data.get('user_id')
-    cursor.execute("SELECT * FROM mines_stats WHERE user_id=?", (uid,))
-    stats = cursor.fetchone()
+    c = conn.cursor()
+    c.execute("SELECT * FROM mines_stats WHERE user_id=?", (uid,))
+    stats = c.fetchone()
     if not stats:
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
@@ -1291,10 +1247,21 @@ if __name__ == "__main__":
     import threading
     import time
     print("✅ БОТ ЗАПУЩЕН (POLLING MODE)")
-    bot.remove_webhook()
+    
+    # ПРИНУДИТЕЛЬНО УДАЛЯЕМ ВЕБХУК
+    try:
+        bot.remove_webhook()
+    except:
+        pass
     
     def run_flask():
-        app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+        # ИСПОЛЬЗУЕМ ПОРТ 8080, НО ЕСЛИ ЗАНЯТ — 8081
+        port = int(os.environ.get("PORT", 8080))
+        try:
+            app.run(host="0.0.0.0", port=port)
+        except OSError:
+            print(f"⚠️ Порт {port} занят, пробуем 8081...")
+            app.run(host="0.0.0.0", port=8081)
     
     threading.Thread(target=run_flask, daemon=True).start()
     
