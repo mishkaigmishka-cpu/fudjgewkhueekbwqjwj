@@ -215,7 +215,7 @@ battle_rooms = {}
 battle_results = {}
 battle_ready_status = {}
 
-# ===================== МИНЁР — МНОЖИТЕЛИ (ИСПРАВЛЕНО) =====================
+# ===================== МИНЁР — МНОЖИТЕЛИ =====================
 def get_mines_multiplier(opened, mines):
     base_multipliers = {
         1: 1.05, 2: 1.10, 3: 1.20, 4: 1.35, 5: 1.55,
@@ -510,7 +510,175 @@ def mines_stats_cmd(msg):
     text = f"💣 **СТАТИСТИКА МИНЁРА:**\n\n🎮 Всего игр: {stats[1]}\n🏆 Побед: {stats[2]}\n💀 Поражений: {stats[3]}\n🔥 Лучший множитель: x{stats[4]}\n⭐ Выиграно звёзд: {stats[5]}\n💸 Проиграно звёзд: {stats[6]}\n\nПроцент побед: {int(stats[2] / stats[1] * 100) if stats[1] > 0 else 0}%"
     bot.reply_to(msg, text)
 
-# ===================== КОМНАТЫ (БИТВЫ) =====================
+# ===================== ЭНДПОИНТЫ =====================
+@app.route('/')
+def home():
+    return send_from_directory('static', 'index.html')
+
+@app.route('/<path:path>')
+def static_files(path):
+    return send_from_directory('static', path)
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return ''
+    return '', 400
+
+@app.route('/get_prize', methods=['POST', 'OPTIONS'])
+def get_prize_endpoint():
+    if request.method == 'OPTIONS':
+        return '', 200
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    case_type = data.get('case_type')
+    if case_type not in CASE_RANGES:
+        return jsonify({'error': 'Invalid case type'}), 400
+    prize = get_prize(case_type)
+    return jsonify({'prize': prize})
+
+@app.route('/check_balance', methods=['POST', 'OPTIONS'])
+def check_balance():
+    if request.method == 'OPTIONS':
+        return '', 200
+    data = request.get_json()
+    user_id = data.get('user_id')
+    case_type = data.get('case_type')
+    user = get_user(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
+    price = prices.get(case_type, 0)
+    if user[1] < price:
+        return jsonify({'error': 'Недостаточно звёзд!', 'can_open': False}), 400
+    if case_type == "free" and time.time() - user[4] < 7200:
+        wait = int((7200 - (time.time() - user[4])) // 60)
+        return jsonify({'error': f'Жди {wait} мин', 'can_open': False}), 400
+    return jsonify({'can_open': True})
+
+@app.route('/open_case', methods=['POST', 'OPTIONS'])
+def open_case():
+    if request.method == 'OPTIONS':
+        return '', 200
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        case_type = data.get('case_type')
+        
+        user = get_user(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
+        price = prices.get(case_type, 0)
+        if user[1] < price:
+            return jsonify({'error': 'Недостаточно звёзд!'}), 400
+        if case_type == "free" and time.time() - user[4] < 7200:
+            wait = int((7200 - (time.time() - user[4])) // 60)
+            return jsonify({'error': f'Жди {wait} мин'}), 400
+        
+        prize = get_prize(case_type)
+        
+        new_bal = user[1] - price + prize
+        new_total = user[2] + 1
+        new_streak = user[3] + 1
+        if case_type == "free":
+            update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
+        else:
+            update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak)
+        update_status(user_id, new_total)
+        ad = random.choice(ads) if case_type == "free" and ads else ""
+        return jsonify({'prize': prize, 'new_balance': new_bal, 'ad': ad})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get_balance', methods=['POST', 'OPTIONS'])
+def get_balance():
+    if request.method == 'OPTIONS':
+        return '', 200
+    data = request.get_json()
+    user = get_user(data.get('user_id'))
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    return jsonify({'balance': user[1], 'total_cases': user[2], 'status': user[5], 'refs': user[6]})
+
+@app.route('/withdraw_request', methods=['POST', 'OPTIONS'])
+def withdraw_request():
+    if request.method == 'OPTIONS':
+        return '', 200
+    data = request.get_json()
+    user_id = data.get('user_id')
+    amount = data.get('amount')
+    user = get_user(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    if user[1] < amount:
+        return jsonify({'error': f'Недостаточно звёзд. У тебя {user[1]}⭐'}), 400
+    if amount < 1000:
+        return jsonify({'error': 'Минимальная сумма вывода — 1000⭐'}), 400
+    username = user[8] or "Неизвестный"
+    try:
+        bot.send_message(ADMIN_ID, f"💸 НОВАЯ ЗАЯВКА НА ВЫВОД!\n\n👤 Пользователь: @{username} (ID: {user_id})\n⭐ Сумма: {amount} звёзд\n💰 Баланс пользователя: {user[1]}⭐")
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/check_balance_simple', methods=['POST', 'OPTIONS'])
+def check_balance_simple():
+    if request.method == 'OPTIONS':
+        return '', 200
+    data = request.get_json()
+    uid = data.get('user_id')
+    amount = data.get('amount', 0)
+    user = get_user(uid)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    return jsonify({'has_enough': user[1] >= amount})
+
+@app.route('/get_battle_data', methods=['POST', 'OPTIONS'])
+def get_battle_data():
+    if request.method == 'OPTIONS':
+        return '', 200
+    data = request.get_json()
+    uid = data.get('user_id')
+    cursor.execute("SELECT * FROM battle_stats WHERE user_id=?", (uid,))
+    stats = cursor.fetchone()
+    wins = stats[2] if stats else 0
+    losses = stats[3] if stats else 0
+    commission = stats[6] if stats else 0
+    active = []
+    for bid, battle in active_battles.items():
+        if (battle['player1'] == uid or battle['player2'] == uid) and battle['status'] != 'finished':
+            p1 = get_user(battle['player1'])
+            p2 = get_user(battle['player2'])
+            active.append({
+                'id': bid,
+                'player1': p1[8] if p1 else str(battle['player1']),
+                'player2': p2[8] if p2 else str(battle['player2']),
+                'case_type': battle['case_type'],
+                'status': battle['status']
+            })
+    history = []
+    for bid, battle in list(active_battles.items()):
+        if battle['status'] == 'finished' and (battle['player1'] == uid or battle['player2'] == uid):
+            if battle['winner_id'] == uid:
+                won = True
+                stars = battle['prize1'] if battle['player1'] == uid else battle['prize2']
+            else:
+                won = False
+                stars = battle['prize2'] if battle['player1'] == uid else battle['prize1']
+            opponent = battle['player2'] if battle['player1'] == uid else battle['player1']
+            opp_user = get_user(opponent)
+            history.append({
+                'won': won,
+                'stars': stars,
+                'opponent': opp_user[8] if opp_user else str(opponent)
+            })
+    return jsonify({'wins': wins, 'losses': losses, 'commission': commission, 'active_battles': active, 'history': history})
+
 @app.route('/create_battle_room', methods=['POST', 'OPTIONS'])
 def create_battle_room():
     if request.method == 'OPTIONS':
@@ -1117,256 +1285,6 @@ def get_mines_stats():
     if not stats:
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
-
-# ===================== ОБЫЧНЫЕ КЕЙСЫ (ЭНДПОИНТЫ) =====================
-@app.route('/')
-def home():
-    return send_from_directory('static', 'index.html')
-
-@app.route('/<path:path>')
-def static_files(path):
-    return send_from_directory('static', path)
-
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    if request.headers.get('content-type') == 'application/json':
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return ''
-    return '', 400
-
-@app.route('/get_prize', methods=['POST', 'OPTIONS'])
-def get_prize_endpoint():
-    if request.method == 'OPTIONS':
-        return '', 200
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-    case_type = data.get('case_type')
-    if case_type not in CASE_RANGES:
-        return jsonify({'error': 'Invalid case type'}), 400
-    prize = get_prize(case_type)
-    return jsonify({'prize': prize})
-
-@app.route('/check_balance', methods=['POST', 'OPTIONS'])
-def check_balance():
-    if request.method == 'OPTIONS':
-        return '', 200
-    data = request.get_json()
-    user_id = data.get('user_id')
-    case_type = data.get('case_type')
-    user = get_user(user_id)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
-    price = prices.get(case_type, 0)
-    if user[1] < price:
-        return jsonify({'error': 'Недостаточно звёзд!', 'can_open': False}), 400
-    if case_type == "free" and time.time() - user[4] < 7200:
-        wait = int((7200 - (time.time() - user[4])) // 60)
-        return jsonify({'error': f'Жди {wait} мин', 'can_open': False}), 400
-    return jsonify({'can_open': True})
-
-@app.route('/open_case', methods=['POST', 'OPTIONS'])
-def open_case():
-    if request.method == 'OPTIONS':
-        return '', 200
-    try:
-        data = request.get_json()
-        user_id = data.get('user_id')
-        case_type = data.get('case_type')
-        
-        user = get_user(user_id)
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
-        price = prices.get(case_type, 0)
-        if user[1] < price:
-            return jsonify({'error': 'Недостаточно звёзд!'}), 400
-        if case_type == "free" and time.time() - user[4] < 7200:
-            wait = int((7200 - (time.time() - user[4])) // 60)
-            return jsonify({'error': f'Жди {wait} мин'}), 400
-        
-        prize = get_prize(case_type)
-        
-        new_bal = user[1] - price + prize
-        new_total = user[2] + 1
-        new_streak = user[3] + 1
-        if case_type == "free":
-            update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
-        else:
-            update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak)
-        update_status(user_id, new_total)
-        ad = random.choice(ads) if case_type == "free" and ads else ""
-        return jsonify({'prize': prize, 'new_balance': new_bal, 'ad': ad})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/get_balance', methods=['POST', 'OPTIONS'])
-def get_balance():
-    if request.method == 'OPTIONS':
-        return '', 200
-    data = request.get_json()
-    user = get_user(data.get('user_id'))
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    return jsonify({'balance': user[1], 'total_cases': user[2], 'status': user[5], 'refs': user[6]})
-
-@app.route('/withdraw_request', methods=['POST', 'OPTIONS'])
-def withdraw_request():
-    if request.method == 'OPTIONS':
-        return '', 200
-    data = request.get_json()
-    user_id = data.get('user_id')
-    amount = data.get('amount')
-    user = get_user(user_id)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    if user[1] < amount:
-        return jsonify({'error': f'Недостаточно звёзд. У тебя {user[1]}⭐'}), 400
-    if amount < 1000:
-        return jsonify({'error': 'Минимальная сумма вывода — 1000⭐'}), 400
-    username = user[8] or "Неизвестный"
-    try:
-        bot.send_message(ADMIN_ID, f"💸 НОВАЯ ЗАЯВКА НА ВЫВОД!\n\n👤 Пользователь: @{username} (ID: {user_id})\n⭐ Сумма: {amount} звёзд\n💰 Баланс пользователя: {user[1]}⭐")
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/check_balance_simple', methods=['POST', 'OPTIONS'])
-def check_balance_simple():
-    if request.method == 'OPTIONS':
-        return '', 200
-    data = request.get_json()
-    uid = data.get('user_id')
-    amount = data.get('amount', 0)
-    user = get_user(uid)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    return jsonify({'has_enough': user[1] >= amount})
-
-@app.route('/get_battle_data', methods=['POST', 'OPTIONS'])
-def get_battle_data():
-    if request.method == 'OPTIONS':
-        return '', 200
-    data = request.get_json()
-    uid = data.get('user_id')
-    cursor.execute("SELECT * FROM battle_stats WHERE user_id=?", (uid,))
-    stats = cursor.fetchone()
-    wins = stats[2] if stats else 0
-    losses = stats[3] if stats else 0
-    commission = stats[6] if stats else 0
-    active = []
-    for bid, battle in active_battles.items():
-        if (battle['player1'] == uid or battle['player2'] == uid) and battle['status'] != 'finished':
-            p1 = get_user(battle['player1'])
-            p2 = get_user(battle['player2'])
-            active.append({
-                'id': bid,
-                'player1': p1[8] if p1 else str(battle['player1']),
-                'player2': p2[8] if p2 else str(battle['player2']),
-                'case_type': battle['case_type'],
-                'status': battle['status']
-            })
-    history = []
-    for bid, battle in list(active_battles.items()):
-        if battle['status'] == 'finished' and (battle['player1'] == uid or battle['player2'] == uid):
-            if battle['winner_id'] == uid:
-                won = True
-                stars = battle['prize1'] if battle['player1'] == uid else battle['prize2']
-            else:
-                won = False
-                stars = battle['prize2'] if battle['player1'] == uid else battle['prize1']
-            opponent = battle['player2'] if battle['player1'] == uid else battle['player1']
-            opp_user = get_user(opponent)
-            history.append({
-                'won': won,
-                'stars': stars,
-                'opponent': opp_user[8] if opp_user else str(opponent)
-            })
-    return jsonify({'wins': wins, 'losses': losses, 'commission': commission, 'active_battles': active, 'history': history})
-
-@app.route('/create_battle', methods=['POST', 'OPTIONS'])
-def create_battle():
-    if request.method == 'OPTIONS':
-        return '', 200
-    data = request.get_json()
-    uid = data.get('user_id')
-    username = data.get('username')
-    target = get_user_by_username(username)
-    if not target:
-        return jsonify({'error': 'Пользователь не найден'}), 404
-    if target[0] == uid:
-        return jsonify({'error': 'Нельзя вызвать себя'}), 400
-    for bid, battle in active_battles.items():
-        if (battle['player1'] == uid or battle['player2'] == uid) and battle['status'] != 'finished':
-            return jsonify({'error': 'У тебя уже есть активная битва'}), 400
-    battle_id = int(time.time())
-    battle_data = {
-        'id': battle_id,
-        'player1': uid,
-        'player2': target[0],
-        'case_type': None,
-        'status': 'waiting',
-        'winner_id': None,
-        'prize1': None,
-        'prize2': None,
-        'bet': 0,
-        'created_at': time.time(),
-        'finished_at': None,
-        'player1_ready': False,
-        'player2_ready': False
-    }
-    active_battles[battle_id] = battle_data
-    pending_battles[target[0]] = battle_data
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("⚔️ ПРИНЯТЬ БОЙ", callback_data=f"battle_accept_{battle_id}"), InlineKeyboardButton("❌ ОТКЛОНИТЬ", callback_data=f"battle_decline_{battle_id}"))
-    user = get_user(uid)
-    bot.send_message(target[0], f"⚔️ @{user[8]} вызывает тебя на БИТВУ КЕЙСОВ!\n\n🔥 Без ставок! Победитель забирает свой дроп + дроп соперника - 10% комиссии", reply_markup=kb)
-    return jsonify({'success': True})
-
-@app.route('/get_pending_battles', methods=['POST', 'OPTIONS'])
-def get_pending_battles():
-    if request.method == 'OPTIONS':
-        return '', 200
-    data = request.get_json()
-    uid = data.get('user_id')
-    battles = []
-    for bid, battle in pending_battles.items():
-        if battle['player2'] == uid and battle['status'] == 'waiting':
-            user = get_user(battle['player1'])
-            battles.append({'id': bid, 'username': user[8] if user else str(battle['player1'])})
-    return jsonify({'battles': battles})
-
-@app.route('/accept_battle', methods=['POST', 'OPTIONS'])
-def accept_battle():
-    if request.method == 'OPTIONS':
-        return '', 200
-    data = request.get_json()
-    uid = data.get('user_id')
-    battle_id = data.get('battle_id')
-    battle = active_battles.get(battle_id)
-    if not battle:
-        return jsonify({'error': 'Битва не найдена'}), 404
-    if battle['player2'] != uid:
-        return jsonify({'error': 'Не твой вызов'}), 403
-    battle['status'] = 'case_selection'
-    kb = InlineKeyboardMarkup(row_width=3)
-    kb.add(
-        InlineKeyboardButton("🟫 Грязь", callback_data=f"battle_case_{battle_id}_mud"),
-        InlineKeyboardButton("🌳 Дерево", callback_data=f"battle_case_{battle_id}_wood"),
-        InlineKeyboardButton("🪨 Камень", callback_data=f"battle_case_{battle_id}_stone"),
-        InlineKeyboardButton("🥉 Бронза", callback_data=f"battle_case_{battle_id}_bronze"),
-        InlineKeyboardButton("🔘 Серебро", callback_data=f"battle_case_{battle_id}_silver"),
-        InlineKeyboardButton("👑 Золото", callback_data=f"battle_case_{battle_id}_gold"),
-        InlineKeyboardButton("💎 Алмаз", callback_data=f"battle_case_{battle_id}_diamond"),
-        InlineKeyboardButton("🔥 Незерит", callback_data=f"battle_case_{battle_id}_netherite"),
-        InlineKeyboardButton("⛏️ Бедрок", callback_data=f"battle_case_{battle_id}_bedrock")
-    )
-    for player_id in [battle['player1'], battle['player2']]:
-        bot.send_message(player_id, "⚔️ **ВЫБЕРИТЕ КЕЙС ДЛЯ БИТВЫ:**\nВажно выбрать ОДИНАКОВЫЙ кейс!", reply_markup=kb)
-    return jsonify({'success': True})
 
 # ===================== ЗАПУСК =====================
 if __name__ == "__main__":
