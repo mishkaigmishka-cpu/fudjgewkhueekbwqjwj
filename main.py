@@ -785,6 +785,7 @@ def exit_battle_room():
         room['status'] = 'waiting'
         return jsonify({'success': True, 'room_kept': True})
 
+# ===== ИСПРАВЛЕНО: BATTLE_READY (ВЫЛЕТ ПРИ ГОТОВ) =====
 @app.route('/battle_ready', methods=['POST', 'OPTIONS'])
 def battle_ready():
     if request.method == 'OPTIONS':
@@ -974,6 +975,7 @@ def get_user_room():
     
     return jsonify({'room_id': None})
 
+# ===== ИСПРАВЛЕНО: START_BATTLE_OPENING (ЗАЩИТА ОТ ПОВТОРНОГО ЗАПУСКА) =====
 def start_battle_opening(room_id):
     if room_id not in battle_rooms:
         print(f"⚠️ Комната {room_id} уже удалена")
