@@ -215,7 +215,7 @@ battle_rooms = {}
 battle_results = {}
 battle_ready_status = {}
 
-# ===================== МИНЁР — МНОЖИТЕЛИ =====================
+# ===================== МИНЁР — МНОЖИТЕЛИ (ИСПРАВЛЕНО) =====================
 def get_mines_multiplier(opened, mines):
     base_multipliers = {
         1: 1.05, 2: 1.10, 3: 1.20, 4: 1.35, 5: 1.55,
@@ -1371,11 +1371,18 @@ def accept_battle():
 # ===================== ЗАПУСК =====================
 if __name__ == "__main__":
     import threading
+    import time
     print("✅ БОТ ЗАПУЩЕН (POLLING MODE)")
     bot.remove_webhook()
-
+    
     def run_flask():
         app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
-
+    
     threading.Thread(target=run_flask, daemon=True).start()
-    bot.polling(none_stop=True, interval=0)
+    
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=0, timeout=60)
+        except Exception as e:
+            print(f"⚠️ Ошибка polling: {e}. Перезапуск через 5 секунд...")
+            time.sleep(5)
