@@ -1,4 +1,3 @@
-cat > main.py << 'EOF'
 import telebot
 import random
 import sqlite3
@@ -79,6 +78,7 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS commission_log (
 )''')
 conn.commit()
 
+# ===================== КЕЙСЫ =====================
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
 
 CASE_RANGES = {
@@ -197,6 +197,7 @@ def add_commission(amount):
 
 PROMO_CODE = "RANDEVU50"
 
+# ===================== ГЛОБАЛЬНЫЕ ДАННЫЕ =====================
 active_battles = {}
 pending_battles = {}
 user_battles = {}
@@ -206,6 +207,7 @@ battle_rooms = {}
 battle_results = {}
 battle_ready_status = {}
 
+# ===================== МИНЁР — МНОЖИТЕЛИ (ИСПРАВЛЕНО) =====================
 def get_mines_multiplier(opened, mines):
     base_multipliers = {
         1: 1.05, 2: 1.10, 3: 1.20, 4: 1.35, 5: 1.55,
@@ -216,8 +218,17 @@ def get_mines_multiplier(opened, mines):
         base = 5.00
     else:
         base = base_multipliers.get(opened, 1.00)
-    mine_boost = {3: 1.0, 4: 1.2, 5: 1.5, 6: 1.8, 7: 2.2, 8: 2.8}
+    
+    mine_boost = {
+        3: 1.0,
+        4: 1.2,
+        5: 1.5,
+        6: 1.8,
+        7: 2.2,
+        8: 2.8
+    }
     boost = mine_boost.get(mines, 1.0)
+    
     total = base * boost
     return round(total, 2)
 
@@ -273,6 +284,7 @@ def battle_cleaner():
 
 threading.Thread(target=battle_cleaner, daemon=True).start()
 
+# ===================== КОМАНДЫ TELEGRAM =====================
 @bot.message_handler(commands=['start'])
 def start(msg):
     uid = msg.from_user.id
@@ -484,6 +496,7 @@ def mines_stats_cmd(msg):
     text = f"💣 **СТАТИСТИКА МИНЁРА:**\n\n🎮 Всего игр: {stats[1]}\n🏆 Побед: {stats[2]}\n💀 Поражений: {stats[3]}\n🔥 Лучший множитель: x{stats[4]}\n⭐ Выиграно звёзд: {stats[5]}\n💸 Проиграно звёзд: {stats[6]}\n\nПроцент побед: {int(stats[2] / stats[1] * 100) if stats[1] > 0 else 0}%"
     bot.reply_to(msg, text)
 
+# ===================== ЭНДПОИНТЫ =====================
 @app.route('/')
 def home():
     return send_from_directory('static', 'index.html')
@@ -658,16 +671,20 @@ def create_battle_room():
     data = request.get_json()
     uid = data.get('user_id')
     case_type = data.get('case_type')
+    
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
+    
     prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
     price = prices.get(case_type, 0)
     if user[1] < price:
         return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐ для открытия кейса'}), 400
+    
     for rid, room in battle_rooms.items():
         if room['creator'] == uid and room['status'] == 'waiting':
             return jsonify({'error': 'У тебя уже есть активная комната'}), 400
+    
     room_id = f"#{random.randint(1000, 9999)}"
     battle_rooms[room_id] = {
         'creator': uid,
@@ -685,10 +702,12 @@ def get_battle_rooms():
     data = request.get_json()
     uid = data.get('user_id')
     rooms = []
+    
     for rid, room in battle_rooms.items():
         if room['status'] == 'waiting' and len(room['players']) < 2:
             p1 = get_user(room['players'][0])
             p2 = get_user(room['players'][1]) if len(room['players']) > 1 else None
+            
             rooms.append({
                 'room_id': rid,
                 'creator_id': room['creator'],
@@ -698,6 +717,7 @@ def get_battle_rooms():
                 'player2': p2[8] if p2 else 'ОЖИДАНИЕ...',
                 'is_my_room': uid in room['players']
             })
+    
     return jsonify({'rooms': rooms})
 
 @app.route('/join_battle_room', methods=['POST', 'OPTIONS'])
@@ -707,11 +727,14 @@ def join_battle_room():
     data = request.get_json()
     uid = data.get('user_id')
     room_id = data.get('room_id')
+    
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден. Напишите /start'}), 404
+    
     if room_id not in battle_rooms:
         return jsonify({'error': 'Комната не найдена'}), 404
+    
     room = battle_rooms[room_id]
     if room['status'] != 'waiting' and room['status'] != 'active':
         return jsonify({'error': 'Битва уже началась или завершена'}), 400
@@ -719,14 +742,18 @@ def join_battle_room():
         return jsonify({'error': 'Комната полна'}), 400
     if uid in room['players']:
         return jsonify({'error': 'Ты уже в этой комнате', 'already_in_room': True}), 400
+    
     prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
     price = prices.get(room['case_type'], 0)
     if user[1] < price:
         return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐ для открытия кейса'}), 400
+    
     room['players'].append(uid)
     room['status'] = 'active'
+    
     p1 = get_user(room['players'][0])
     p2 = get_user(room['players'][1])
+    
     return jsonify({
         'success': True,
         'room_id': room_id,
@@ -742,11 +769,15 @@ def exit_battle_room():
     data = request.get_json()
     uid = data.get('user_id')
     room_id = data.get('room_id')
+    
     if room_id not in battle_rooms:
         return jsonify({'error': 'Комната не найдена'}), 404
+    
     room = battle_rooms[room_id]
+    
     if uid in room['players']:
         room['players'].remove(uid)
+    
     if len(room['players']) == 0:
         del battle_rooms[room_id]
         return jsonify({'success': True, 'room_kept': False})
@@ -754,6 +785,7 @@ def exit_battle_room():
         room['status'] = 'waiting'
         return jsonify({'success': True, 'room_kept': True})
 
+# ===== ИСПРАВЛЕНО: BATTLE_READY (ВЫЛЕТ ПРИ ГОТОВ) =====
 @app.route('/battle_ready', methods=['POST', 'OPTIONS'])
 def battle_ready():
     if request.method == 'OPTIONS':
@@ -761,26 +793,36 @@ def battle_ready():
     data = request.get_json()
     uid = data.get('user_id')
     room_id = data.get('room_id')
+    
     if room_id not in battle_rooms:
         return jsonify({'error': 'Комната не найдена'}), 404
+    
     room = battle_rooms[room_id]
     if uid not in room['players']:
         return jsonify({'error': 'Ты не в этой комнате'}), 403
+    
     if room_id not in battle_ready_status:
         battle_ready_status[room_id] = [False, False]
+    
     if uid == room['players'][0]:
         battle_ready_status[room_id][0] = True
     else:
         battle_ready_status[room_id][1] = True
+    
     if all(battle_ready_status[room_id]):
         battle_ready_status[room_id] = [False, False]
+        
         if room_id not in battle_rooms:
             return jsonify({'error': 'Комната удалена'}), 404
+        
         room = battle_rooms[room_id]
         room['status'] = 'active'
+        
         import threading
         threading.Thread(target=start_battle_opening, args=(room_id,), daemon=True).start()
+        
         return jsonify({'ready': True})
+    
     return jsonify({'ready': False})
 
 @app.route('/start_bot_battle', methods=['POST', 'OPTIONS'])
@@ -790,14 +832,18 @@ def start_bot_battle():
     data = request.get_json()
     uid = data.get('user_id')
     case_type = data.get('case_type')
+    
     user = get_user(uid)
     prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
     price = prices.get(case_type, 0)
     if user[1] < price:
         return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐ для открытия кейса'}), 400
+    
     player_prize = get_prize(case_type)
     bot_prize = get_prize(case_type)
+    
     update_user(uid, balance=user[1] - price + player_prize)
+    
     if player_prize > bot_prize:
         commission = int(player_prize * 0.10)
         winnings = (player_prize - commission) + bot_prize
@@ -821,6 +867,7 @@ def start_bot_battle():
         update_battle_stats(uid, won=False, stars=commission)
         result = 'draw'
         result_text = f'🤝 Ничья! Ты получил {player_prize - commission}⭐'
+    
     return jsonify({
         'result': result,
         'result_text': result_text,
@@ -836,11 +883,14 @@ def check_room_status():
         return '', 200
     data = request.get_json()
     room_id = data.get('room_id')
+    
     if room_id not in battle_rooms:
         return jsonify({'error': 'Комната не найдена'}), 404
+    
     room = battle_rooms[room_id]
     p1 = get_user(room['players'][0])
     p2 = get_user(room['players'][1]) if len(room['players']) > 1 else None
+    
     return jsonify({
         'opponent_joined': len(room['players']) >= 2,
         'player1': p1[8] if p1 else f"ID{room['players'][0]}",
@@ -857,17 +907,21 @@ def sync_battle_preview():
     data = request.get_json()
     room_id = data.get('room_id')
     uid = data.get('user_id')
+    
     if room_id not in battle_rooms:
         return jsonify({'error': 'Комната не найдена'}), 404
+    
     room = battle_rooms[room_id]
     p1 = get_user(room['players'][0])
     p2 = get_user(room['players'][1]) if len(room['players']) > 1 else None
+    
     if uid == room['players'][0]:
         me = p1[8] if p1 else f"ID{room['players'][0]}"
         opponent = p2[8] if p2 else 'ОЖИДАНИЕ...'
     else:
         me = p2[8] if p2 else f"ID{room['players'][1]}"
         opponent = p1[8] if p1 else 'ОЖИДАНИЕ...'
+    
     return jsonify({
         'me': me,
         'opponent': opponent,
@@ -883,11 +937,15 @@ def exit_battle_room_notify():
     data = request.get_json()
     uid = data.get('user_id')
     room_id = data.get('room_id')
+    
     if room_id not in battle_rooms:
         return jsonify({'error': 'Комната не найдена'}), 404
+    
     room = battle_rooms[room_id]
     opponent_id = room['players'][1] if len(room['players']) > 1 else None
+    
     del battle_rooms[room_id]
+    
     return jsonify({
         'success': True,
         'opponent_left': True,
@@ -900,6 +958,7 @@ def get_user_room():
         return '', 200
     data = request.get_json()
     uid = data.get('user_id')
+    
     for rid, room in battle_rooms.items():
         if uid in room['players'] and room['status'] != 'finished':
             p1 = get_user(room['players'][0])
@@ -913,28 +972,36 @@ def get_user_room():
                     'players_count': len(room['players'])
                 }
             })
+    
     return jsonify({'room_id': None})
 
+# ===== ИСПРАВЛЕНО: START_BATTLE_OPENING (ЗАЩИТА ОТ ПОВТОРНОГО ЗАПУСКА) =====
 def start_battle_opening(room_id):
     if room_id not in battle_rooms:
         print(f"⚠️ Комната {room_id} уже удалена")
         return
+    
     room = battle_rooms.get(room_id)
     if not room:
         return
+    
     if room.get('status') != 'active':
         print(f"⚠️ Битва в комнате {room_id} уже не активна")
         return
+    
     case_type = room['case_type']
     players = room['players']
     p1 = players[0]
     p2 = players[1]
+    
     p1_user = get_user(p1)
     p2_user = get_user(p2)
     if not p1_user or not p2_user:
         return
+    
     prize1 = get_prize(case_type)
     prize2 = get_prize(case_type)
+    
     if prize1 > prize2:
         winner = p1
         loser = p2
@@ -959,6 +1026,7 @@ def start_battle_opening(room_id):
         add_commission(total_commission)
         update_battle_stats(p1, won=False, stars=commission1)
         update_battle_stats(p2, won=False, stars=commission2)
+        
         draw_result = {
             'result': 'draw',
             'result_text': f'🤝 Ничья! Оба получили по {prize1 - commission1}⭐',
@@ -972,8 +1040,10 @@ def start_battle_opening(room_id):
         }
         battle_results[p1] = draw_result
         battle_results[p2] = draw_result
+        
         del battle_rooms[room_id]
         return
+    
     total_drop = winner_prize + loser_prize
     commission = int(total_drop * 0.10)
     winner_winnings = total_drop - commission
@@ -984,6 +1054,7 @@ def start_battle_opening(room_id):
     add_commission(commission)
     update_battle_stats(winner, won=True, stars=winner_winnings)
     update_battle_stats(loser, won=False, stars=loser_prize)
+    
     result_data = {
         'result': 'win' if winner == p1 else 'lose',
         'result_text': f'🏆 Победитель получил {winner_winnings}⭐!',
@@ -999,6 +1070,7 @@ def start_battle_opening(room_id):
     }
     battle_results[p1] = result_data
     battle_results[p2] = result_data
+    
     del battle_rooms[room_id]
 
 @app.route('/get_battle_result', methods=['POST', 'OPTIONS'])
@@ -1019,19 +1091,24 @@ def get_battle_animation_data():
         return '', 200
     data = request.get_json()
     room_id = data.get('room_id')
+    
     if room_id not in battle_rooms:
         return jsonify({'error': 'Комната не найдена'}), 404
+    
     room = battle_rooms[room_id]
     if room['status'] != 'active':
         return jsonify({'error': 'Битва ещё не началась'}), 400
+    
     p1 = get_user(room['players'][0])
     p2 = get_user(room['players'][1])
+    
     return jsonify({
         'case_type': room['case_type'],
         'player1': p1[8] if p1 else f"ID{room['players'][0]}",
         'player2': p2[8] if p2 else f"ID{room['players'][1]}"
     })
 
+# ===================== МИНЁР (ЭНДПОИНТЫ) =====================
 @app.route('/start_mines_game', methods=['POST', 'OPTIONS'])
 def start_mines_game():
     if request.method == 'OPTIONS':
@@ -1040,6 +1117,7 @@ def start_mines_game():
     uid = data.get('user_id')
     bet = data.get('bet')
     mines = data.get('mines')
+    
     user = get_user(uid)
     if not user or user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
@@ -1047,11 +1125,14 @@ def start_mines_game():
         return jsonify({'error': 'Ставка от 3 до 1000⭐'}), 400
     if mines < 3 or mines > 8:
         return jsonify({'error': 'Мин от 3 до 8'}), 400
+    
     update_user(uid, balance=user[1] - bet)
+    
     board = [0] * 25
     positions = random.sample(range(25), mines)
     for pos in positions:
         board[pos] = 1
+    
     game_id = int(time.time())
     active_mines_games[game_id] = {
         'user_id': uid,
@@ -1063,6 +1144,7 @@ def start_mines_game():
         'multiplier': 1.0,
         'status': 'active'
     }
+    
     return jsonify({
         'game_id': game_id,
         'board': board,
@@ -1080,6 +1162,7 @@ def open_mines_cell():
     uid = data.get('user_id')
     game_id = data.get('game_id')
     index = data.get('index')
+    
     game = active_mines_games.get(game_id)
     if not game or game['status'] != 'active':
         return jsonify({'error': 'Игра не активна'}), 400
@@ -1087,8 +1170,10 @@ def open_mines_cell():
         return jsonify({'error': 'Не твоя игра'}), 403
     if game['opened'][index] == 1:
         return jsonify({'error': 'Клетка уже открыта'}), 400
+    
     game['opened'][index] = 1
     game['opened_count'] += 1
+    
     if game['board'][index] == 1:
         game['status'] = 'lost'
         update_user(uid, last_open=int(time.time()))
@@ -1102,8 +1187,10 @@ def open_mines_cell():
             'won': False,
             'bet': game['bet']
         })
+    
     opened = game['opened_count']
     game['multiplier'] = get_mines_multiplier(opened, game['mines'])
+    
     safe_cells = 25 - game['mines']
     if game['opened_count'] == safe_cells:
         raw_winnings = int(game['bet'] * game['multiplier'])
@@ -1122,6 +1209,7 @@ def open_mines_cell():
             'winnings': final_winnings,
             'bet': game['bet']
         })
+    
     return jsonify({
         'board': game['board'],
         'opened': game['opened'],
@@ -1138,6 +1226,7 @@ def cashout_mines():
     data = request.get_json()
     uid = data.get('user_id')
     game_id = data.get('game_id')
+    
     game = active_mines_games.get(game_id)
     if not game or game['status'] != 'active':
         return jsonify({'error': 'Игра не активна'}), 400
@@ -1145,13 +1234,16 @@ def cashout_mines():
         return jsonify({'error': 'Не твоя игра'}), 403
     if game['opened_count'] < 3:
         return jsonify({'error': 'Нужно открыть минимум 3 клетки!'}), 400
+    
     raw_winnings = int(game['bet'] * game['multiplier'])
     final_winnings = min(raw_winnings, 5000)
     user = get_user(uid)
     update_user(uid, balance=user[1] + final_winnings)
     game['status'] = 'won'
     update_mines_stats(uid, won=True, multiplier=game['multiplier'], stars=final_winnings)
+    
     del active_mines_games[game_id]
+    
     return jsonify({
         'winnings': final_winnings,
         'multiplier': game['multiplier'],
@@ -1181,10 +1273,10 @@ def get_mines_stats():
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
+# ===================== ЗАПУСК =====================
 if __name__ == "__main__":
     print("✅ БОТ ЗАПУЩЕН")
     bot.remove_webhook()
     bot.set_webhook(url="https://randevu-bot-production.up.railway.app/webhook")
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
-EOF
