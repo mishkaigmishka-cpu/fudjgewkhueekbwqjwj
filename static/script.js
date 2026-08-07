@@ -1,12 +1,13 @@
 // ===============================
-// RANDEVU — SCRIPT v6.0 (FIXED)
+// RANDEVU — FINAL SCRIPT v6.0
+// ПОЛНАЯ ВЕРСИЯ
 // ===============================
 
 const tg = window.Telegram.WebApp;
 const user_id = tg.initDataUnsafe?.user?.id || 0;
 
 if (!user_id) {
-    tg.showAlert('❌ Ошибка: не удалось получить ID пользователя.');
+    showCustomAlert('❌ Ошибка: не удалось получить ID пользователя.');
 }
 
 // ===== КОНФИГУРАЦИЯ =====
@@ -100,6 +101,38 @@ const animateTrack = (track, shift, duration = 6000) => {
     track.style.transform = `translateX(-${shift}px)`;
 };
 
+// ===== КАСТОМНОЕ ОКНО В ПРИЛОЖЕНИИ =====
+function showCustomAlert(message, isSuccess = false) {
+    const overlay = document.createElement('div');
+    overlay.id = 'customAlertOverlay';
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(20px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '9999',
+        padding: '30px',
+        animation: 'fadeIn 0.3s ease'
+    });
+    
+    const color = isSuccess ? '#4caf50' : '#ff6b6b';
+    const icon = isSuccess ? '✅' : '❌';
+    
+    overlay.innerHTML = `
+        <div style="font-size:48px; margin-bottom:10px;">${icon}</div>
+        <div style="font-size:20px; font-weight:600; color:${color}; text-align:center; max-width:350px; word-wrap:break-word;">${message}</div>
+        <button onclick="this.closest('#customAlertOverlay').remove()" style="margin-top:20px; padding:12px 40px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-size:16px; font-weight:600; cursor:pointer; transition:all 0.2s;">
+            OK
+        </button>
+    `;
+    
+    document.body.appendChild(overlay);
+}
+
 // ===== DOM КЭШ =====
 const DOM = {
     balance: document.getElementById('balance'),
@@ -146,6 +179,7 @@ let state = {
     crashGameId: null,
     crashRunning: false,
     crashInterval: null,
+    crashPollingInterval: null,
     intervals: {}
 };
 
@@ -161,7 +195,8 @@ function closeAllOverlays() {
         'botBattleResultOverlay',
         'minesResultOverlay',
         'crashResultOverlay',
-        'result'
+        'result',
+        'customAlertOverlay'
     ];
     
     ids.forEach(id => {
@@ -176,6 +211,10 @@ function closeAllOverlays() {
     if (state.crashInterval) {
         clearInterval(state.crashInterval);
         state.crashInterval = null;
+    }
+    if (state.crashPollingInterval) {
+        clearInterval(state.crashPollingInterval);
+        state.crashPollingInterval = null;
     }
     if (window.opponentInterval) clearInterval(window.opponentInterval);
     if (window.opponentChecker) clearInterval(window.opponentChecker);
@@ -205,7 +244,7 @@ function showBattles() {
     loadBattleRooms();
     checkActiveRoom();
     clearInterval(state.intervals.battle);
-    state.intervals.battle = setInterval(loadBattleRooms, 2000);
+    state.intervals.battle = setInterval(loadBattleRooms, 5000);
 }
 
 function showMines() {
@@ -236,6 +275,7 @@ function showCrash() {
     document.querySelector('.nav-item[data-tab="crash"]').classList.add('active');
     loadCrashStats();
     resetCrashUI();
+    startCrashPolling();
 }
 
 function showProfile() {
@@ -273,14 +313,14 @@ function updateAllBalances(newBalance) {
 // ===== КЕЙСЫ =====
 async function checkBalance(type) {
     const data = await apiRequest('/check_balance', { case_type: type });
-    if (data.error) { tg.showAlert('❌ ' + data.error); return false; }
-    if (!data.can_open) { tg.showAlert('❌ Недостаточно звёзд или время не прошло!'); return false; }
+    if (data.error) { showCustomAlert('❌ ' + data.error); return false; }
+    if (!data.can_open) { showCustomAlert('❌ Недостаточно звёзд или время не прошло!'); return false; }
     return true;
 }
 
 async function fetchRealPrize(type) {
     const data = await apiRequest('/get_prize', { case_type: type });
-    if (data.error) { tg.showAlert('❌ ' + data.error); return null; }
+    if (data.error) { showCustomAlert('❌ ' + data.error); return null; }
     return data.prize;
 }
 
@@ -756,7 +796,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
                 });
                 const data = await res.json();
                 if (data.error) {
-                    tg.showAlert('❌ ' + data.error);
+                    showCustomAlert('❌ ' + data.error);
                 } else {
                     updateAllBalances(data.new_balance);
                     const balanceDisplayEl = resultContainer.querySelector('div[style*="position: absolute"]');
@@ -765,7 +805,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
                     }
                 }
             } catch(e) {
-                tg.showAlert('❌ Ошибка при открытии кейса');
+                showCustomAlert('❌ Ошибка при открытии кейса');
             }
         }, 300);
 
@@ -917,11 +957,11 @@ function createBattleRoom() {
     
     apiRequest('/create_battle_room', { case_type }).then(data => {
         if (data.error) {
-            tg.showAlert('❌ ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             return;
         }
         if (!data.room_id) {
-            tg.showAlert('❌ Не удалось создать комнату');
+            showCustomAlert('❌ Не удалось создать комнату');
             return;
         }
         state.currentRoomId = data.room_id;
@@ -967,13 +1007,13 @@ function joinBattleRoom(room_id) {
     apiRequest('/join_battle_room', { room_id }).then(data => {
         if (data.error) {
             if (data.already_in_room) {
-                tg.showAlert('⚠️ Ты уже в этой комнате');
+                showCustomAlert('⚠️ Ты уже в этой комнате');
                 return;
             }
             if (data.error.includes('пользователь не найден')) {
-                tg.showAlert('❌ Не удалось найти пользователя. Попробуйте перезапустить бота.');
+                showCustomAlert('❌ Не удалось найти пользователя. Попробуйте перезапустить бота.');
             } else {
-                tg.showAlert('❌ ' + data.error);
+                showCustomAlert('❌ ' + data.error);
             }
             return;
         }
@@ -1153,9 +1193,9 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
 function sendBattleReady(room_id) {
     apiRequest('/battle_ready', { room_id }).then(data => {
         if (data.error) {
-            tg.showAlert('❌ ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             if (data.error.includes('не в этой комнате') || data.error.includes('не найдена')) {
-                tg.showAlert('❌ Соперник вышел из комнаты!');
+                showCustomAlert('❌ Соперник вышел из комнаты!');
                 closeAllOverlays();
                 showBattles();
             }
@@ -1251,7 +1291,7 @@ function startOpponentChecker(room_id) {
         apiRequest('/check_room_status', { room_id }).then(data => {
             if (data.error || !data.room_exists) {
                 clearInterval(window.opponentChecker);
-                tg.showAlert('❌ Комната была удалена');
+                showCustomAlert('❌ Комната была удалена');
                 closeAllOverlays();
                 showBattles();
                 return;
@@ -1259,7 +1299,7 @@ function startOpponentChecker(room_id) {
             
             if (data.opponent_left) {
                 clearInterval(window.opponentChecker);
-                tg.showAlert('❌ Ваш соперник вышел из комнаты!');
+                showCustomAlert('❌ Ваш соперник вышел из комнаты!');
                 closeAllOverlays();
                 showBattles();
                 return;
@@ -1267,7 +1307,7 @@ function startOpponentChecker(room_id) {
             
             if (data.opponent_joined === false && data.players_count === 1) {
                 clearInterval(window.opponentChecker);
-                tg.showAlert('❌ Ваш соперник вышел из комнаты!');
+                showCustomAlert('❌ Ваш соперник вышел из комнаты!');
                 closeAllOverlays();
                 showBattles();
             }
@@ -1321,7 +1361,7 @@ function startBotBattle() {
     
     apiRequest('/check_balance_simple', { amount: price }).then(data => {
         if (data.error || !data.has_enough) {
-            tg.showAlert('❌ Недостаточно звёзд для открытия кейса!');
+            showCustomAlert('❌ Недостаточно звёзд для открытия кейса!');
             return;
         }
         closeBotBattle();
@@ -1349,7 +1389,7 @@ function startBotBattleAnimation(case_type) {
     
     apiRequest('/start_bot_battle', { case_type }).then(data => {
         if (data.error) {
-            tg.showAlert('❌ ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             const overlay = document.getElementById('botRouletteOverlay');
             if (overlay) overlay.remove();
             return;
@@ -1540,7 +1580,7 @@ function startBattleAnimation(room_id) {
                 checkBattleResultDirect();
                 return;
             }
-            tg.showAlert('❌ ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             return;
         }
         
@@ -1882,23 +1922,23 @@ function startMinesGame() {
     const mines = state.selectedMines;
     
     if (bet < 3 || bet > 1000) {
-        tg.showAlert('❌ Ставка должна быть от 3 до 1000⭐');
+        showCustomAlert('❌ Ставка должна быть от 3 до 1000⭐');
         return;
     }
     if (mines < 3 || mines > 8) {
-        tg.showAlert('❌ X должно быть от 3 до 8');
+        showCustomAlert('❌ X должно быть от 3 до 8');
         return;
     }
     
     apiRequest('/check_balance_simple', { amount: bet }).then(data => {
         if (data.error || !data.has_enough) {
-            tg.showAlert('❌ Недостаточно звёзд!');
+            showCustomAlert('❌ Недостаточно звёзд!');
             return;
         }
         
         apiRequest('/start_mines_game', { bet, mines }).then(gameData => {
             if (gameData.error) {
-                tg.showAlert('❌ ' + gameData.error);
+                showCustomAlert('❌ ' + gameData.error);
                 return;
             }
             
@@ -1974,7 +2014,7 @@ function openMinesCell(index) {
         index 
     }).then(data => {
         if (data.error) {
-            tg.showAlert('❌ ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             return;
         }
         
@@ -2107,13 +2147,13 @@ function showMinesResult(icon, title, text, color) {
 function cashoutMinesGame() {
     if (!state.minesGameData || !state.minesGameData.active || state.minesGameData.game_over) return;
     if (state.minesGameData.opened < 3) {
-        tg.showAlert('❌ Нужно открыть минимум 3 клетки!');
+        showCustomAlert('❌ Нужно открыть минимум 3 клетки!');
         return;
     }
     
     apiRequest('/cashout_mines', { game_id: state.minesGameData.game_id }).then(data => {
         if (data.error) {
-            tg.showAlert('❌ ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             return;
         }
         
@@ -2303,13 +2343,13 @@ function startCrashGame() {
     
     apiRequest('/check_balance_simple', { amount: bet }).then(data => {
         if (data.error || !data.has_enough) {
-            tg.showAlert('❌ Недостаточно звёзд!');
+            showCustomAlert('❌ Недостаточно звёзд!');
             return;
         }
         
         apiRequest('/start_crash', { bet }).then(gameData => {
             if (gameData.error) {
-                tg.showAlert('❌ ' + gameData.error);
+                showCustomAlert('❌ ' + gameData.error);
                 return;
             }
             
@@ -2367,7 +2407,7 @@ function cashoutCrash() {
     
     apiRequest('/cashout_crash', { game_id: state.crashGameId }).then(data => {
         if (data.error) {
-            tg.showAlert('❌ ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             return;
         }
         
@@ -2462,26 +2502,104 @@ function hideInvite() {
 function copyInvite() {
     const link = 'https://t.me/Randevucase_bot?start=' + user_id;
     navigator.clipboard.writeText(link).then(() => {
-        tg.showAlert('✅ Ссылка скопирована!');
+        showCustomAlert('✅ Ссылка скопирована!', true);
     }).catch(() => {
-        tg.showAlert('❌ Не удалось скопировать');
+        showCustomAlert('❌ Не удалось скопировать');
     });
 }
 function showWithdraw() {
-    const amount = prompt('Введите количество звёзд (мин. 1000⭐):');
-    if (amount === null) return;
-    const num = parseInt(amount);
-    if (isNaN(num) || num < 1000) {
-        tg.showAlert('❌ Минимум 1000⭐');
+    const overlay = document.createElement('div');
+    overlay.id = 'withdrawOverlay';
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(20px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '9999',
+        padding: '30px',
+        animation: 'fadeIn 0.3s ease'
+    });
+    
+    overlay.innerHTML = `
+        <div style="background:rgba(255,255,255,0.05); border-radius:24px; padding:30px; max-width:380px; width:100%;">
+            <h2 style="color:#fff; text-align:center; font-size:22px; margin-bottom:16px;">💸 ВЫВОД СРЕДСТВ</h2>
+            <div style="color:#aaa; font-size:14px; text-align:center; margin-bottom:12px;">Минимальная сумма — 1000⭐</div>
+            <input id="withdrawAmount" type="number" min="1000" placeholder="Введите сумму" style="width:100%; padding:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.3); color:#fff; font-size:18px; text-align:center;">
+            <div style="display:flex; gap:12px; margin-top:16px;">
+                <button onclick="submitWithdraw()" style="flex:1; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg,#4caf50,#2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">✅ Отправить</button>
+                <button onclick="this.closest('#withdrawOverlay').remove()" style="flex:1; padding:14px; border:none; border-radius:12px; background:rgba(255,0,0,0.15); color:#ff6b6b; font-weight:700; font-size:16px; cursor:pointer;">❌ Отмена</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+}
+
+function submitWithdraw() {
+    const input = document.getElementById('withdrawAmount');
+    const amount = parseInt(input.value);
+    if (isNaN(amount) || amount < 1000) {
+        showCustomAlert('❌ Минимальная сумма — 1000⭐');
         return;
     }
-    apiRequest('/withdraw_request', { amount: num }).then(data => {
+    const overlay = document.getElementById('withdrawOverlay');
+    if (overlay) overlay.remove();
+    
+    apiRequest('/withdraw_request', { amount: amount }).then(data => {
         if (data.success) {
-            tg.showAlert('✅ Заявка отправлена! Админ свяжется с вами.');
+            showCustomAlert('✅ Заявка отправлена! Админ свяжется с вами.', true);
         } else {
-            tg.showAlert('❌ ' + data.error);
+            showCustomAlert('❌ ' + data.error);
         }
     });
+}
+
+function startCrashPolling() {
+    if (state.crashPollingInterval) clearInterval(state.crashPollingInterval);
+    
+    state.crashPollingInterval = setInterval(() => {
+        apiRequest('/crash_status', {}).then(status => {
+            if (status.error) {
+                return;
+            }
+            
+            const multiplier = status.multiplier || 1.00;
+            DOM.crashMultiplier.textContent = `x${multiplier}`;
+            DOM.crashMultiplierDisplay.textContent = `x${multiplier}`;
+            
+            updateCrashChart(multiplier);
+            
+            const bet = parseInt(DOM.crashBetDisplay.textContent) || 0;
+            const potentialWin = Math.floor(bet * multiplier * 0.95);
+            const winDisplay = document.getElementById('crashPotentialWin');
+            if (winDisplay) {
+                winDisplay.textContent = potentialWin + '⭐';
+                winDisplay.style.color = potentialWin > bet * 2 ? '#4caf50' : '#ffd700';
+            }
+            
+            if (status.crashed) {
+                DOM.crashStatus.textContent = '💥 КРАШ!';
+                DOM.crashMultiplier.className = 'crashed';
+                clearInterval(state.crashPollingInterval);
+                state.crashPollingInterval = null;
+                setTimeout(() => {
+                    if (!state.crashRunning) {
+                        resetCrashUI();
+                        startCrashPolling();
+                    }
+                }, 3000);
+            } else if (status.active) {
+                DOM.crashStatus.textContent = '📈 Множитель растёт...';
+                DOM.crashMultiplier.className = '';
+            } else {
+                DOM.crashStatus.textContent = '⏳ Ожидание нового раунда...';
+            }
+        });
+    }, 100);
 }
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====
@@ -2490,4 +2608,5 @@ loadBalance();
 loadMinesStats();
 loadCrashStats();
 initCrashChart();
+startCrashPolling();
 tg.ready();
