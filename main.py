@@ -163,7 +163,6 @@ def get_prize(case_type, user_id=None):
     data = CASE_RANGES[case_type]
     rnd = random.random()
     
-    # ===== УВЕЛИЧЕНИЕ ШАНСОВ ДЛЯ ОПРЕДЕЛЁННЫХ ИГРОКОВ =====
     if user_id:
         cursor.execute("SELECT luck_boost FROM users WHERE id=?", (user_id,))
         boost = cursor.fetchone()
@@ -251,8 +250,6 @@ def track_spend(uid, promo_code, amount):
     conn.commit()
     cursor.execute("UPDATE users SET total_spent = total_spent + ? WHERE id=?", (amount, uid))
     conn.commit()
-
-PROMO_CODE = "RANDEVU20"
 
 # ===================== ГЛОБАЛЬНЫЕ ДАННЫЕ =====================
 active_battles = {}
@@ -621,7 +618,6 @@ def list_promo(msg):
     
     bot.reply_to(msg, text)
 
-# ===================== ОСТАЛЬНЫЕ КОМАНДЫ =====================
 @bot.message_handler(commands=['add_ad'])
 def add_ad(msg):
     if msg.from_user.id != ADMIN_ID:
