@@ -1,6 +1,6 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v4.0
-// Все режимы: Кейсы, Битвы, Минёр, Краш
+// RANDEVU — FINAL SCRIPT v5.0
+// ВСЕ РЕЖИМЫ: Кейсы, Битвы, Минёр, Краш
 // ===============================
 
 const tg = window.Telegram.WebApp;
@@ -1001,7 +1001,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     title.textContent = isBot ? '🤖 БИТВА С БОТОМ' : '⚔️ БИТВА КЕЙСОВ';
     overlay.appendChild(title);
     
-    // Индикаторы готовности
+    // ИНДИКАТОРЫ ГОТОВНОСТИ
     const readyIndicator = document.createElement('div');
     readyIndicator.style.cssText = 'display:flex; justify-content:space-between; width:100%; max-width:700px; margin-bottom:8px;';
     readyIndicator.innerHTML = `
@@ -1106,15 +1106,17 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     statusDiv.textContent = isBot ? 'Нажми «ГОТОВ», чтобы начать битву с ботом' : 'Нажми «ГОТОВ», чтобы начать битву';
     overlay.appendChild(statusDiv);
     
+    // КНОПКА НАЗАД — ЗАКРЫВАЕТ ВСЁ ЧИСТО
     const backBtn = document.createElement('button');
     backBtn.textContent = '🔙 НАЗАД';
     backBtn.style.cssText = 'padding:12px 30px; border:none; border-radius:12px; background:rgba(255,255,255,0.06); color:#888; font-size:14px; font-weight:600; cursor:pointer; margin-top:6px; transition:all 0.2s;';
     backBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.12)'; };
     backBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.06)'; };
     backBtn.onclick = function() {
+        if (window.opponentInterval) clearInterval(window.opponentInterval);
+        if (window.opponentChecker) clearInterval(window.opponentChecker);
+        
         if (state.currentRoomId) {
-            if (window.opponentInterval) clearInterval(window.opponentInterval);
-            if (window.opponentChecker) clearInterval(window.opponentChecker);
             apiRequest('/exit_battle_room', { room_id: state.currentRoomId }).then(() => {
                 state.currentRoomId = null;
                 const overlay = document.getElementById('battlePreviewOverlay');
@@ -1185,25 +1187,31 @@ function updatePreviewNames(me, opponent) {
 }
 
 function updateReadyStatus(readyStatus) {
-    const p1Ready = document.getElementById('player1Ready');
-    const p2Ready = document.getElementById('player2Ready');
+    const p1El = document.getElementById('player1Ready');
+    const p2El = document.getElementById('player2Ready');
     const btn = document.getElementById('battleReadyBtn');
     
-    if (p1Ready) {
-        p1Ready.textContent = readyStatus && readyStatus[0] ? '✅ ' + p1Ready.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '') + ': ГОТОВ' : p1Ready.textContent;
+    // Получаем имена игроков
+    const p1Name = p1El ? p1El.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '').replace(': ГОТОВ', '') : 'Игрок 1';
+    const p2Name = p2El ? p2El.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '').replace(': ГОТОВ', '') : 'Игрок 2';
+    
+    if (p1El) {
+        p1El.textContent = readyStatus && readyStatus[0] ? '✅ ' + p1Name + ': ГОТОВ' : '⏳ ' + p1Name + ': ОЖИДАНИЕ...';
+        p1El.style.color = readyStatus && readyStatus[0] ? '#4caf50' : '#888';
     }
-    if (p2Ready) {
-        p2Ready.textContent = readyStatus && readyStatus[1] ? '✅ ' + p2Ready.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '') + ': ГОТОВ' : p2Ready.textContent;
+    if (p2El) {
+        p2El.textContent = readyStatus && readyStatus[1] ? '✅ ' + p2Name + ': ГОТОВ' : '⏳ ' + p2Name + ': ОЖИДАНИЕ...';
+        p2El.style.color = readyStatus && readyStatus[1] ? '#4caf50' : '#888';
     }
     
     if (readyStatus && readyStatus[0] && readyStatus[1]) {
         if (btn) {
-            btn.textContent = '✅ ГОТОВЫ';
+            btn.textContent = '✅ ОБА ГОТОВЫ';
             btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
             btn.disabled = true;
         }
         const statusEl = document.getElementById('battlePreviewStatus');
-        if (statusEl) statusEl.textContent = '✅ Оба игрока готовы!';
+        if (statusEl) statusEl.textContent = '✅ Оба игрока готовы! Битва начинается...';
     } else if (readyStatus && (readyStatus[0] || readyStatus[1])) {
         if (btn) {
             btn.textContent = '⏳ ОЖИДАНИЕ...';
@@ -1222,6 +1230,15 @@ function startOpponentChecker(room_id) {
             if (data.error || !data.room_exists) {
                 clearInterval(window.opponentChecker);
                 tg.showAlert('❌ Комната была удалена');
+                const overlay = document.getElementById('battlePreviewOverlay');
+                if (overlay) overlay.remove();
+                showBattles();
+                return;
+            }
+            
+            if (data.opponent_left) {
+                clearInterval(window.opponentChecker);
+                tg.showAlert('❌ Ваш соперник вышел из комнаты!');
                 const overlay = document.getElementById('battlePreviewOverlay');
                 if (overlay) overlay.remove();
                 showBattles();
@@ -1295,6 +1312,22 @@ function startBotBattle() {
 
 function startBotBattleAnimation(case_type) {
     showBotRouletteAnimation(case_type);
+    
+    // Анимация треков
+    setTimeout(() => {
+        const track1 = document.getElementById('botRouletteTrack1');
+        const track2 = document.getElementById('botRouletteTrack2');
+        if (track1) {
+            const shift1 = Math.floor(Math.random() * 2000) + 1000;
+            track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+            track1.style.transform = `translateX(-${shift1}px)`;
+        }
+        if (track2) {
+            const shift2 = Math.floor(Math.random() * 2000) + 1000;
+            track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+            track2.style.transform = `translateX(-${shift2}px)`;
+        }
+    }, 300);
     
     apiRequest('/start_bot_battle', { case_type }).then(data => {
         if (data.error) {
@@ -1414,13 +1447,11 @@ function showBotRouletteAnimation(case_type) {
     
     overlay._track1 = document.getElementById('botRouletteTrack1');
     overlay._track2 = document.getElementById('botRouletteTrack2');
-    overlay._style = style;
-    overlay._winPos = 40;
-    overlay._totalCardWidth = cardWidth + cardGap;
 }
 
 function showBotBattleResult(data) {
     const overlay = document.createElement('div');
+    overlay.id = 'botBattleResultOverlay';
     Object.assign(overlay.style, {
         position: 'fixed',
         top: '0', left: '0', right: '0', bottom: '0',
@@ -1485,7 +1516,8 @@ function startBattleAnimation(room_id) {
     apiRequest('/get_battle_animation_data', { room_id }).then(data => {
         if (data.error) {
             if (data.error.includes('не найдена') || data.error.includes('завершена')) {
-                tg.showAlert('⚠️ Битва уже завершена, проверьте результат');
+                // Пытаемся получить результат напрямую
+                checkBattleResultDirect();
                 return;
             }
             tg.showAlert('❌ ' + data.error);
@@ -1603,6 +1635,15 @@ function startBattleAnimation(room_id) {
     });
 }
 
+function checkBattleResultDirect() {
+    apiRequest('/get_battle_result').then(data => {
+        if (data.pending) return;
+        if (data.result) {
+            showBattleResult(data);
+        }
+    });
+}
+
 function checkBattleResultWithRoulette(room_id) {
     apiRequest('/get_battle_result').then(data => {
         if (data.pending) return;
@@ -1681,6 +1722,7 @@ function showBattleResult(data) {
     state.currentRoomId = null;
     
     const overlay = document.createElement('div');
+    overlay.id = 'battleResultOverlay';
     Object.assign(overlay.style, {
         position: 'fixed',
         top: '0', left: '0', right: '0', bottom: '0',
@@ -1948,6 +1990,7 @@ function showMinesResult(icon, title, text, color) {
     const openedCells = state.minesGameData ? state.minesGameData.openedCells : null;
     
     const overlay = document.createElement('div');
+    overlay.id = 'minesResultOverlay';
     Object.assign(overlay.style, {
         position: 'fixed',
         top: '0', left: '0', right: '0', bottom: '0',
@@ -2022,26 +2065,16 @@ function showMinesResult(icon, title, text, color) {
         ${boardHTML}
         <div style="color:#666; font-size:13px; margin-bottom:16px;">💣 — мины | 💎 — безопасные клетки</div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-            <button id="minesPlayAgainBtn" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+            <button onclick="this.closest('div').remove(); startMinesGame();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔄 ИГРАТЬ СНОВА
             </button>
-            <button id="minesBackBtn" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+            <button onclick="this.closest('div').remove(); showMines();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔙 НАЗАД
             </button>
         </div>
     `;
     
     document.body.appendChild(overlay);
-    
-    document.getElementById('minesPlayAgainBtn').onclick = function() {
-        overlay.remove();
-        startMinesGame();
-    };
-    
-    document.getElementById('minesBackBtn').onclick = function() {
-        overlay.remove();
-        showMines();
-    };
 }
 
 function cashoutMinesGame() {
@@ -2170,6 +2203,7 @@ function startCrashGame() {
                         DOM.crashCashoutBtn.style.display = 'none';
                         DOM.crashStartBtn.disabled = false;
                         DOM.crashStartBtn.textContent = '🔄 ИГРАТЬ СНОВА';
+                        showCrashResult('lose', 0, status.multiplier);
                         loadBalance();
                         loadCrashStats();
                     }
@@ -2200,11 +2234,62 @@ function cashoutCrash() {
         DOM.crashStartBtn.disabled = false;
         DOM.crashStartBtn.textContent = '🔄 ИГРАТЬ СНОВА';
         
+        showCrashResult('win', data.winnings, data.multiplier);
         loadBalance();
         loadCrashStats();
-        
-        tg.showAlert(`✅ Ты выиграл ${data.winnings}⭐ (x${data.multiplier})`);
     });
+}
+
+function showCrashResult(result, winnings, multiplier) {
+    const overlay = document.createElement('div');
+    overlay.id = 'crashResultOverlay';
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: 'rgba(0,0,0,0.92)',
+        backdropFilter: 'blur(20px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '1000',
+        padding: '30px',
+        animation: 'fadeIn 0.3s ease'
+    });
+    
+    if (result === 'win') {
+        overlay.innerHTML = `
+            <div style="font-size:80px; margin-bottom:10px;">💰</div>
+            <div style="font-size:32px; font-weight:800; color:#4caf50; margin-bottom:10px;">ВЫИГРЫШ!</div>
+            <div style="font-size:28px; font-weight:700; color:#ffd700;">${winnings}⭐</div>
+            <div style="color:#aaa; font-size:16px; margin-top:4px;">Множитель: x${multiplier}</div>
+            <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
+                <button onclick="this.closest('div').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                    🔄 ИГРАТЬ СНОВА
+                </button>
+                <button onclick="this.closest('div').remove(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                    🔙 НАЗАД
+                </button>
+            </div>
+        `;
+    } else {
+        overlay.innerHTML = `
+            <div style="font-size:80px; margin-bottom:10px;">💥</div>
+            <div style="font-size:32px; font-weight:800; color:#f44336; margin-bottom:10px;">КРАШ!</div>
+            <div style="color:#aaa; font-size:16px;">Множитель: x${multiplier}</div>
+            <div style="color:#888; font-size:14px; margin-top:4px;">Ты потерял ставку</div>
+            <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
+                <button onclick="this.closest('div').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #ff6b6b, #ee5a24); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                    🔄 ИГРАТЬ СНОВА
+                </button>
+                <button onclick="this.closest('div').remove(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                    🔙 НАЗАД
+                </button>
+            </div>
+        `;
+    }
+    
+    document.body.appendChild(overlay);
 }
 
 function loadCrashStats() {
