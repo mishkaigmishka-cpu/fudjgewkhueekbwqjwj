@@ -205,7 +205,6 @@
             </div>
 
             <div id="crashDisplay" style="text-align:center; padding:16px 0; background:rgba(255,255,255,0.04); border-radius:24px; margin-bottom:16px;">
-                <!-- ГРАФИК -->
                 <div id="crashChart" style="position:relative; width:100%; height:130px; background:rgba(0,0,0,0.3); border-radius:12px; overflow:hidden; margin-bottom:8px;">
                     <canvas id="crashCanvas" width="400" height="130" style="width:100%; height:130px; display:block;"></canvas>
                     <div id="crashMultiplier" style="position:absolute; top:6px; right:12px; font-size:32px; font-weight:900; color:#b388ff; text-shadow:0 0 30px rgba(179,136,255,0.5); transition:color 0.3s ease; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height:1;">
@@ -214,7 +213,6 @@
                     <div style="position:absolute; bottom:0; left:0; right:0; height:3px; background:rgba(255,255,255,0.08);">
                         <div id="crashProgressBar" style="height:100%; width:0%; background:linear-gradient(90deg, #4caf50, #ffd700, #f44336); border-radius:0 3px 3px 0; transition:width 0.1s ease;"></div>
                     </div>
-                    <!-- Сетка -->
                     <div style="position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; opacity:0.06;">
                         <div style="position:absolute; left:25%; top:0; bottom:0; border-left:1px solid #fff;"></div>
                         <div style="position:absolute; left:50%; top:0; bottom:0; border-left:1px solid #fff;"></div>
@@ -229,9 +227,10 @@
                 <div id="crashTimer" style="font-size:13px; color:#666; margin-top:2px;">⏱ 0.0 сек</div>
             </div>
 
-            <div id="crashGameInfo" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; background:rgba(255,255,255,0.05); border-radius:16px; padding:14px; margin-bottom:16px;">
+            <div id="crashGameInfo" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; background:rgba(255,255,255,0.05); border-radius:16px; padding:14px; margin-bottom:16px;">
                 <div style="color:#aaa; font-size:14px;">💰 Ставка: <b id="crashBetDisplay" style="color:#fff;">0</b>⭐</div>
                 <div style="color:#aaa; font-size:14px;">🔥 Множитель: <b id="crashMultiplierDisplay" style="color:#ffd700;">x1.00</b></div>
+                <div style="color:#aaa; font-size:14px;">🏆 Выигрыш: <b id="crashPotentialWin" style="color:#4caf50;">0</b>⭐</div>
             </div>
 
             <div style="margin-bottom:12px;">
