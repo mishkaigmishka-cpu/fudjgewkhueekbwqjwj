@@ -1,5 +1,5 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v7.0
+// RANDEVU — FINAL SCRIPT v8.0
 // ВСЕ ИСПРАВЛЕНИЯ ВНЕСЕНЫ
 // ===============================
 
@@ -40,12 +40,12 @@ const CONFIG = {
         'bedrock': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(52,73,94,0.7)', titleColor:'#5d6d7e', itemColor:'#aeb6bf', highlightColor:'#ffd700', glowColor:'rgba(52,73,94,0.4)', shadowColor:'rgba(52,73,94,0.6)', icon:'⛏️', bgGradient:'radial-gradient(circle at 50% 50%, rgba(52,73,94,0.1), transparent 70%)' }
     },
     MINES_MULTIPLIERS: {
-        3: {1:1.05,2:1.15,3:1.30,4:1.50,5:1.75,6:2.10,7:2.50,8:3.00,9:3.50,10:4.20,11:5.00,12:6.00},
-        4: {1:1.10,2:1.20,3:1.40,4:1.70,5:2.00,6:2.40,7:3.00,8:3.80,9:4.50,10:5.50,11:6.50,12:8.00},
-        5: {1:1.15,2:1.30,3:1.55,4:1.90,5:2.30,6:2.80,7:3.50,8:4.50,9:5.50,10:6.50,11:8.00,12:10.00},
-        6: {1:1.20,2:1.40,3:1.70,4:2.10,5:2.60,6:3.20,7:4.00,8:5.00,9:6.50,10:8.00,11:10.00,12:12.00},
-        7: {1:1.25,2:1.50,3:1.85,4:2.30,5:2.90,6:3.60,7:4.50,8:5.50,9:7.50,10:9.00,11:12.00,12:15.00},
-        8: {1:1.30,2:1.60,3:2.00,4:2.50,5:3.20,6:4.00,7:5.00,8:6.50,9:8.50,10:10.00,11:14.00,12:18.00}
+        3: {1:1.05, 2:1.15, 3:1.30, 4:1.50, 5:1.75, 6:2.10, 7:2.50, 8:3.00, 9:3.50, 10:4.20, 11:5.00, 12:6.00},
+        4: {1:1.10, 2:1.20, 3:1.40, 4:1.70, 5:2.00, 6:2.40, 7:3.00, 8:3.80, 9:4.50, 10:5.50, 11:6.50, 12:8.00},
+        5: {1:1.15, 2:1.30, 3:1.55, 4:1.90, 5:2.30, 6:2.80, 7:3.50, 8:4.50, 9:5.50, 10:6.50, 11:8.00, 12:10.00},
+        6: {1:1.20, 2:1.40, 3:1.70, 4:2.10, 5:2.60, 6:3.20, 7:4.00, 8:5.00, 9:6.50, 10:8.00, 11:10.00, 12:12.00},
+        7: {1:1.25, 2:1.50, 3:1.85, 4:2.30, 5:2.90, 6:3.60, 7:4.50, 8:5.50, 9:7.50, 10:9.00, 11:12.00, 12:15.00},
+        8: {1:1.30, 2:1.60, 3:2.00, 4:2.50, 5:3.20, 6:4.00, 7:5.00, 8:6.50, 9:8.50, 10:10.00, 11:14.00, 12:18.00}
     }
 };
 
@@ -181,7 +181,8 @@ let state = {
     crashInterval: null,
     crashPollingInterval: null,
     intervals: {},
-    _crashStartTime: null
+    _crashStartTime: null,
+    pvpData: null
 };
 
 // ===== ЗАКРЫТИЕ ВСЕХ ОВЕРЛЕЕВ =====
@@ -608,7 +609,7 @@ function startFinalSpin(type) {
     const track = tapeContainer._track;
     const viewport = tapeContainer._viewport;
     const targetPrize = state.currentPrize;
-    if (targetPrize === null) { tg.showAlert('❌ Ошибка: награда не получена'); closeAllOverlays(); return; }
+    if (targetPrize === null) { showCustomAlert('❌ Ошибка: награда не получена'); closeAllOverlays(); return; }
 
     const cardWidth = 130;
     const cardGap = 8;
@@ -887,7 +888,7 @@ function loadBattleRooms() {
             myRooms.forEach(r => {
                 html += `
                     <div class="room-item" style="border-color: rgba(255,215,0,0.3);">
-                        <span class="room-creator">👤 ${r.player1} vs ${r.player2}</span>
+                        <span class="room-creator">👤 Игрок 1 vs Игрок 2</span>
                         <span class="room-case">📦 ${r.case_type}</span>
                         <span class="room-players">👥 ${r.players_count}/2</span>
                         <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ВЕРНУТЬСЯ</button>
@@ -901,7 +902,7 @@ function loadBattleRooms() {
             otherRooms.forEach(r => {
                 html += `
                     <div class="room-item">
-                        <span class="room-creator">👤 ${r.player1}</span>
+                        <span class="room-creator">👤 Игрок 1</span>
                         <span class="room-case">📦 ${r.case_type}</span>
                         <span class="room-players">👥 ${r.players_count}/2</span>
                         <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ПРИСОЕДИНИТЬСЯ</button>
@@ -1011,16 +1012,12 @@ function joinBattleRoom(room_id) {
                 showCustomAlert('⚠️ Ты уже в этой комнате');
                 return;
             }
-            if (data.error.includes('пользователь не найден')) {
-                showCustomAlert('❌ Не удалось найти пользователя. Попробуйте перезапустить бота.');
-            } else {
-                showCustomAlert('❌ ' + data.error);
-            }
+            showCustomAlert('❌ ' + data.error);
             return;
         }
         if (data.success) {
             state.currentRoomId = data.room_id;
-            showBattlePreview(data.room_id, data.case_type, data.player1, data.player2, false);
+            showBattlePreview(data.room_id, data.case_type, 'Игрок 1', 'Игрок 2', false);
             syncPreviewStart(data.room_id);
             startOpponentChecker(data.room_id);
         }
@@ -1370,190 +1367,201 @@ function startBotBattle() {
     });
 }
 
-// ===== ИСПРАВЛЕНИЕ: БИТВА С БОТОМ — СИНХРОНИЗАЦИЯ =====
 function startBotBattleAnimation(case_type) {
-    showBotRouletteAnimation(case_type);
+    const style = getStyle(case_type);
+    const prizes = getPrizes(case_type);
     
+    // Получаем реальные призы с сервера ДО анимации
     apiRequest('/start_bot_battle', { case_type }).then(data => {
         if (data.error) {
             showCustomAlert('❌ ' + data.error);
-            const overlay = document.getElementById('botRouletteOverlay');
-            if (overlay) overlay.remove();
             return;
         }
         
         const playerPrize = data.player_prize;
         const botPrize = data.bot_prize;
+        const playerPos = prizes.indexOf(playerPrize);
+        const botPos = prizes.indexOf(botPrize);
+        const winPos1 = playerPos !== -1 ? playerPos : Math.floor(Math.random() * prizes.length);
+        const winPos2 = botPos !== -1 ? botPos : Math.floor(Math.random() * prizes.length);
         
+        // Создаём оверлей
+        const overlay = document.createElement('div');
+        overlay.id = 'botRouletteOverlay';
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: ${style.bg};
+            background-image: ${style.bgGradient};
+            backdrop-filter: blur(30px);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 999; padding: 16px 20px;
+            animation: fadeIn 0.3s ease;
+        `;
+        
+        // Заголовок
+        const title = document.createElement('div');
+        title.style.cssText = `
+            font-size: 22px; font-weight: 800; color: ${style.titleColor};
+            margin-bottom: 12px; text-transform: uppercase; letter-spacing: 3px;
+            text-shadow: 0 0 40px ${style.glowColor}; text-align: center;
+            flex-shrink: 0;
+        `;
+        title.textContent = `🤖 ${case_type.toUpperCase()} BATTLE`;
+        overlay.appendChild(title);
+        
+        // Контейнер
+        const container = document.createElement('div');
+        container.style.cssText = `
+            display: flex; flex-direction: column; gap: 8px;
+            width: 100%; max-width: 600px; flex: 1; justify-content: center;
+        `;
+        
+        const totalCards = 60;
+        const cardWidth = 120;
+        const cardGap = 8;
+        
+        // Функция создания ленты
+        function createTrack(winPrize, winPosition, isPlayer) {
+            let html = '';
+            for (let i = 0; i < totalCards; i++) {
+                let value;
+                if (i === winPosition) {
+                    value = winPrize;
+                } else {
+                    value = prizes[Math.floor(Math.random() * prizes.length)];
+                }
+                const isLarge = value > 1000;
+                const fontSize = isLarge ? '18px' : '24px';
+                const color = isPlayer ? style.itemColor : style.itemColor;
+                html += `<div class="roulette-card" style="width:${cardWidth}px; height:90px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${color}; text-shadow:0 0 20px ${style.glowColor};">${value}⭐</div>`;
+            }
+            return html;
+        }
+        
+        // Игрок
+        const p1Wrapper = document.createElement('div');
+        p1Wrapper.style.cssText = `
+            flex: 1; display: flex; flex-direction: column; min-height: 0;
+            border: 2px solid rgba(76,175,80,0.3); border-radius: 12px;
+            padding: 6px; background: rgba(76,175,80,0.05);
+        `;
+        p1Wrapper.innerHTML = `
+            <div style="font-size:16px; font-weight:700; color:#4caf50; text-align:center; margin-bottom:4px; flex-shrink:0; background:rgba(76,175,80,0.1); padding:4px 0; border-radius:6px;">👤 ИГРОК</div>
+            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:100px;">
+                <div id="botRouletteTrack1" style="display:flex; gap:${cardGap}px; padding:8px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+                    ${createTrack(playerPrize, winPos1, true)}
+                </div>
+                <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:28px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
+            </div>
+        `;
+        container.appendChild(p1Wrapper);
+        
+        // VS
+        const vsDiv = document.createElement('div');
+        vsDiv.style.cssText = `
+            text-align:center; font-size:28px; font-weight:900;
+            color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3);
+            flex-shrink:0; padding:4px 0;
+        `;
+        vsDiv.textContent = '🤖 VS';
+        container.appendChild(vsDiv);
+        
+        // Бот
+        const p2Wrapper = document.createElement('div');
+        p2Wrapper.style.cssText = `
+            flex: 1; display: flex; flex-direction: column; min-height: 0;
+            border: 2px solid rgba(244,67,54,0.3); border-radius: 12px;
+            padding: 6px; background: rgba(244,67,54,0.05);
+        `;
+        p2Wrapper.innerHTML = `
+            <div style="font-size:16px; font-weight:700; color:#f44336; text-align:center; margin-bottom:4px; flex-shrink:0; background:rgba(244,67,54,0.1); padding:4px 0; border-radius:6px;">🤖 БОТ</div>
+            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:100px;">
+                <div id="botRouletteTrack2" style="display:flex; gap:${cardGap}px; padding:8px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+                    ${createTrack(botPrize, winPos2, false)}
+                </div>
+                <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:28px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
+            </div>
+        `;
+        container.appendChild(p2Wrapper);
+        
+        overlay.appendChild(container);
+        
+        // Инфо
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = `
+            color:#888; font-size:14px; text-align:center; margin-top:8px;
+            flex-shrink:0;
+        `;
+        infoDiv.textContent = `📦 ${case_type.toUpperCase()}`;
+        overlay.appendChild(infoDiv);
+        
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'botRouletteStatus';
+        statusDiv.style.cssText = `
+            color: ${style.titleColor}; font-size:16px; font-weight:600;
+            opacity:0.6; text-align:center; letter-spacing:1px;
+            flex-shrink:0; margin-top:4px;
+        `;
+        statusDiv.textContent = '🎰 Открытие...';
+        overlay.appendChild(statusDiv);
+        
+        document.body.appendChild(overlay);
+        
+        // Вычисляем смещение
+        const viewportWidth = window.innerWidth * 0.85;
+        const centerOffset = viewportWidth / 2;
+        const shift1 = (winPos1 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+        const shift2 = (winPos2 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+        
+        // Запускаем анимацию
         setTimeout(() => {
             const track1 = document.getElementById('botRouletteTrack1');
             const track2 = document.getElementById('botRouletteTrack2');
-            const overlay = document.getElementById('botRouletteOverlay');
             
-            if (track1 && track2 && overlay) {
-                const prizes = CONFIG.CASE_PRIZES[case_type] || [1,10,100];
-                const pos1 = prizes.indexOf(playerPrize);
-                const pos2 = prizes.indexOf(botPrize);
-                const winPos1 = pos1 !== -1 ? pos1 : 15;
-                const winPos2 = pos2 !== -1 ? pos2 : 15;
-                
-                const cardWidth = 120;
-                const cardGap = 8;
-                const viewportWidth = window.innerWidth * 0.85;
-                const centerOffset = viewportWidth / 2;
-                
-                const shift1 = (winPos1 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
-                const shift2 = (winPos2 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
-                
+            if (track1) {
                 track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
                 track1.style.transform = `translateX(-${shift1}px)`;
+            }
+            if (track2) {
                 track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
                 track2.style.transform = `translateX(-${shift2}px)`;
-                
-                overlay._winPos1 = winPos1;
-                overlay._winPos2 = winPos2;
-                overlay._playerPrize = playerPrize;
-                overlay._botPrize = botPrize;
-                overlay._data = data;
             }
-        }, 500);
+        }, 300);
         
+        // Через 6.5 секунд показываем результат
         setTimeout(() => {
-            const overlay = document.getElementById('botRouletteOverlay');
-            if (overlay) {
-                const track1 = document.getElementById('botRouletteTrack1');
-                const track2 = document.getElementById('botRouletteTrack2');
-                if (track1 && track2) {
-                    const cards1 = track1.querySelectorAll('.roulette-card');
-                    const cards2 = track2.querySelectorAll('.roulette-card');
-                    const winPos1 = overlay._winPos1 || 15;
-                    const winPos2 = overlay._winPos2 || 15;
-                    
-                    if (cards1[winPos1]) {
-                        cards1[winPos1].textContent = `${overlay._playerPrize || data.player_prize}⭐`;
-                        cards1[winPos1].classList.add('win');
-                    }
-                    if (cards2[winPos2]) {
-                        cards2[winPos2].textContent = `${overlay._botPrize || data.bot_prize}⭐`;
-                        cards2[winPos2].classList.add('win');
-                    }
+            const track1 = document.getElementById('botRouletteTrack1');
+            const track2 = document.getElementById('botRouletteTrack2');
+            
+            if (track1) {
+                const cards1 = track1.querySelectorAll('.roulette-card');
+                if (cards1[winPos1]) {
+                    cards1[winPos1].style.background = 'rgba(255,215,0,0.2)';
+                    cards1[winPos1].style.border = '2px solid #ffd700';
+                    cards1[winPos1].style.color = '#ffd700';
+                    cards1[winPos1].style.textShadow = '0 0 30px #ffd700';
+                    cards1[winPos1].style.transform = 'scale(1.1)';
                 }
-                setTimeout(() => {
-                    overlay.remove();
-                    showBotBattleResult(overlay._data || data);
-                }, 1500);
-            } else {
-                showBotBattleResult(data);
             }
-        }, 7000);
+            
+            if (track2) {
+                const cards2 = track2.querySelectorAll('.roulette-card');
+                if (cards2[winPos2]) {
+                    cards2[winPos2].style.background = 'rgba(255,215,0,0.2)';
+                    cards2[winPos2].style.border = '2px solid #ffd700';
+                    cards2[winPos2].style.color = '#ffd700';
+                    cards2[winPos2].style.textShadow = '0 0 30px #ffd700';
+                    cards2[winPos2].style.transform = 'scale(1.1)';
+                }
+            }
+            
+            setTimeout(() => {
+                overlay.remove();
+                showBotBattleResult(data);
+            }, 1500);
+        }, 6500);
     });
-}
-
-function showBotRouletteAnimation(case_type) {
-    const style = getStyle(case_type);
-    const prizes = getPrizes(case_type);
-    
-    const overlay = document.createElement('div');
-    overlay.id = 'botRouletteOverlay';
-    Object.assign(overlay.style, {
-        position: 'fixed',
-        top: '0', left: '0', right: '0', bottom: '0',
-        background: style.bg,
-        backgroundImage: style.bgGradient,
-        backdropFilter: 'blur(30px)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: '999',
-        padding: '16px 20px',
-        animation: 'fadeIn 0.3s ease'
-    });
-    
-    const title = document.createElement('div');
-    Object.assign(title.style, {
-        fontSize: '22px',
-        fontWeight: '800',
-        color: style.titleColor,
-        marginBottom: '12px',
-        textTransform: 'uppercase',
-        letterSpacing: '3px',
-        textShadow: `0 0 40px ${style.glowColor}`,
-        textAlign: 'center',
-        flexShrink: '0'
-    });
-    title.textContent = `🤖 ${case_type.toUpperCase()} BATTLE`;
-    overlay.appendChild(title);
-    
-    const container = document.createElement('div');
-    container.style.cssText = 'display:flex; flex-direction:column; gap:8px; width:100%; max-width:600px; flex:1; justify-content:center;';
-    
-    const cardWidth = 120;
-    const cardGap = 8;
-    const totalCards = 60;
-    
-    const p1Wrapper = document.createElement('div');
-    p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(76,175,80,0.3); border-radius:12px; padding:6px; background:rgba(76,175,80,0.05);';
-    let cards1 = '';
-    for (let i = 0; i < totalCards; i++) {
-        const p = prizes[Math.floor(Math.random() * prizes.length)];
-        const isLarge = p > 1000;
-        const fontSize = isLarge ? '18px' : '24px';
-        cards1 += `<div class="roulette-card" style="width:${cardWidth}px; height:90px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
-    }
-    p1Wrapper.innerHTML = `
-        <div style="font-size:16px; font-weight:700; color:#4caf50; text-align:center; margin-bottom:4px; flex-shrink:0; background:rgba(76,175,80,0.1); padding:4px 0; border-radius:6px;">👤 ИГРОК</div>
-        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:100px;">
-            <div id="botRouletteTrack1" style="display:flex; gap:${cardGap}px; padding:8px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
-                ${cards1}
-            </div>
-            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:28px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
-        </div>
-    `;
-    container.appendChild(p1Wrapper);
-    
-    const vsDiv = document.createElement('div');
-    vsDiv.style.cssText = 'text-align:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:4px 0;';
-    vsDiv.textContent = '🤖 VS';
-    container.appendChild(vsDiv);
-    
-    const p2Wrapper = document.createElement('div');
-    p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(244,67,54,0.3); border-radius:12px; padding:6px; background:rgba(244,67,54,0.05);';
-    let cards2 = '';
-    for (let i = 0; i < totalCards; i++) {
-        const p = prizes[Math.floor(Math.random() * prizes.length)];
-        const isLarge = p > 1000;
-        const fontSize = isLarge ? '18px' : '24px';
-        cards2 += `<div class="roulette-card" style="width:${cardWidth}px; height:90px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
-    }
-    p2Wrapper.innerHTML = `
-        <div style="font-size:16px; font-weight:700; color:#f44336; text-align:center; margin-bottom:4px; flex-shrink:0; background:rgba(244,67,54,0.1); padding:4px 0; border-radius:6px;">🤖 БОТ</div>
-        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:100px;">
-            <div id="botRouletteTrack2" style="display:flex; gap:${cardGap}px; padding:8px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
-                ${cards2}
-            </div>
-            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:28px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
-        </div>
-    `;
-    container.appendChild(p2Wrapper);
-    
-    overlay.appendChild(container);
-    
-    const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = 'color:#888; font-size:14px; text-align:center; margin-top:8px; flex-shrink:0;';
-    infoDiv.textContent = `📦 ${case_type.toUpperCase()}`;
-    overlay.appendChild(infoDiv);
-    
-    const statusDiv = document.createElement('div');
-    statusDiv.id = 'botRouletteStatus';
-    statusDiv.style.cssText = `color:${style.titleColor}; font-size:16px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
-    statusDiv.textContent = '🎰 Открытие...';
-    overlay.appendChild(statusDiv);
-    
-    document.body.appendChild(overlay);
-    
-    overlay._track1 = document.getElementById('botRouletteTrack1');
-    overlay._track2 = document.getElementById('botRouletteTrack2');
 }
 
 function showBotBattleResult(data) {
@@ -1618,189 +1626,223 @@ function showBotBattleResult(data) {
     loadBattleData();
 }
 
-// ===== PVP — ПОЛНАЯ ПЕРЕПИСЬ =====
+// ===== PVP БИТВА — ИСПРАВЛЕННАЯ АНИМАЦИЯ =====
 function startPvpBattle(room_id) {
-    apiRequest('/get_battle_animation_data', { room_id }).then(data => {
-        if (data.error) {
-            if (data.error.includes('не найдена') || data.error.includes('завершена')) {
-                checkBattleResultDirect();
-                return;
-            }
-            showCustomAlert('❌ ' + data.error);
+    // Получаем реальные призы ДО анимации
+    apiRequest('/get_pvp_prizes', { room_id }).then(prizeData => {
+        if (prizeData.error) {
+            showCustomAlert('❌ ' + prizeData.error);
             return;
         }
         
-        showPvpRouletteAnimation(data);
-        
-        if (window.battleResultInterval) clearInterval(window.battleResultInterval);
-        window.battleResultInterval = setInterval(() => {
-            apiRequest('/get_battle_result').then(res => {
-                if (res.pending) return;
-                if (res.result) {
-                    clearInterval(window.battleResultInterval);
-                    
-                    const overlay = document.getElementById('battleRouletteOverlay');
-                    if (overlay) {
-                        const track1 = document.getElementById('rouletteTrack1');
-                        const track2 = document.getElementById('rouletteTrack2');
-                        const prizes = CONFIG.CASE_PRIZES[data.case_type] || [1,10,100];
-                        const pos1 = prizes.indexOf(res.player1_prize);
-                        const pos2 = prizes.indexOf(res.player2_prize);
-                        const winPos1 = pos1 !== -1 ? pos1 : 15;
-                        const winPos2 = pos2 !== -1 ? pos2 : 15;
-                        
-                        if (track1 && track2) {
-                            const cardWidth = 110;
-                            const cardGap = 8;
-                            const viewportWidth = window.innerWidth * 0.85;
-                            const centerOffset = viewportWidth / 2;
-                            
-                            const shift1 = (winPos1 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
-                            const shift2 = (winPos2 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
-                            
-                            track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
-                            track1.style.transform = `translateX(-${shift1}px)`;
-                            track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
-                            track2.style.transform = `translateX(-${shift2}px)`;
-                            
-                            setTimeout(() => {
-                                const cards1 = track1.querySelectorAll('.roulette-card');
-                                const cards2 = track2.querySelectorAll('.roulette-card');
-                                if (cards1[winPos1]) {
-                                    cards1[winPos1].textContent = `${res.player1_prize}⭐`;
-                                    cards1[winPos1].classList.add('win');
-                                }
-                                if (cards2[winPos2]) {
-                                    cards2[winPos2].textContent = `${res.player2_prize}⭐`;
-                                    cards2[winPos2].classList.add('win');
-                                }
-                            }, 100);
-                        }
-                        
-                        setTimeout(() => {
-                            overlay.remove();
-                            showBattleResult(res);
-                        }, 6500);
+        // Получаем данные о кейсе
+        apiRequest('/get_battle_animation_data', { room_id }).then(data => {
+            if (data.error) {
+                showCustomAlert('❌ ' + data.error);
+                return;
+            }
+            
+            const case_type = data.case_type;
+            const style = getStyle(case_type);
+            const prizes = getPrizes(case_type);
+            
+            const player1Prize = prizeData.player1_prize;
+            const player2Prize = prizeData.player2_prize;
+            
+            const pos1 = prizes.indexOf(player1Prize);
+            const pos2 = prizes.indexOf(player2Prize);
+            const winPos1 = pos1 !== -1 ? pos1 : Math.floor(Math.random() * prizes.length);
+            const winPos2 = pos2 !== -1 ? pos2 : Math.floor(Math.random() * prizes.length);
+            
+            // Создаём оверлей
+            const overlay = document.createElement('div');
+            overlay.id = 'battleRouletteOverlay';
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: ${style.bg};
+                background-image: ${style.bgGradient};
+                backdrop-filter: blur(30px);
+                display: flex; flex-direction: column;
+                align-items: center; justify-content: center;
+                z-index: 999; padding: 16px 20px;
+                animation: fadeIn 0.3s ease;
+            `;
+            
+            const title = document.createElement('div');
+            title.style.cssText = `
+                font-size: 20px; font-weight: 800; color: ${style.titleColor};
+                margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px;
+                text-shadow: 0 0 40px ${style.glowColor}; text-align: center;
+                flex-shrink: 0;
+            `;
+            title.textContent = `⚔️ ${case_type.toUpperCase()} BATTLE`;
+            overlay.appendChild(title);
+            
+            const container = document.createElement('div');
+            container.style.cssText = `
+                display: flex; flex-direction: column; gap: 6px;
+                width: 100%; max-width: 600px; flex: 1; justify-content: center;
+            `;
+            
+            const totalCards = 60;
+            const cardWidth = 110;
+            const cardGap = 8;
+            
+            function createTrack(winPrize, winPosition, color) {
+                let html = '';
+                for (let i = 0; i < totalCards; i++) {
+                    let value;
+                    if (i === winPosition) {
+                        value = winPrize;
                     } else {
-                        showBattleResult(res);
+                        value = prizes[Math.floor(Math.random() * prizes.length)];
+                    }
+                    const isLarge = value > 1000;
+                    const fontSize = isLarge ? '16px' : '22px';
+                    html += `<div class="roulette-card" style="width:${cardWidth}px; height:85px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${color}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${value}⭐</div>`;
+                }
+                return html;
+            }
+            
+            // Игрок 1
+            const p1Wrapper = document.createElement('div');
+            p1Wrapper.style.cssText = `
+                flex: 1; display: flex; flex-direction: column; min-height: 0;
+                border: 2px solid rgba(179,136,255,0.3); border-radius: 12px;
+                padding: 6px; background: rgba(179,136,255,0.05);
+            `;
+            p1Wrapper.innerHTML = `
+                <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 1</div>
+                <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
+                    <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+                        ${createTrack(player1Prize, winPos1, style.itemColor)}
+                    </div>
+                    <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
+                </div>
+            `;
+            container.appendChild(p1Wrapper);
+            
+            // VS
+            const vsDiv = document.createElement('div');
+            vsDiv.style.cssText = `
+                text-align:center; font-size:24px; font-weight:900;
+                color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3);
+                flex-shrink:0; padding:3px 0;
+            `;
+            vsDiv.textContent = '⚔️ VS';
+            container.appendChild(vsDiv);
+            
+            // Игрок 2
+            const p2Wrapper = document.createElement('div');
+            p2Wrapper.style.cssText = `
+                flex: 1; display: flex; flex-direction: column; min-height: 0;
+                border: 2px solid rgba(179,136,255,0.3); border-radius: 12px;
+                padding: 6px; background: rgba(179,136,255,0.05);
+            `;
+            p2Wrapper.innerHTML = `
+                <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 2</div>
+                <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
+                    <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+                        ${createTrack(player2Prize, winPos2, style.itemColor)}
+                    </div>
+                    <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
+                </div>
+            `;
+            container.appendChild(p2Wrapper);
+            
+            overlay.appendChild(container);
+            
+            const infoDiv = document.createElement('div');
+            infoDiv.style.cssText = `
+                color:#888; font-size:13px; text-align:center; margin-top:8px;
+                flex-shrink:0;
+            `;
+            infoDiv.textContent = `📦 ${case_type.toUpperCase()}`;
+            overlay.appendChild(infoDiv);
+            
+            const statusDiv = document.createElement('div');
+            statusDiv.id = 'battleRouletteStatus';
+            statusDiv.style.cssText = `
+                color: ${style.titleColor}; font-size:15px; font-weight:600;
+                opacity:0.6; text-align:center; letter-spacing:1px;
+                flex-shrink:0; margin-top:4px;
+            `;
+            statusDiv.textContent = '🎰 Открытие...';
+            overlay.appendChild(statusDiv);
+            
+            document.body.appendChild(overlay);
+            
+            // Вычисляем смещение
+            const viewportWidth = window.innerWidth * 0.85;
+            const centerOffset = viewportWidth / 2;
+            const shift1 = (winPos1 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+            const shift2 = (winPos2 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+            
+            // Запускаем анимацию
+            setTimeout(() => {
+                const track1 = document.getElementById('rouletteTrack1');
+                const track2 = document.getElementById('rouletteTrack2');
+                
+                if (track1) {
+                    track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+                    track1.style.transform = `translateX(-${shift1}px)`;
+                }
+                if (track2) {
+                    track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+                    track2.style.transform = `translateX(-${shift2}px)`;
+                }
+            }, 300);
+            
+            // Подсветка выигрышных карт через 6.5 сек
+            setTimeout(() => {
+                const track1 = document.getElementById('rouletteTrack1');
+                const track2 = document.getElementById('rouletteTrack2');
+                
+                if (track1) {
+                    const cards1 = track1.querySelectorAll('.roulette-card');
+                    if (cards1[winPos1]) {
+                        cards1[winPos1].style.background = 'rgba(255,215,0,0.2)';
+                        cards1[winPos1].style.border = '2px solid #ffd700';
+                        cards1[winPos1].style.color = '#ffd700';
+                        cards1[winPos1].style.textShadow = '0 0 30px #ffd700';
+                        cards1[winPos1].style.transform = 'scale(1.1)';
                     }
                 }
-            });
-        }, 500);
-    });
-}
-
-function showPvpRouletteAnimation(data) {
-    const style = getStyle(data.case_type);
-    const prizes = getPrizes(data.case_type);
-    
-    const overlay = document.createElement('div');
-    overlay.id = 'battleRouletteOverlay';
-    Object.assign(overlay.style, {
-        position: 'fixed',
-        top: '0', left: '0', right: '0', bottom: '0',
-        background: style.bg,
-        backgroundImage: style.bgGradient,
-        backdropFilter: 'blur(30px)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: '999',
-        padding: '16px 20px',
-        animation: 'fadeIn 0.3s ease'
-    });
-    
-    const title = document.createElement('div');
-    Object.assign(title.style, {
-        fontSize: '20px',
-        fontWeight: '800',
-        color: style.titleColor,
-        marginBottom: '10px',
-        textTransform: 'uppercase',
-        letterSpacing: '2px',
-        textShadow: `0 0 40px ${style.glowColor}`,
-        textAlign: 'center',
-        flexShrink: '0'
-    });
-    title.textContent = `⚔️ ${data.case_type.toUpperCase()} BATTLE`;
-    overlay.appendChild(title);
-    
-    const container = document.createElement('div');
-    container.style.cssText = 'display:flex; flex-direction:column; gap:6px; width:100%; max-width:600px; flex:1; justify-content:center;';
-    
-    const cardWidth = 110;
-    const cardGap = 8;
-    const totalCards = 60;
-    
-    const p1Wrapper = document.createElement('div');
-    p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
-    let cards1 = '';
-    for (let i = 0; i < totalCards; i++) {
-        const p = prizes[Math.floor(Math.random() * prizes.length)];
-        const isLarge = p > 1000;
-        const fontSize = isLarge ? '16px' : '22px';
-        cards1 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:85px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
-    }
-    p1Wrapper.innerHTML = `
-        <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 1</div>
-        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
-            <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
-                ${cards1}
-            </div>
-            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
-        </div>
-    `;
-    container.appendChild(p1Wrapper);
-    
-    const vsDiv = document.createElement('div');
-    vsDiv.style.cssText = 'text-align:center; font-size:24px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:3px 0;';
-    vsDiv.textContent = '⚔️ VS';
-    container.appendChild(vsDiv);
-    
-    const p2Wrapper = document.createElement('div');
-    p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
-    let cards2 = '';
-    for (let i = 0; i < totalCards; i++) {
-        const p = prizes[Math.floor(Math.random() * prizes.length)];
-        const isLarge = p > 1000;
-        const fontSize = isLarge ? '16px' : '22px';
-        cards2 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:85px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
-    }
-    p2Wrapper.innerHTML = `
-        <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 2</div>
-        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
-            <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
-                ${cards2}
-            </div>
-            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
-        </div>
-    `;
-    container.appendChild(p2Wrapper);
-    
-    overlay.appendChild(container);
-    
-    const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = 'color:#888; font-size:13px; text-align:center; margin-top:8px; flex-shrink:0;';
-    infoDiv.textContent = `📦 ${data.case_type.toUpperCase()}`;
-    overlay.appendChild(infoDiv);
-    
-    const statusDiv = document.createElement('div');
-    statusDiv.id = 'battleRouletteStatus';
-    statusDiv.style.cssText = `color:${style.titleColor}; font-size:15px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
-    statusDiv.textContent = '🎰 Открытие...';
-    overlay.appendChild(statusDiv);
-    
-    document.body.appendChild(overlay);
-}
-
-function checkBattleResultDirect() {
-    apiRequest('/get_battle_result').then(data => {
-        if (data.pending) return;
-        if (data.result) {
-            closeAllOverlays();
-            showBattleResult(data);
-        }
+                
+                if (track2) {
+                    const cards2 = track2.querySelectorAll('.roulette-card');
+                    if (cards2[winPos2]) {
+                        cards2[winPos2].style.background = 'rgba(255,215,0,0.2)';
+                        cards2[winPos2].style.border = '2px solid #ffd700';
+                        cards2[winPos2].style.color = '#ffd700';
+                        cards2[winPos2].style.textShadow = '0 0 30px #ffd700';
+                        cards2[winPos2].style.transform = 'scale(1.1)';
+                    }
+                }
+                
+                // Проверяем результат
+                setTimeout(() => {
+                    apiRequest('/get_battle_result', {}).then(result => {
+                        if (result.pending) {
+                            // Ждём ещё
+                            setTimeout(() => {
+                                apiRequest('/get_battle_result', {}).then(finalResult => {
+                                    if (finalResult.result) {
+                                        overlay.remove();
+                                        showBattleResult(finalResult);
+                                    }
+                                });
+                            }, 2000);
+                            return;
+                        }
+                        if (result.result) {
+                            overlay.remove();
+                            showBattleResult(result);
+                        }
+                    });
+                }, 500);
+            }, 6500);
+        });
     });
 }
 
@@ -1810,9 +1852,6 @@ function showBattleResult(data) {
     document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
     document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
     state.currentRoomId = null;
-    
-    const oldOverlay = document.getElementById('battleResultOverlay');
-    if (oldOverlay) oldOverlay.remove();
     
     const overlay = document.createElement('div');
     overlay.id = 'battleResultOverlay';
@@ -1830,7 +1869,7 @@ function showBattleResult(data) {
         animation: 'fadeIn 0.3s ease'
     });
     
-    const isWin = data.winner_id == user_id;
+    const isWin = data.is_winner;
     const isDraw = data.is_draw;
     
     if (isDraw) {
@@ -1842,18 +1881,16 @@ function showBattleResult(data) {
                     <div style="font-size:40px;">👤</div>
                     <div style="font-weight:700; color:#aaa;">Игрок 1</div>
                     <div style="font-size:28px; font-weight:800; color:#ffd700;">${data.player1_prize}⭐</div>
-                    <div style="font-size:14px; color:#888;">-${data.commission1}⭐ комиссия</div>
                 </div>
                 <div style="display:flex; align-items:center; font-size:36px; color:#ff6b6b;">⚔️</div>
                 <div style="text-align:center;">
                     <div style="font-size:40px;">👤</div>
                     <div style="font-weight:700; color:#aaa;">Игрок 2</div>
                     <div style="font-size:28px; font-weight:800; color:#ffd700;">${data.player2_prize}⭐</div>
-                    <div style="font-size:14px; color:#888;">-${data.commission2}⭐ комиссия</div>
                 </div>
             </div>
             <div style="background:rgba(255,255,255,0.05); border-radius:16px; padding:16px 24px; margin-bottom:20px; text-align:center; color:#aaa;">
-                ${data.result_text}
+                ${data.result_text || 'Ничья!'}
             </div>
             <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
                 <button onclick="closeAllOverlays(); showBattles();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
@@ -1868,8 +1905,6 @@ function showBattleResult(data) {
         const icon = isWin ? '🎉' : '😢';
         const title = isWin ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ...';
         const color = isWin ? '#4caf50' : '#f44336';
-        const myPrize = isWin ? data.winner_prize : data.loser_prize;
-        const oppPrize = isWin ? data.loser_prize : data.winner_prize;
         
         overlay.innerHTML = `
             <div style="font-size:80px; margin-bottom:10px;">${icon}</div>
@@ -1878,18 +1913,18 @@ function showBattleResult(data) {
                 <div style="text-align:center;">
                     <div style="font-size:40px;">👤</div>
                     <div style="font-weight:700; color:${isWin ? '#4caf50' : '#aaa'};">ТЫ</div>
-                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${myPrize}⭐</div>
+                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${isWin ? data.winner_prize : data.loser_prize}⭐</div>
                 </div>
                 <div style="display:flex; align-items:center; font-size:36px; color:#ff6b6b;">⚔️</div>
                 <div style="text-align:center;">
                     <div style="font-size:40px;">👤</div>
                     <div style="font-weight:700; color:${!isWin ? '#4caf50' : '#aaa'};">СОПЕРНИК</div>
-                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${oppPrize}⭐</div>
+                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${!isWin ? data.winner_prize : data.loser_prize}⭐</div>
                 </div>
             </div>
             <div style="background:rgba(255,255,255,0.05); border-radius:16px; padding:16px 24px; margin-bottom:20px; text-align:center;">
                 <div style="color:#aaa; font-size:14px;">${data.result_text}</div>
-                <div style="color:#888; font-size:12px;">💸 Комиссия: ${data.commission}⭐</div>
+                <div style="color:#888; font-size:12px;">💸 Комиссия: ${data.commission || 0}⭐</div>
                 ${isWin ? `<div style="color:#4caf50; font-size:16px; font-weight:700;">🏆 Ты получил: ${data.winner_winnings}⭐</div>` : ''}
             </div>
             <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
@@ -1980,7 +2015,8 @@ function startMinesGame() {
                 board: gameData.board,
                 openedCells: gameData.opened,
                 active: true,
-                game_over: false
+                game_over: false,
+                exploded: false
             };
             
             DOM.minesBetDisplay.textContent = bet;
@@ -2057,11 +2093,16 @@ function openMinesCell(index) {
         if (data.game_over) {
             state.minesGameData.active = false;
             state.minesGameData.game_over = true;
+            if (data.won === false) {
+                state.minesGameData.exploded = true;
+            }
             DOM.minesCashoutBtn.style.display = 'none';
             
-            for (let i = 0; i < 25; i++) {
-                if (state.minesGameData.board[i] === 1) {
-                    state.minesGameData.openedCells[i] = 1;
+            if (!data.won) {
+                for (let i = 0; i < 25; i++) {
+                    if (state.minesGameData.board[i] === 1) {
+                        state.minesGameData.openedCells[i] = 1;
+                    }
                 }
             }
             renderMinesBoard();
@@ -2176,6 +2217,10 @@ function cashoutMinesGame() {
     if (!state.minesGameData || !state.minesGameData.active || state.minesGameData.game_over) return;
     if (state.minesGameData.opened < 3) {
         showCustomAlert('❌ Нужно открыть минимум 3 клетки!');
+        return;
+    }
+    if (state.minesGameData.exploded) {
+        showCustomAlert('❌ Игра уже завершена!');
         return;
     }
     
@@ -2364,7 +2409,6 @@ DOM.crashBetInput.addEventListener('change', function() {
     this.value = val;
 });
 
-// ===== КРАШ — АВТОМАТИЧЕСКИЙ ОПРОС =====
 function startCrashPolling() {
     if (state.crashPollingInterval) clearInterval(state.crashPollingInterval);
     
@@ -2391,20 +2435,13 @@ function startCrashPolling() {
             const timerEl = document.getElementById('crashTimer');
             if (timerEl) {
                 if (status.crashed) {
-                    const timeToNew = status.time_to_new_round || 0;
-                    if (timeToNew > 0) {
-                        timerEl.textContent = `⏳ НОВАЯ ИГРА ЧЕРЕЗ ${timeToNew} СЕК`;
-                        timerEl.style.color = '#ffd700';
-                        DOM.crashStatus.textContent = `⏳ Новый раунд через ${timeToNew} сек...`;
-                        DOM.crashStartBtn.disabled = true;
-                        DOM.crashStartBtn.textContent = `⏳ ${timeToNew} СЕК`;
-                    } else {
-                        timerEl.textContent = '🚀 НОВАЯ ИГРА!';
-                        timerEl.style.color = '#4caf50';
-                        DOM.crashStatus.textContent = '🚀 Нажми «СТАРТ», чтобы начать!';
-                        DOM.crashStartBtn.disabled = false;
-                        DOM.crashStartBtn.textContent = '🚀 СТАРТ';
-                    }
+                    timerEl.textContent = '💥 КРАШ!';
+                    timerEl.style.color = '#f44336';
+                    DOM.crashStatus.textContent = '💥 Краш! Новый раунд через 3 сек...';
+                    DOM.crashStartBtn.disabled = true;
+                    DOM.crashStartBtn.textContent = '⏳ 3 СЕК';
+                    DOM.crashMultiplier.className = 'crashed';
+                    DOM.crashCashoutBtn.style.display = 'none';
                 } else if (status.active) {
                     const elapsed = Math.floor((Date.now() - (state._crashStartTime || Date.now())) / 1000);
                     timerEl.textContent = `⏱ ${elapsed} сек`;
@@ -2412,18 +2449,19 @@ function startCrashPolling() {
                     DOM.crashStatus.textContent = '📈 Множитель растёт...';
                     DOM.crashStartBtn.disabled = true;
                     DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
+                    DOM.crashMultiplier.className = '';
+                } else {
+                    timerEl.textContent = '⏳ ОЖИДАНИЕ...';
+                    timerEl.style.color = '#888';
+                    DOM.crashStatus.textContent = '⏳ Ожидание нового раунда...';
+                    DOM.crashStartBtn.disabled = true;
+                    DOM.crashStartBtn.textContent = '⏳ ОЖИДАНИЕ...';
                 }
-            }
-            
-            if (status.crashed && status.time_to_new_round <= 0 && !state.crashRunning) {
-                DOM.crashMultiplier.className = 'crashed';
-                DOM.crashCashoutBtn.style.display = 'none';
             }
         });
     }, 100);
 }
 
-// ===== СТАРТ КРАША =====
 function startCrashGame() {
     if (state.crashRunning) return;
     
