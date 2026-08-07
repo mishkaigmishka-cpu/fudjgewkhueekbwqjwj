@@ -217,7 +217,7 @@ battle_rooms = {}
 battle_results = {}
 battle_ready_status = {}
 
-# ===== КРАШ — ГЛОБАЛЬНЫЙ ДЛЯ ВСЕХ =====
+# ===== КРАШ — ГЛОБАЛЬНЫЙ =====
 crash_data = {
     'active': False,
     'multiplier': 1.00,
@@ -312,16 +312,26 @@ def battle_cleaner():
 
 threading.Thread(target=battle_cleaner, daemon=True).start()
 
-# ===== КРАШ — ГЛОБАЛЬНЫЙ ТАЙМЕР =====
+# ===== КРАШ — ТАЙМЕР =====
+def generate_crash_point():
+    rnd = random.random()
+    crash_point = 1 / ((1 - rnd) ** 1.3)
+    if crash_point > 12.00:
+        crash_point = 12.00
+    return round(crash_point, 2)
+
+def get_crash_multiplier(elapsed):
+    multiplier = 1.00 + (elapsed ** 1.1) * 0.012
+    if multiplier > 12.00:
+        multiplier = 12.00
+    return round(multiplier, 2)
+
 def crash_timer():
     global crash_data
     while True:
         if crash_data['active']:
             elapsed = time.time() - crash_data['start_time']
-            multiplier = 1.00 + (elapsed * 0.05) + (elapsed ** 1.3 * 0.008)
-            if multiplier > 12.00:
-                multiplier = 12.00
-            crash_data['multiplier'] = round(multiplier, 2)
+            crash_data['multiplier'] = get_crash_multiplier(elapsed)
             
             if crash_data['multiplier'] >= crash_data['crash_point']:
                 crash_data['crashed'] = True
@@ -556,7 +566,7 @@ def crash_stats_cmd(msg):
 
 # ===================== ЭНДПОИНТЫ =====================
 
-# ---- КОМНАТЫ (БИТВЫ) ----
+# ---- КОМНАТЫ ----
 @app.route('/create_battle_room', methods=['POST'])
 def create_battle_room():
     data = request.get_json()
@@ -1121,24 +1131,21 @@ def start_crash():
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
-    if bet < 2 or bet > 1000:
-        return jsonify({'error': 'Ставка от 2 до 1000⭐'}), 400
+    if bet < 1 or bet > 1000:
+        return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
     if user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
     
-    # Если краш уже идёт, просто добавляем ставку
     if crash_data['active'] and not crash_data['crashed']:
         crash_data['bets'][uid] = bet
         update_user(uid, balance=user[1] - bet)
-        return jsonify({'game_id': int(time.time()), 'crash_point': crash_data['crash_point']})
+        return jsonify({
+            'game_id': int(time.time()),
+            'already_running': True,
+            'multiplier': crash_data['multiplier']
+        })
     
-    # Запускаем новый раунд
-    rnd = random.random()
-    crash_point = 1.00 + (rnd * 11.00)
-    crash_point = round(crash_point, 2)
-    if crash_point > 12.00:
-        crash_point = 12.00
-    
+    crash_point = generate_crash_point()
     crash_data = {
         'active': True,
         'multiplier': 1.00,
@@ -1152,11 +1159,13 @@ def start_crash():
     
     return jsonify({
         'game_id': int(time.time()),
+        'already_running': False,
         'crash_point': crash_point
     })
 
 @app.route('/crash_status', methods=['POST'])
 def crash_status():
+    global crash_data
     data = request.get_json()
     uid = data.get('user_id')
     
@@ -1181,6 +1190,7 @@ def cashout_crash():
     
     bet = crash_data['bets'][uid]
     multiplier = crash_data['multiplier']
+    
     raw_winnings = int(bet * multiplier)
     commission = int(raw_winnings * 0.05)
     winnings = raw_winnings - commission
