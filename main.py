@@ -260,17 +260,79 @@ battle_rooms = {}
 battle_results = {}
 battle_ready_status = {}
 
-# ===== КРАШ — ВСЕГДА АКТИВЕН =====
+# ===== КРАШ — ПЕРЕПИСАН С ПАУЗОЙ 5 СЕКУНД =====
 crash_data = {
-    'active': True,
+    'active': False,
     'multiplier': 1.00,
     'crashed': False,
-    'start_time': time.time(),
-    'crash_point': 12.00,
+    'start_time': 0,
+    'crash_point': 1.20,
     'bets': {},
-    'crash_time': 0,
-    'crash_start_time': 0
+    'round_id': 0,
+    'waiting': True,
+    'wait_start': 0
 }
+
+def generate_crash_point():
+    rnd = random.random()
+    if rnd < 0.60:
+        return round(1.10 + random.random() * 0.40, 2)
+    elif rnd < 0.85:
+        return round(1.50 + random.random() * 1.00, 2)
+    elif rnd < 0.95:
+        return round(2.50 + random.random() * 2.50, 2)
+    else:
+        return round(5.00 + random.random() * 7.00, 2)
+
+def get_crash_multiplier(elapsed):
+    if elapsed < 1.0:
+        return round(1.00 + elapsed * 0.20, 2)
+    elif elapsed < 3.0:
+        return round(1.20 + (elapsed - 1.0) * 0.10, 2)
+    elif elapsed < 6.0:
+        return round(1.40 + (elapsed - 3.0) * 0.07, 2)
+    elif elapsed < 10.0:
+        return round(1.61 + (elapsed - 6.0) * 0.05, 2)
+    else:
+        return round(1.81 + (elapsed - 10.0) * 0.03, 2)
+
+def crash_timer():
+    global crash_data
+    while True:
+        # Режим ожидания (5 секунд)
+        if crash_data['waiting']:
+            if time.time() - crash_data['wait_start'] >= 5:
+                crash_data['waiting'] = False
+                crash_data['active'] = True
+                crash_data['crashed'] = False
+                crash_data['start_time'] = time.time()
+                crash_data['multiplier'] = 1.00
+                crash_data['crash_point'] = generate_crash_point()
+                crash_data['bets'] = {}
+                crash_data['round_id'] += 1
+            time.sleep(0.1)
+            continue
+        
+        # Активная игра
+        if crash_data['active'] and not crash_data['crashed']:
+            elapsed = time.time() - crash_data['start_time']
+            crash_data['multiplier'] = get_crash_multiplier(elapsed)
+            
+            if crash_data['multiplier'] >= crash_data['crash_point']:
+                crash_data['crashed'] = True
+                crash_data['active'] = False
+                
+                for uid in list(crash_data['bets'].keys()):
+                    update_crash_stats(uid, won=False, multiplier=0, stars=0)
+                crash_data['bets'] = {}
+                
+                # Включаем режим ожидания
+                crash_data['waiting'] = True
+                crash_data['wait_start'] = time.time()
+        
+        time.sleep(0.05)
+
+threading.Thread(target=crash_timer, daemon=True).start()
 
 # ===== МНОЖИТЕЛИ МИНЁРА =====
 def get_mines_multiplier(opened, mines):
@@ -356,75 +418,6 @@ def battle_cleaner():
         time.sleep(60)
 
 threading.Thread(target=battle_cleaner, daemon=True).start()
-
-# ===== КРАШ — ОПТИМИЗИРОВАННЫЙ ТАЙМЕР =====
-def generate_crash_point():
-    rnd = random.random()
-    if rnd < 0.45:
-        crash_point = 1.00 + rnd * 0.45
-    elif rnd < 0.75:
-        crash_point = 1.20 + (rnd - 0.45) * 3.50
-    elif rnd < 0.93:
-        crash_point = 2.00 + (rnd - 0.75) * 15.00
-    elif rnd < 0.985:
-        crash_point = 5.00 + (rnd - 0.93) * 80.00
-    else:
-        crash_point = 10.00 + (rnd - 0.985) * 150.00
-    if crash_point > 12.00:
-        crash_point = 12.00
-    return round(crash_point, 2)
-
-def get_crash_multiplier(elapsed):
-    if elapsed < 0.5:
-        multiplier = 1.00 + elapsed * 0.50
-    elif elapsed < 1.5:
-        multiplier = 1.25 + (elapsed - 0.5) * 0.35
-    elif elapsed < 3.0:
-        multiplier = 1.60 + (elapsed - 1.5) * 0.25
-    elif elapsed < 5.0:
-        multiplier = 1.98 + (elapsed - 3.0) * 0.20
-    else:
-        multiplier = 2.38 + (elapsed - 5.0) * 0.12
-    if multiplier > 12.00:
-        multiplier = 12.00
-    return round(multiplier, 2)
-
-def crash_timer():
-    global crash_data
-    while True:
-        if crash_data['active']:
-            elapsed = time.time() - crash_data['start_time']
-            crash_data['multiplier'] = get_crash_multiplier(elapsed)
-            
-            if elapsed >= 25:
-                if not crash_data['crashed']:
-                    crash_data['crashed'] = True
-                    crash_data['crash_start_time'] = time.time()
-                if time.time() - crash_data['crash_start_time'] >= 3:
-                    crash_data['active'] = False
-                    crash_data['bets'] = {}
-                    crash_data['crash_time'] = time.time()
-            
-            if crash_data['multiplier'] >= crash_data['crash_point'] and not crash_data['crashed']:
-                crash_data['crashed'] = True
-                crash_data['crash_start_time'] = time.time()
-        
-        else:
-            if crash_data['crashed']:
-                if time.time() - crash_data.get('crash_time', 0) >= 3:
-                    crash_data['crashed'] = False
-                    crash_data['active'] = True
-                    crash_data['start_time'] = time.time()
-                    crash_data['multiplier'] = 1.00
-                    crash_data['crash_point'] = generate_crash_point()
-                    crash_data['bets'] = {}
-                    crash_data['crash_start_time'] = 0
-                    crash_data['crash_time'] = 0
-            else:
-                time.sleep(0.1)
-        time.sleep(0.05)
-
-threading.Thread(target=crash_timer, daemon=True).start()
 
 # ===================== КОМАНДЫ TELEGRAM =====================
 @bot.message_handler(commands=['start'])
@@ -1368,54 +1361,34 @@ def start_crash():
     if user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
     
-    if crash_data['active'] and not crash_data['crashed']:
-        return jsonify({'error': 'Дождись окончания текущего раунда!'}), 400
+    # СТАВКУ МОЖНО СДЕЛАТЬ ТОЛЬКО В РЕЖИМЕ ОЖИДАНИЯ
+    if not crash_data['waiting']:
+        return jsonify({'error': 'Ставки принимаются только в паузе между раундами!'}), 400
     
-    crash_point = 1.00 + random.random() * 11.00
-    crash_data = {
-        'active': True,
-        'multiplier': 1.00,
-        'crashed': False,
-        'start_time': time.time(),
-        'crash_point': round(crash_point, 2),
-        'bets': {uid: bet},
-        'crash_time': 0,
-        'crash_start_time': 0
-    }
+    if uid in crash_data['bets']:
+        return jsonify({'error': 'Ты уже сделал ставку!'}), 400
     
     update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
-    if user[9] == 1 and user[10]:
-        track_spend(uid, user[10], bet)
+    crash_data['bets'][uid] = bet
     
     return jsonify({
-        'game_id': int(time.time()),
-        'already_running': False,
-        'crash_point': round(crash_point, 2)
+        'game_id': crash_data['round_id'] + 1,
+        'success': True
     })
 
 @app.route('/crash_status', methods=['POST'])
 def crash_status():
     global crash_data
-    data = request.get_json()
-    uid = data.get('user_id')
-    
     time_to_new_round = 0
-    if crash_data['crashed']:
-        elapsed_since_crash = time.time() - crash_data.get('crash_time', 0)
-        time_to_new_round = max(0, 3 - elapsed_since_crash)
-    
-    time_to_crash = 0
-    if crash_data['crashed'] and crash_data.get('crash_start_time'):
-        time_to_crash = 3 - (time.time() - crash_data['crash_start_time'])
-        if time_to_crash < 0:
-            time_to_crash = 0
+    if crash_data['waiting']:
+        time_to_new_round = max(0, 5 - (time.time() - crash_data['wait_start']))
     
     return jsonify({
         'multiplier': crash_data['multiplier'],
         'crashed': crash_data['crashed'],
         'active': crash_data['active'],
-        'time_to_new_round': round(time_to_new_round, 1),
-        'time_to_crash': round(time_to_crash, 1)
+        'waiting': crash_data['waiting'],
+        'time_to_new_round': round(time_to_new_round, 1)
     })
 
 @app.route('/cashout_crash', methods=['POST'])
