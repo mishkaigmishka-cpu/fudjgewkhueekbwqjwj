@@ -267,7 +267,9 @@ crash_data = {
     'crashed': False,
     'start_time': time.time(),
     'crash_point': 12.00,
-    'bets': {}
+    'bets': {},
+    'crash_time': 0,
+    'crash_start_time': 0
 }
 
 # ===== МНОЖИТЕЛИ МИНЁРА =====
@@ -355,44 +357,50 @@ def battle_cleaner():
 
 threading.Thread(target=battle_cleaner, daemon=True).start()
 
-# ===== КРАШ — МЕДЛЕННЫЙ РОСТ =====
+# ===== КРАШ — 5 СЕКУНД ПЕРЕРЫВ =====
 def crash_timer():
     global crash_data
     while True:
         if crash_data['active']:
             elapsed = time.time() - crash_data['start_time']
             
-            if elapsed < 10:
+            if elapsed < 15:
                 multiplier = 1.00 + elapsed * 0.04
-            elif elapsed < 20:
-                multiplier = 1.40 + (elapsed - 10) * 0.06
             elif elapsed < 30:
-                multiplier = 2.00 + (elapsed - 20) * 0.08
+                multiplier = 1.60 + (elapsed - 15) * 0.05
             else:
-                multiplier = 2.80 + (elapsed - 30) * 0.10
+                multiplier = 2.35 + (elapsed - 30) * 0.06
             
             if multiplier > 12.00:
                 multiplier = 12.00
             crash_data['multiplier'] = round(multiplier, 2)
             
-            if elapsed >= 40:
-                crash_data['crashed'] = True
-                crash_data['active'] = False
-                crash_data['bets'] = {}
-            
             if crash_data['multiplier'] >= crash_data['crash_point']:
+                if not crash_data['crashed']:
+                    crash_data['crashed'] = True
+                    crash_data['crash_start_time'] = time.time()
+                
+                if time.time() - crash_data['crash_start_time'] >= 5:
+                    crash_data['active'] = False
+                    crash_data['bets'] = {}
+                    crash_data['crash_time'] = time.time()
+            
+            if elapsed >= 50 and not crash_data['crashed']:
                 crash_data['crashed'] = True
-                crash_data['active'] = False
-                crash_data['bets'] = {}
+                crash_data['crash_start_time'] = time.time()
+        
         else:
             if crash_data['crashed']:
-                time.sleep(3)
-                crash_data['crashed'] = False
-                crash_data['active'] = True
-                crash_data['start_time'] = time.time()
-                crash_data['multiplier'] = 1.00
-                crash_data['crash_point'] = 1.00 + random.random() * 11.00
-                crash_data['bets'] = {}
+                if time.time() - crash_data.get('crash_time', 0) >= 5:
+                    crash_data['crashed'] = False
+                    crash_data['active'] = True
+                    crash_data['start_time'] = time.time()
+                    crash_data['multiplier'] = 1.00
+                    crash_data['crash_point'] = 1.00 + random.random() * 11.00
+                    crash_data['bets'] = {}
+            else:
+                time.sleep(0.1)
+        
         time.sleep(0.05)
 
 threading.Thread(target=crash_timer, daemon=True).start()
@@ -1339,7 +1347,7 @@ def start_crash():
     if user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
     
-    # ===== КРИТИЧЕСКАЯ ПРОВЕРКА: СТАВКУ МОЖНО СДЕЛАТЬ ТОЛЬКО ПОСЛЕ КРАША =====
+    # ===== СТАВКУ МОЖНО СДЕЛАТЬ ТОЛЬКО ПОСЛЕ КРАША =====
     if crash_data['active'] and not crash_data['crashed']:
         return jsonify({'error': 'Дождись окончания текущего раунда!'}), 400
     
@@ -1350,7 +1358,9 @@ def start_crash():
         'crashed': False,
         'start_time': time.time(),
         'crash_point': round(crash_point, 2),
-        'bets': {uid: bet}
+        'bets': {uid: bet},
+        'crash_time': 0,
+        'crash_start_time': 0
     }
     
     update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
@@ -1369,10 +1379,23 @@ def crash_status():
     data = request.get_json()
     uid = data.get('user_id')
     
+    time_to_new_round = 0
+    if crash_data['crashed']:
+        elapsed_since_crash = time.time() - crash_data.get('crash_time', 0)
+        time_to_new_round = max(0, 5 - elapsed_since_crash)
+    
+    time_to_crash = 0
+    if crash_data['crashed'] and crash_data.get('crash_start_time'):
+        time_to_crash = 5 - (time.time() - crash_data['crash_start_time'])
+        if time_to_crash < 0:
+            time_to_crash = 0
+    
     return jsonify({
         'multiplier': crash_data['multiplier'],
         'crashed': crash_data['crashed'],
-        'active': crash_data['active']
+        'active': crash_data['active'],
+        'time_to_new_round': round(time_to_new_round, 1),
+        'time_to_crash': round(time_to_crash, 1)
     })
 
 @app.route('/cashout_crash', methods=['POST'])
