@@ -1,3 +1,8 @@
+// ===============================
+// RANDEVU — FINAL SCRIPT v3.0
+// Все изменения и исправления применены
+// ===============================
+
 const tg = window.Telegram.WebApp;
 const user_id = tg.initDataUnsafe?.user?.id || 0;
 
@@ -5,67 +10,130 @@ if (!user_id) {
     tg.showAlert('❌ Ошибка: не удалось получить ID пользователя.');
 }
 
-let lastOpenedCase = null;
-let _currentPrize = null;
-let _isOpening = false;
-let _tapeContainer = null;
-let minesGameData = null;
-let selectedMines = 4;
-let selectedBattleCase = 'gold';
-let selectedBotCase = 'gold';
-let currentRoomId = null;
-
-const CASE_PRIZES = {
-    'free': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100, 1000],
-    'mud': [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 16, 18, 20, 22, 24, 27, 50, 500],
-    'wood': [2, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15, 20, 50, 100, 500, 1000],
-    'stone': [11, 13, 15, 16, 17, 18, 19, 21, 23, 24, 25, 30, 50, 100, 250, 500, 1000, 2500],
-    'bronze': [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 100, 222, 333, 444, 555, 1000, 1500, 2000, 5000],
-    'silver': [40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 200, 250, 333, 444, 555, 666, 777, 888, 999, 1488, 2011, 5000, 10000],
-    'gold': [75, 100, 150, 169, 190, 220, 251, 300, 400, 500, 777, 999, 1000, 2000, 5000, 10000, 12500, 25000],
-    'diamond': [250, 300, 333, 350, 444, 505, 1000, 1488, 2222, 2500, 5000, 10000, 12500, 25000, 50000],
-    'netherite': [500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 1500, 2000, 2500, 3000, 3200, 3500, 4000, 5000, 10000, 15000, 20000, 25000],
-    'bedrock': [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2500, 2600, 2800, 3000, 3200, 3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000]
+// ===== КОНФИГУРАЦИЯ =====
+const CONFIG = {
+    CASE_PRIZES: {
+        'free': [1,2,3,4,5,6,7,8,9,10,100,1000],
+        'mud': [1,2,3,4,5,6,7,10,12,13,16,18,20,22,24,27,50,500],
+        'wood': [2,4,5,6,7,8,9,10,12,13,15,20,50,100,500,1000],
+        'stone': [11,13,15,16,17,18,19,21,23,24,25,30,50,100,250,500,1000,2500],
+        'bronze': [20,25,30,35,40,45,50,55,60,65,75,100,222,333,444,555,1000,1500,2000,5000],
+        'silver': [40,50,60,70,80,90,100,110,120,130,140,150,200,250,333,444,555,666,777,888,999,1488,2011,5000,10000],
+        'gold': [75,100,150,169,190,220,251,300,400,500,777,999,1000,2000,5000,10000,12500,25000],
+        'diamond': [250,300,333,350,444,505,1000,1488,2222,2500,5000,10000,12500,25000,50000],
+        'netherite': [500,550,600,650,700,750,800,850,900,950,1000,1500,2000,2500,3000,3200,3500,4000,5000,10000,15000,20000,25000],
+        'bedrock': [1000,1200,1400,1600,1800,2000,2200,2400,2500,2600,2800,3000,3200,3500,4000,4500,5000,5500,6000,7000,8000,9000,10000,12000,15000,18000,20000,22000,25000,28000,30000,50000,100000]
+    },
+    CASE_PRICES: {
+        'free':0,'mud':5,'wood':9,'stone':19,'bronze':49,'silver':99,'gold':249,'diamond':499,'netherite':999,'bedrock':2499
+    },
+    CASE_STYLES: {
+        'free': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(46,204,113,0.7)', titleColor:'#2ecc71', itemColor:'#6bcbff', highlightColor:'#ffd700', glowColor:'rgba(46,204,113,0.3)', shadowColor:'rgba(46,204,113,0.5)', icon:'🎁', bgGradient:'radial-gradient(circle at 50% 50%, rgba(46,204,113,0.08), transparent 70%)' },
+        'mud': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(142,68,173,0.7)', titleColor:'#8e44ad', itemColor:'#c39bd3', highlightColor:'#ff6b6b', glowColor:'rgba(142,68,173,0.3)', shadowColor:'rgba(142,68,173,0.5)', icon:'🟫', bgGradient:'radial-gradient(circle at 50% 50%, rgba(142,68,173,0.08), transparent 70%)' },
+        'wood': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(211,84,0,0.7)', titleColor:'#d35400', itemColor:'#f39c12', highlightColor:'#ffd700', glowColor:'rgba(211,84,0,0.3)', shadowColor:'rgba(211,84,0,0.5)', icon:'🌳', bgGradient:'radial-gradient(circle at 50% 50%, rgba(211,84,0,0.08), transparent 70%)' },
+        'stone': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(127,140,141,0.7)', titleColor:'#7f8c8d', itemColor:'#bdc3c7', highlightColor:'#ffd700', glowColor:'rgba(127,140,141,0.3)', shadowColor:'rgba(127,140,141,0.5)', icon:'🪨', bgGradient:'radial-gradient(circle at 50% 50%, rgba(127,140,141,0.08), transparent 70%)' },
+        'bronze': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(205,127,50,0.7)', titleColor:'#cd7f32', itemColor:'#f0c27f', highlightColor:'#ffd700', glowColor:'rgba(205,127,50,0.3)', shadowColor:'rgba(205,127,50,0.5)', icon:'🥉', bgGradient:'radial-gradient(circle at 50% 50%, rgba(205,127,50,0.08), transparent 70%)' },
+        'silver': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(189,195,199,0.7)', titleColor:'#bdc3c7', itemColor:'#ecf0f1', highlightColor:'#ffd700', glowColor:'rgba(189,195,199,0.3)', shadowColor:'rgba(189,195,199,0.5)', icon:'🔘', bgGradient:'radial-gradient(circle at 50% 50%, rgba(189,195,199,0.08), transparent 70%)' },
+        'gold': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(241,196,15,0.7)', titleColor:'#f1c40f', itemColor:'#f9e79f', highlightColor:'#ffd700', glowColor:'rgba(241,196,15,0.4)', shadowColor:'rgba(241,196,15,0.6)', icon:'👑', bgGradient:'radial-gradient(circle at 50% 50%, rgba(241,196,15,0.1), transparent 70%)' },
+        'diamond': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(52,152,219,0.7)', titleColor:'#3498db', itemColor:'#85c1e9', highlightColor:'#00d4ff', glowColor:'rgba(52,152,219,0.3)', shadowColor:'rgba(52,152,219,0.5)', icon:'💎', bgGradient:'radial-gradient(circle at 50% 50%, rgba(52,152,219,0.08), transparent 70%)' },
+        'netherite': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(44,62,80,0.7)', titleColor:'#e74c3c', itemColor:'#f1948a', highlightColor:'#ff6b35', glowColor:'rgba(231,76,60,0.3)', shadowColor:'rgba(231,76,60,0.5)', icon:'🔥', bgGradient:'radial-gradient(circle at 50% 50%, rgba(231,76,60,0.08), transparent 70%)' },
+        'bedrock': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(52,73,94,0.7)', titleColor:'#5d6d7e', itemColor:'#aeb6bf', highlightColor:'#ffd700', glowColor:'rgba(52,73,94,0.4)', shadowColor:'rgba(52,73,94,0.6)', icon:'⛏️', bgGradient:'radial-gradient(circle at 50% 50%, rgba(52,73,94,0.1), transparent 70%)' }
+    },
+    MINES_MULTIPLIERS: { 1:1.05,2:1.10,3:1.20,4:1.35,5:1.55,6:1.80,7:2.20,8:2.70,9:3.30,10:4.00,11:4.50,12:5.00 }
 };
 
-const CASE_PRICES = {
-    'free': 0, 'mud': 5, 'wood': 9, 'stone': 19, 'bronze': 49, 'silver': 99, 'gold': 249, 'diamond': 499, 'netherite': 999, 'bedrock': 2499
+// ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+const getPrizes = (type) => CONFIG.CASE_PRIZES[type] || [1,10,100];
+const getStyle = (type) => CONFIG.CASE_STYLES[type] || CONFIG.CASE_STYLES['free'];
+const getPrice = (type) => CONFIG.CASE_PRICES[type] || 0;
+
+const apiRequest = async (endpoint, body = {}) => {
+    try {
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, ...body })
+        });
+        return await res.json();
+    } catch {
+        return { error: 'Сетевая ошибка' };
+    }
 };
 
-const CASE_STYLES = {
-    'free': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(46,204,113,0.7)', titleColor: '#2ecc71', itemColor: '#6bcbff', highlightColor: '#ffd700', glowColor: 'rgba(46,204,113,0.3)', shadowColor: 'rgba(46,204,113,0.5)', icon: '🎁', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(46,204,113,0.08), transparent 70%)' },
-    'mud': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(142,68,173,0.7)', titleColor: '#8e44ad', itemColor: '#c39bd3', highlightColor: '#ff6b6b', glowColor: 'rgba(142,68,173,0.3)', shadowColor: 'rgba(142,68,173,0.5)', icon: '🟫', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(142,68,173,0.08), transparent 70%)' },
-    'wood': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(211,84,0,0.7)', titleColor: '#d35400', itemColor: '#f39c12', highlightColor: '#ffd700', glowColor: 'rgba(211,84,0,0.3)', shadowColor: 'rgba(211,84,0,0.5)', icon: '🌳', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(211,84,0,0.08), transparent 70%)' },
-    'stone': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(127,140,141,0.7)', titleColor: '#7f8c8d', itemColor: '#bdc3c7', highlightColor: '#ffd700', glowColor: 'rgba(127,140,141,0.3)', shadowColor: 'rgba(127,140,141,0.5)', icon: '🪨', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(127,140,141,0.08), transparent 70%)' },
-    'bronze': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(205,127,50,0.7)', titleColor: '#cd7f32', itemColor: '#f0c27f', highlightColor: '#ffd700', glowColor: 'rgba(205,127,50,0.3)', shadowColor: 'rgba(205,127,50,0.5)', icon: '🥉', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(205,127,50,0.08), transparent 70%)' },
-    'silver': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(189,195,199,0.7)', titleColor: '#bdc3c7', itemColor: '#ecf0f1', highlightColor: '#ffd700', glowColor: 'rgba(189,195,199,0.3)', shadowColor: 'rgba(189,195,199,0.5)', icon: '🔘', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(189,195,199,0.08), transparent 70%)' },
-    'gold': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(241,196,15,0.7)', titleColor: '#f1c40f', itemColor: '#f9e79f', highlightColor: '#ffd700', glowColor: 'rgba(241,196,15,0.4)', shadowColor: 'rgba(241,196,15,0.6)', icon: '👑', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(241,196,15,0.1), transparent 70%)' },
-    'diamond': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(52,152,219,0.7)', titleColor: '#3498db', itemColor: '#85c1e9', highlightColor: '#00d4ff', glowColor: 'rgba(52,152,219,0.3)', shadowColor: 'rgba(52,152,219,0.5)', icon: '💎', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(52,152,219,0.08), transparent 70%)' },
-    'netherite': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(44,62,80,0.7)', titleColor: '#e74c3c', itemColor: '#f1948a', highlightColor: '#ff6b35', glowColor: 'rgba(231,76,60,0.3)', shadowColor: 'rgba(231,76,60,0.5)', icon: '🔥', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(231,76,60,0.08), transparent 70%)' },
-    'bedrock': { bg: 'rgba(0,0,0,0.95)', border: '3px solid rgba(52,73,94,0.7)', titleColor: '#5d6d7e', itemColor: '#aeb6bf', highlightColor: '#ffd700', glowColor: 'rgba(52,73,94,0.4)', shadowColor: 'rgba(52,73,94,0.6)', icon: '⛏️', bgGradient: 'radial-gradient(circle at 50% 50%, rgba(52,73,94,0.1), transparent 70%)' }
+const createCardElement = (value, style, width = 90, height = 140) => {
+    const isLarge = value > 1000;
+    const fontSize = isLarge ? '16px' : '20px';
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.dataset.value = value;
+    Object.assign(div.style, {
+        width: width + 'px',
+        height: height + 'px',
+        flexShrink: '0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(255,255,255,0.04)',
+        borderRadius: '10px',
+        border: '1px solid rgba(255,255,255,0.06)',
+        fontSize: fontSize,
+        fontWeight: '700',
+        color: style.itemColor,
+        textShadow: `0 0 20px ${style.glowColor}`,
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        padding: '0 4px'
+    });
+    div.textContent = value + '⭐';
+    return div;
 };
 
-function getPrizes(type) { return CASE_PRIZES[type] || [1, 10, 100]; }
-function getStyle(type) { return CASE_STYLES[type] || CASE_STYLES['free']; }
-function getPrice(type) { return CASE_PRICES[type] || 0; }
+const animateTrack = (track, shift, duration = 6000) => {
+    if (!track) return;
+    track.style.transition = `transform ${duration}ms cubic-bezier(0.1, 1, 0.1, 1)`;
+    track.style.transform = `translateX(-${shift}px)`;
+};
 
-// ===================== ЛОАДЕР =====================
-function showLoader() {
-    document.getElementById('loader').classList.add('active');
-}
+// ===== DOM КЭШ =====
+const DOM = {
+    balance: document.getElementById('balance'),
+    balanceValue: document.getElementById('balanceValue'),
+    profileBalance: document.getElementById('profileBalance'),
+    profileCases: document.getElementById('profileCases'),
+    profileStatus: document.getElementById('profileStatus'),
+    profileRefs: document.getElementById('profileRefs'),
+    inviteLink: document.getElementById('inviteLink'),
+    minesCashoutBtn: document.getElementById('minesCashoutBtn'),
+    minesStartBtn: document.getElementById('minesStartBtn'),
+    minesBetDisplay: document.getElementById('minesBetDisplay'),
+    minesCountDisplay: document.getElementById('minesCountDisplay'),
+    minesTotalSafe: document.getElementById('minesTotalSafe'),
+    minesOpenedDisplay: document.getElementById('minesOpenedDisplay'),
+    minesMultiplierDisplay: document.getElementById('minesMultiplierDisplay'),
+    minesBoard: document.getElementById('minesBoard'),
+    betInput: document.getElementById('betInput'),
+};
 
-function hideLoader() {
-    document.getElementById('loader').classList.remove('active');
-}
+// ===== СОСТОЯНИЕ =====
+let state = {
+    lastOpenedCase: null,
+    currentPrize: null,
+    isOpening: false,
+    tapeContainer: null,
+    minesGameData: null,
+    selectedMines: 4,
+    selectedBattleCase: 'gold',
+    selectedBotCase: 'gold',
+    currentRoomId: null,
+    intervals: {}
+};
 
-// ===================== НАВИГАЦИЯ =====================
+// ===== НАВИГАЦИЯ =====
 function showMain() {
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
     document.getElementById('mainScreen').classList.add('active');
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.querySelector('.nav-item[data-tab="main"]').classList.add('active');
     loadBalance();
-    updateFreeCaseTimer();
 }
 
 function showBattles() {
@@ -76,8 +144,8 @@ function showBattles() {
     loadBattleData();
     loadBattleRooms();
     checkActiveRoom();
-    if (window.battleInterval) clearInterval(window.battleInterval);
-    window.battleInterval = setInterval(loadBattleRooms, 5000);
+    clearInterval(state.intervals.battle);
+    state.intervals.battle = setInterval(loadBattleRooms, 5000);
 }
 
 function showMines() {
@@ -86,15 +154,15 @@ function showMines() {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.querySelector('.nav-item[data-tab="mines"]').classList.add('active');
     loadMinesStats();
-    if (!minesGameData || !minesGameData.active) {
-        minesGameData = null;
-        document.getElementById('minesCashoutBtn').style.display = 'none';
-        document.getElementById('minesStartBtn').textContent = '🎮 НАЧАТЬ ИГРУ';
-        document.getElementById('minesBetDisplay').textContent = '0';
-        document.getElementById('minesCountDisplay').textContent = '0';
-        document.getElementById('minesTotalSafe').textContent = '0';
-        document.getElementById('minesOpenedDisplay').textContent = '0';
-        document.getElementById('minesMultiplierDisplay').textContent = 'x1.0';
+    if (!state.minesGameData || !state.minesGameData.active) {
+        state.minesGameData = null;
+        DOM.minesCashoutBtn.style.display = 'none';
+        DOM.minesStartBtn.textContent = '🎮 НАЧАТЬ ИГРУ';
+        DOM.minesBetDisplay.textContent = '0';
+        DOM.minesCountDisplay.textContent = '0';
+        DOM.minesTotalSafe.textContent = '0';
+        DOM.minesOpenedDisplay.textContent = '0';
+        DOM.minesMultiplierDisplay.textContent = 'x1.0';
         initMinesBoard();
     }
 }
@@ -113,122 +181,45 @@ function goBack() {
     showMain();
 }
 
-// ===================== БАЛАНС =====================
+// ===== БАЛАНС =====
 async function loadBalance() {
-    try {
-        const res = await fetch('/get_balance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id })
-        });
-        const data = await res.json();
-        if (data.balance !== undefined) {
-            document.getElementById('balance').textContent = '⭐ ' + data.balance;
-            document.getElementById('balanceValue').textContent = data.balance + ' ⭐';
-            document.getElementById('profileBalance').textContent = data.balance;
-            document.getElementById('profileCases').textContent = data.total_cases;
-            document.getElementById('profileStatus').textContent = data.status;
-            document.getElementById('profileRefs').textContent = data.refs;
-            document.getElementById('inviteLink').value = 'https://t.me/Randevucase_bot?start=' + user_id;
-            document.getElementById('username').textContent = tg.initDataUnsafe?.user?.username || 'Игрок';
-            document.getElementById('profileName').textContent = tg.initDataUnsafe?.user?.username || 'Игрок';
-        }
-    } catch(e) { console.error(e); }
+    const data = await apiRequest('/get_balance');
+    if (data.balance !== undefined) {
+        updateAllBalances(data.balance);
+        if (DOM.profileCases) DOM.profileCases.textContent = data.total_cases;
+        if (DOM.profileStatus) DOM.profileStatus.textContent = data.status;
+        if (DOM.profileRefs) DOM.profileRefs.textContent = data.refs;
+        if (DOM.inviteLink) DOM.inviteLink.value = 'https://t.me/Randevucase_bot?start=' + user_id;
+    }
 }
 
 function updateAllBalances(newBalance) {
-    const balanceEl = document.getElementById('balance');
-    const balanceValueEl = document.getElementById('balanceValue');
-    const profileBalanceEl = document.getElementById('profileBalance');
-    if (balanceEl) balanceEl.textContent = '⭐ ' + newBalance;
-    if (balanceValueEl) balanceValueEl.textContent = newBalance + ' ⭐';
-    if (profileBalanceEl) profileBalanceEl.textContent = newBalance;
+    if (DOM.balance) DOM.balance.textContent = '⭐ ' + newBalance;
+    if (DOM.balanceValue) DOM.balanceValue.textContent = newBalance + ' ⭐';
+    if (DOM.profileBalance) DOM.profileBalance.textContent = newBalance;
 }
 
-// ===================== ТАЙМЕР ДЛЯ FREE КЕЙСА =====================
-function updateFreeCaseTimer() {
-    const freeCard = document.querySelector('.case-card[data-case="free"]');
-    if (!freeCard) return;
-    
-    fetch('/check_balance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, case_type: 'free' })
-    })
-    .then(res => res.json())
-    .then(data => {
-        const priceEl = freeCard.querySelector('.case-price');
-        if (!priceEl) return;
-        
-        if (data.can_open) {
-            freeCard.style.opacity = '1';
-            priceEl.textContent = '0⭐ (доступен)';
-            priceEl.style.color = '#4caf50';
-        } else if (data.error && data.error.includes('Жди')) {
-            const match = data.error.match(/\d+/);
-            const minutes = match ? match[0] : '?';
-            freeCard.style.opacity = '0.5';
-            priceEl.textContent = `⏳ ${minutes} мин`;
-            priceEl.style.color = '#ff9800';
-        } else {
-            freeCard.style.opacity = '0.5';
-            priceEl.textContent = '⏳ 120 мин';
-            priceEl.style.color = '#ff9800';
-        }
-    })
-    .catch(() => {});
-}
-
-// ===================== КЕЙСЫ =====================
+// ===== КЕЙСЫ =====
 async function checkBalance(type) {
-    try {
-        const res = await fetch('/check_balance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, case_type: type })
-        });
-        const data = await res.json();
-        if (data.error) {
-            tg.showAlert('❌ ' + data.error);
-            return false;
-        }
-        if (!data.can_open) {
-            tg.showAlert('❌ Недостаточно звёзд или время не прошло!');
-            return false;
-        }
-        return true;
-    } catch(e) {
-        tg.showAlert('❌ Ошибка проверки баланса');
-        return false;
-    }
+    const data = await apiRequest('/check_balance', { case_type: type });
+    if (data.error) { tg.showAlert('❌ ' + data.error); return false; }
+    if (!data.can_open) { tg.showAlert('❌ Недостаточно звёзд или время не прошло!'); return false; }
+    return true;
 }
 
 async function fetchRealPrize(type) {
-    try {
-        const res = await fetch('/get_prize', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ case_type: type })
-        });
-        const data = await res.json();
-        if (data.error) {
-            tg.showAlert('❌ ' + data.error);
-            return null;
-        }
-        return data.prize;
-    } catch(e) {
-        tg.showAlert('❌ Ошибка получения награды');
-        return null;
-    }
+    const data = await apiRequest('/get_prize', { case_type: type });
+    if (data.error) { tg.showAlert('❌ ' + data.error); return null; }
+    return data.prize;
 }
 
 function previewCase(type) {
-    if (_isOpening) return;
+    if (state.isOpening) return;
     closeTape();
-    showPreviewTape(type);
+    showTape(type, 'preview');
 }
 
-function showPreviewTape(type) {
+function showTape(type, mode = 'preview') {
     const prizes = getPrizes(type);
     const style = getStyle(type);
     const price = getPrice(type);
@@ -236,127 +227,112 @@ function showPreviewTape(type) {
 
     const tapeContainer = document.createElement('div');
     tapeContainer.id = 'tapeContainer';
-    _tapeContainer = tapeContainer;
-    tapeContainer.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: ${style.bg};
-        background-image: ${style.bgGradient};
-        backdrop-filter: blur(30px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 999;
-        padding: 20px;
-        border: none;
-        animation: fadeIn 0.3s ease;
-    `;
+    state.tapeContainer = tapeContainer;
+    Object.assign(tapeContainer.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: style.bg,
+        backgroundImage: style.bgGradient,
+        backdropFilter: 'blur(30px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '999',
+        padding: '20px',
+        border: 'none',
+        animation: 'fadeIn 0.3s ease'
+    });
 
-    if (!document.getElementById('tapeFadeStyle')) {
-        const fadeStyle = document.createElement('style');
-        fadeStyle.id = 'tapeFadeStyle';
-        fadeStyle.textContent = `@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }`;
-        document.head.appendChild(fadeStyle);
-    }
-
+    // Заголовок
     const title = document.createElement('div');
-    title.style.cssText = `
-        font-size: 24px;
-        font-weight: 800;
-        color: ${style.titleColor};
-        margin-bottom: 20px;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-        text-shadow: 0 0 40px ${style.glowColor};
-        text-align: center;
-        flex-shrink: 0;
-    `;
+    Object.assign(title.style, {
+        fontSize: '24px',
+        fontWeight: '800',
+        color: style.titleColor,
+        marginBottom: '20px',
+        textTransform: 'uppercase',
+        letterSpacing: '3px',
+        textShadow: `0 0 40px ${style.glowColor}`,
+        textAlign: 'center',
+        flexShrink: '0'
+    });
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
+    // Баланс
     const balanceDisplay = document.createElement('div');
-    balanceDisplay.style.cssText = `
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        background: rgba(255,255,255,0.08);
-        padding: 10px 20px;
-        border-radius: 30px;
-        font-size: 18px;
-        font-weight: 700;
-        color: #FFD700;
-        border: 1px solid rgba(255,215,0,0.2);
-        backdrop-filter: blur(10px);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        z-index: 10;
-    `;
-    balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
+    Object.assign(balanceDisplay.style, {
+        position: 'absolute',
+        top: '20px',
+        right: '20px',
+        background: 'rgba(255,255,255,0.08)',
+        padding: '10px 20px',
+        borderRadius: '30px',
+        fontSize: '18px',
+        fontWeight: '700',
+        color: '#FFD700',
+        border: '1px solid rgba(255,215,0,0.2)',
+        backdropFilter: 'blur(10px)',
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        zIndex: '10'
+    });
+    balanceDisplay.textContent = `💰 ${DOM.balance.textContent}`;
     tapeContainer.appendChild(balanceDisplay);
 
+    // Вьюпорт
     const viewport = document.createElement('div');
-    viewport.style.cssText = `
-        width: 95%;
-        max-width: 1400px;
-        overflow: hidden;
-        position: relative;
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,0.06);
-        background: rgba(0,0,0,0.3);
-        height: 200px;
-        margin: 0 auto;
-        flex-shrink: 0;
-    `;
+    Object.assign(viewport.style, {
+        width: '95%',
+        maxWidth: '1400px',
+        overflow: 'hidden',
+        position: 'relative',
+        borderRadius: '16px',
+        border: '1px solid rgba(255,255,255,0.06)',
+        background: 'rgba(0,0,0,0.3)',
+        height: mode === 'preview' ? '200px' : '150px',
+        margin: '0 auto',
+        flexShrink: '0'
+    });
 
-    const cardWidth = 90;
-    const cardGap = 6;
+    const cardWidth = mode === 'preview' ? 90 : 130;
+    const cardGap = mode === 'preview' ? 6 : 8;
     const totalItems = prizes.length;
     const oneSetWidth = totalItems * (cardWidth + cardGap);
 
     const track = document.createElement('div');
     track.id = 'track';
-    track.style.cssText = `
-        display: flex;
-        gap: ${cardGap}px;
-        padding: 20px 0;
-        will-change: transform;
-        animation: scrollTapeForward 7.875s linear infinite;
-        position: relative;
-        top: 15px;
-    `;
+    Object.assign(track.style, {
+        display: 'flex',
+        gap: cardGap + 'px',
+        padding: '20px 0',
+        willChange: 'transform',
+        position: 'relative',
+        top: mode === 'preview' ? '15px' : '10px'
+    });
 
+    // Заполнение трека
+    const repeats = mode === 'preview' ? 4 : 60;
+    const winPosition = 40;
     let cards = [];
-    for (let repeat = 0; repeat < 4; repeat++) {
-        prizes.forEach((p, index) => {
-            const isLarge = p > 1000;
-            const fontSize = isLarge ? '16px' : '20px';
-            cards.push(`<div class="card" data-value="${p}" style="
-                width: ${cardWidth}px;
-                height: 140px;
-                flex-shrink: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: rgba(255,255,255,0.04);
-                border-radius: 10px;
-                border: 1px solid rgba(255,255,255,0.06);
-                font-size: ${fontSize};
-                font-weight: 700;
-                color: ${style.itemColor};
-                text-shadow: 0 0 20px ${style.glowColor};
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                padding: 0 4px;
-            ">${p}⭐</div>`);
-        });
+    for (let i = 0; i < repeats; i++) {
+        let value;
+        if (mode === 'preview') {
+            value = prizes[i % prizes.length];
+        } else {
+            if (i === winPosition && state.currentPrize !== null) {
+                value = state.currentPrize;
+            } else {
+                value = prizes[Math.floor(Math.random() * prizes.length)];
+            }
+        }
+        const el = createCardElement(value, style, cardWidth, mode === 'preview' ? 140 : 120);
+        cards.push(el);
     }
-    track.innerHTML = cards.join('');
-
+    cards.forEach(c => track.appendChild(c));
     viewport.appendChild(track);
 
-    if (!document.getElementById('previewScrollStyle')) {
+    if (mode === 'preview') {
         const scrollStyle = document.createElement('style');
         scrollStyle.id = 'previewScrollStyle';
         scrollStyle.textContent = `
@@ -366,149 +342,130 @@ function showPreviewTape(type) {
             }
         `;
         document.head.appendChild(scrollStyle);
+        track.style.animation = `scrollTapeForward 7.875s linear infinite`;
+    } else {
+        const marker = document.createElement('div');
+        Object.assign(marker.style, {
+            position: 'absolute',
+            top: '-8px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            fontSize: '36px',
+            color: style.highlightColor,
+            textShadow: `0 0 30px ${style.highlightColor}`,
+            zIndex: '10',
+            pointerEvents: 'none',
+            lineHeight: '1'
+        });
+        marker.textContent = '▼';
+        viewport.appendChild(marker);
+        tapeContainer._track = track;
+        tapeContainer._viewport = viewport;
     }
 
     tapeContainer.appendChild(viewport);
 
+    // Нижняя секция
     const bottomSection = document.createElement('div');
-    bottomSection.style.cssText = `
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        width: 100%;
-        padding: 20px 0 8px 0;
-        flex-shrink: 0;
-    `;
+    Object.assign(bottomSection.style, {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '12px',
+        width: '100%',
+        padding: mode === 'preview' ? '20px 0 8px 0' : '16px 0 8px 0',
+        flexShrink: '0'
+    });
 
-    const btnContainer = document.createElement('div');
-    btnContainer.style.cssText = `display:flex; gap:14px; flex-wrap:wrap; justify-content:center;`;
+    if (mode === 'preview') {
+        const btnContainer = document.createElement('div');
+        btnContainer.style.cssText = 'display:flex; gap:14px; flex-wrap:wrap; justify-content:center;';
+        const userBalance = parseInt(DOM.balance.textContent.replace('⭐ ', ''));
+        const hasEnough = userBalance >= price;
 
-    const userBalance = parseInt(document.getElementById('balance').textContent.replace('⭐ ', ''));
-    const hasEnough = userBalance >= price;
+        if (hasEnough) {
+            const openBtn = document.createElement('button');
+            openBtn.textContent = `🎲 Открыть (${price}⭐)`;
+            Object.assign(openBtn.style, {
+                background: `linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd)`,
+                color: '#fff',
+                border: 'none',
+                padding: '14px 40px',
+                borderRadius: '14px',
+                fontSize: '18px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: `0 4px 30px ${style.shadowColor}`,
+                textShadow: '0 2px 10px rgba(0,0,0,0.3)',
+                minWidth: '170px'
+            });
+            openBtn.onclick = () => openCaseDirect(type);
+            btnContainer.appendChild(openBtn);
+        } else {
+            const lockedBtn = document.createElement('button');
+            lockedBtn.textContent = `🔒 Недостаточно (${price}⭐)`;
+            Object.assign(lockedBtn.style, {
+                background: 'rgba(255,0,0,0.12)',
+                color: '#888',
+                border: '2px solid rgba(255,0,0,0.25)',
+                padding: '14px 40px',
+                borderRadius: '14px',
+                fontSize: '18px',
+                fontWeight: '700',
+                cursor: 'not-allowed',
+                minWidth: '170px'
+            });
+            btnContainer.appendChild(lockedBtn);
+        }
 
-    if (hasEnough) {
-        const openBtn = document.createElement('button');
-        openBtn.textContent = `🎲 Открыть (${price}⭐)`;
-        openBtn.style.cssText = `
-            background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
-            color: #fff;
-            border: none;
-            padding: 14px 40px;
-            border-radius: 14px;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 30px ${style.shadowColor};
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            min-width: 170px;
-        `;
-        openBtn.onclick = function() {
-            openCaseDirect(type);
-        };
-        btnContainer.appendChild(openBtn);
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '🔙 Назад';
+        Object.assign(closeBtn.style, {
+            background: 'rgba(255,255,255,0.06)',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.08)',
+            padding: '14px 40px',
+            borderRadius: '14px',
+            fontSize: '18px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            minWidth: '170px'
+        });
+        closeBtn.onclick = closeTape;
+        btnContainer.appendChild(closeBtn);
+        bottomSection.appendChild(btnContainer);
+
+        const previewLabel = document.createElement('div');
+        previewLabel.textContent = '👀 Предпросмотр наград';
+        Object.assign(previewLabel.style, {
+            color: style.titleColor,
+            fontSize: '14px',
+            fontWeight: '500',
+            opacity: '0.5',
+            textAlign: 'center',
+            letterSpacing: '1px',
+            marginTop: '4px'
+        });
+        bottomSection.appendChild(previewLabel);
     } else {
-        const lockedBtn = document.createElement('button');
-        lockedBtn.textContent = `🔒 Недостаточно (${price}⭐)`;
-        lockedBtn.style.cssText = `
-            background: rgba(255,0,0,0.12);
-            color: #888;
-            border: 2px solid rgba(255,0,0,0.25);
-            padding: 14px 40px;
-            border-radius: 14px;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: not-allowed;
-            min-width: 170px;
-        `;
-        btnContainer.appendChild(lockedBtn);
+        const loadingLabel = document.createElement('div');
+        loadingLabel.textContent = '🎰 Открытие...';
+        Object.assign(loadingLabel.style, {
+            color: style.titleColor,
+            fontSize: '16px',
+            fontWeight: '600',
+            opacity: '0.6',
+            textAlign: 'center',
+            letterSpacing: '1px'
+        });
+        bottomSection.appendChild(loadingLabel);
     }
-
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '🔙 Назад';
-    closeBtn.style.cssText = `
-        background: rgba(255,255,255,0.06);
-        color: #fff;
-        border: 1px solid rgba(255,255,255,0.08);
-        padding: 14px 40px;
-        border-radius: 14px;
-        font-size: 18px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s;
-        min-width: 170px;
-    `;
-    closeBtn.onclick = function() { closeTape(); };
-    btnContainer.appendChild(closeBtn);
-    bottomSection.appendChild(btnContainer);
-
-    const previewLabel = document.createElement('div');
-    previewLabel.textContent = '👀 Предпросмотр наград';
-    previewLabel.style.cssText = `
-        color: ${style.titleColor};
-        font-size: 14px;
-        font-weight: 500;
-        opacity: 0.5;
-        text-align: center;
-        letter-spacing: 1px;
-        margin-top: 4px;
-    `;
-    bottomSection.appendChild(previewLabel);
 
     tapeContainer.appendChild(bottomSection);
     document.body.appendChild(tapeContainer);
-}
-
-function openCaseDirect(type) {
-    if (_isOpening) return;
-    _isOpening = true;
-    
-    checkBalance(type).then(canOpen => {
-        if (!canOpen) { _isOpening = false; return; }
-        
-        fetchRealPrize(type).then(prize => {
-            if (prize === null) {
-                _isOpening = false;
-                return;
-            }
-            _currentPrize = prize;
-            closeTape();
-            showRouletteTape(type);
-            setTimeout(() => {
-                startFinalSpin(type);
-            }, 300);
-        });
-    });
-}
-
-function showRouletteTape(type) {
-    const prizes = getPrizes(type);
-    const style = getStyle(type);
-    closeTape();
-
-    const tapeContainer = document.createElement('div');
-    tapeContainer.id = 'tapeContainer';
-    _tapeContainer = tapeContainer;
-    tapeContainer.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: ${style.bg};
-        background-image: ${style.bgGradient};
-        backdrop-filter: blur(30px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 999;
-        padding: 20px;
-        border: none;
-        animation: fadeIn 0.3s ease;
-    `;
 
     if (!document.getElementById('tapeFadeStyle')) {
         const fadeStyle = document.createElement('style');
@@ -516,96 +473,22 @@ function showRouletteTape(type) {
         fadeStyle.textContent = `@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }`;
         document.head.appendChild(fadeStyle);
     }
+}
 
-    const title = document.createElement('div');
-    title.style.cssText = `
-        font-size: 22px;
-        font-weight: 800;
-        color: ${style.titleColor};
-        margin-bottom: 16px;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-        text-shadow: 0 0 40px ${style.glowColor};
-        text-align: center;
-    `;
-    title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
-    tapeContainer.appendChild(title);
-
-    const viewport = document.createElement('div');
-    viewport.style.cssText = `
-        width: 90%;
-        max-width: 700px;
-        overflow: hidden;
-        position: relative;
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,0.06);
-        background: rgba(0,0,0,0.3);
-        height: 150px;
-        margin: 0 auto;
-        flex-shrink: 0;
-    `;
-
-    const marker = document.createElement('div');
-    marker.style.cssText = `
-        position: absolute;
-        top: -8px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 36px;
-        color: ${style.highlightColor};
-        text-shadow: 0 0 30px ${style.highlightColor};
-        z-index: 10;
-        pointer-events: none;
-        line-height: 1;
-    `;
-    marker.textContent = '▼';
-    viewport.appendChild(marker);
-
-    const track = document.createElement('div');
-    track.id = 'track';
-    track.style.cssText = `
-        display: flex;
-        gap: 8px;
-        padding: 16px 0;
-        will-change: transform;
-        transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1);
-        width: auto;
-        position: relative;
-        top: 10px;
-    `;
-    viewport.appendChild(track);
-    tapeContainer.appendChild(viewport);
-
-    const bottomSection = document.createElement('div');
-    bottomSection.style.cssText = `
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        width: 100%;
-        padding: 16px 0 8px 0;
-        flex-shrink: 0;
-    `;
-
-    const loadingLabel = document.createElement('div');
-    loadingLabel.textContent = '🎰 Открытие...';
-    loadingLabel.style.cssText = `
-        color: ${style.titleColor};
-        font-size: 16px;
-        font-weight: 600;
-        opacity: 0.6;
-        text-align: center;
-        letter-spacing: 1px;
-    `;
-    bottomSection.appendChild(loadingLabel);
-
-    tapeContainer.appendChild(bottomSection);
-    document.body.appendChild(tapeContainer);
-
-    tapeContainer._track = track;
-    tapeContainer._viewport = viewport;
-    tapeContainer._marker = marker;
+function openCaseDirect(type) {
+    if (state.isOpening) return;
+    state.isOpening = true;
+    
+    checkBalance(type).then(canOpen => {
+        if (!canOpen) { state.isOpening = false; return; }
+        fetchRealPrize(type).then(prize => {
+            if (prize === null) { state.isOpening = false; return; }
+            state.currentPrize = prize;
+            closeTape();
+            showTape(type, 'roulette');
+            setTimeout(() => startFinalSpin(type), 300);
+        });
+    });
 }
 
 function startFinalSpin(type) {
@@ -616,13 +499,8 @@ function startFinalSpin(type) {
 
     const track = tapeContainer._track;
     const viewport = tapeContainer._viewport;
-
-    const targetPrize = _currentPrize;
-    if (targetPrize === null) {
-        tg.showAlert('❌ Ошибка: награда не получена');
-        closeTape();
-        return;
-    }
+    const targetPrize = state.currentPrize;
+    if (targetPrize === null) { tg.showAlert('❌ Ошибка: награда не получена'); closeTape(); return; }
 
     const cardWidth = 130;
     const cardGap = 8;
@@ -631,42 +509,21 @@ function startFinalSpin(type) {
     const winPosition = 40;
 
     const prizeIndex = prizes.indexOf(targetPrize);
-    if (prizeIndex === -1) {
-        tg.showAlert('❌ Ошибка: награда не найдена в списке');
-        closeTape();
-        return;
-    }
+    if (prizeIndex === -1) { tg.showAlert('❌ Ошибка: награда не найдена'); closeTape(); return; }
 
-    let cards = [];
+    const newCards = [];
     for (let i = 0; i < totalCards; i++) {
         let value;
         if (i === winPosition) {
             value = targetPrize;
         } else {
-            const randomIndex = Math.floor(Math.random() * prizes.length);
-            value = prizes[randomIndex];
+            value = prizes[Math.floor(Math.random() * prizes.length)];
         }
-        const isLarge = value > 1000;
-        const fontSize = isLarge ? '22px' : '28px';
-        cards.push(`<div class="card" data-value="${value}" style="
-            width: ${cardWidth}px;
-            height: 120px;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255,255,255,0.04);
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.06);
-            font-size: ${fontSize};
-            font-weight: 700;
-            color: ${style.itemColor};
-            text-shadow: 0 0 20px ${style.glowColor};
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            transition: all 0.2s ease;
-        ">${value}⭐</div>`);
+        const el = createCardElement(value, style, 130, 120);
+        newCards.push(el);
     }
-    track.innerHTML = cards.join('');
+    track.innerHTML = '';
+    newCards.forEach(c => track.appendChild(c));
 
     const viewportWidth = viewport.offsetWidth || 700;
     const centerOffset = viewportWidth / 2;
@@ -674,19 +531,16 @@ function startFinalSpin(type) {
     const noise = Math.floor(Math.random() * 40) - 20;
     const finalShift = shift + noise;
 
-    track.style.transform = `translateX(-${finalShift}px)`;
+    animateTrack(track, finalShift);
 
     let finished = false;
-
     const onFinish = () => {
         if (finished) return;
         finished = true;
         track.removeEventListener('transitionend', onFinish);
         showResultAndClaim(type, targetPrize, style, track, winPosition);
     };
-
     track.addEventListener('transitionend', onFinish);
-
     setTimeout(() => {
         if (!finished) {
             finished = true;
@@ -716,86 +570,81 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
     setTimeout(() => {
         const resultContainer = document.createElement('div');
         resultContainer.id = 'resultContainer';
-        resultContainer.style.cssText = `
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(20px);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 30px;
-            animation: fadeIn 0.3s ease;
-        `;
+        Object.assign(resultContainer.style, {
+            position: 'fixed',
+            top: '0', left: '0', right: '0', bottom: '0',
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(20px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: '1000',
+            padding: '30px',
+            animation: 'fadeIn 0.3s ease'
+        });
 
         const balanceDisplay = document.createElement('div');
-        balanceDisplay.style.cssText = `
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255,255,255,0.08);
-            padding: 10px 20px;
-            border-radius: 30px;
-            font-size: 18px;
-            font-weight: 700;
-            color: #FFD700;
-            border: 1px solid rgba(255,215,0,0.2);
-            backdrop-filter: blur(10px);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
-        balanceDisplay.textContent = `💰 ${document.getElementById('balance').textContent}`;
+        Object.assign(balanceDisplay.style, {
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            background: 'rgba(255,255,255,0.08)',
+            padding: '10px 20px',
+            borderRadius: '30px',
+            fontSize: '18px',
+            fontWeight: '700',
+            color: '#FFD700',
+            border: '1px solid rgba(255,215,0,0.2)',
+            backdropFilter: 'blur(10px)',
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        });
+        balanceDisplay.textContent = `💰 ${DOM.balance.textContent}`;
         resultContainer.appendChild(balanceDisplay);
 
         const winText = document.createElement('div');
-        winText.style.cssText = `
-            font-size: 64px;
-            font-weight: 900;
-            color: #FFD700;
-            text-shadow: 0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,215,0,0.3);
-            margin-bottom: 10px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            text-align: center;
-        `;
+        Object.assign(winText.style, {
+            fontSize: '64px',
+            fontWeight: '900',
+            color: '#FFD700',
+            textShadow: '0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,215,0,0.3)',
+            marginBottom: '10px',
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            textAlign: 'center'
+        });
         winText.textContent = `⭐ ${targetPrize}`;
 
         const subText = document.createElement('div');
-        subText.style.cssText = `
-            font-size: 24px;
-            font-weight: 600;
-            color: #FFF8E7;
-            text-shadow: 0 0 20px rgba(255,215,0,0.3);
-            margin-bottom: 30px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
+        Object.assign(subText.style, {
+            fontSize: '24px',
+            fontWeight: '600',
+            color: '#FFF8E7',
+            textShadow: '0 0 20px rgba(255,215,0,0.3)',
+            marginBottom: '30px',
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        });
         subText.textContent = 'Ты выиграл!';
 
         const btnContainer = document.createElement('div');
-        btnContainer.style.cssText = `
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            justify-content: center;
-        `;
+        btnContainer.style.cssText = 'display:flex; gap:16px; flex-wrap:wrap; justify-content:center;';
 
         const price = getPrice(type);
         const againBtn = document.createElement('button');
         againBtn.textContent = `🎲 Открыть ещё (${price}⭐)`;
-        againBtn.style.cssText = `
-            background: linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd);
-            color: #fff;
-            border: none;
-            padding: 14px 36px;
-            border-radius: 14px;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 30px ${style.shadowColor};
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            min-width: 160px;
-        `;
+        Object.assign(againBtn.style, {
+            background: `linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd)`,
+            color: '#fff',
+            border: 'none',
+            padding: '14px 36px',
+            borderRadius: '14px',
+            fontSize: '18px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: `0 4px 30px ${style.shadowColor}`,
+            textShadow: '0 2px 10px rgba(0,0,0,0.3)',
+            minWidth: '160px'
+        });
         againBtn.onmouseover = function() {
             this.style.transform = 'scale(1.05)';
             this.style.boxShadow = `0 6px 40px ${style.shadowColor}`;
@@ -814,18 +663,18 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
 
         const backBtn = document.createElement('button');
         backBtn.textContent = '🔙 Назад';
-        backBtn.style.cssText = `
-            background: rgba(255,255,255,0.08);
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.1);
-            padding: 14px 36px;
-            border-radius: 14px;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            min-width: 160px;
-        `;
+        Object.assign(backBtn.style, {
+            background: 'rgba(255,255,255,0.08)',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.1)',
+            padding: '14px 36px',
+            borderRadius: '14px',
+            fontSize: '18px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            minWidth: '160px'
+        });
         backBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.15)'; };
         backBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.08)'; };
         backBtn.onclick = function() {
@@ -843,18 +692,17 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         document.body.appendChild(resultContainer);
 
         setTimeout(async () => {
-            showLoader();
             try {
                 const res = await fetch('/open_case', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         user_id: user_id, 
-                        case_type: type
+                        case_type: type,
+                        prize: targetPrize
                     })
                 });
                 const data = await res.json();
-                hideLoader();
                 if (data.error) {
                     tg.showAlert('❌ ' + data.error);
                 } else {
@@ -865,7 +713,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
                     }
                 }
             } catch(e) {
-                hideLoader();
                 tg.showAlert('❌ Ошибка при открытии кейса');
             }
         }, 300);
@@ -874,16 +721,16 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
 }
 
 function closeTape() {
-    if (_tapeContainer) {
-        const track = _tapeContainer.querySelector('#track');
+    if (state.tapeContainer) {
+        const track = state.tapeContainer.querySelector('#track');
         if (track) {
             track.style.animation = 'none';
             track.style.transition = 'none';
         }
-        _tapeContainer.remove();
-        _tapeContainer = null;
+        state.tapeContainer.remove();
+        state.tapeContainer = null;
     }
-    _isOpening = false;
+    state.isOpening = false;
 }
 
 function closeResult() {
@@ -893,29 +740,22 @@ function closeResult() {
 
 function openAgain() {
     closeResult();
-    if (lastOpenedCase) {
+    if (state.lastOpenedCase) {
         setTimeout(() => {
-            openCaseDirect(lastOpenedCase);
+            openCaseDirect(state.lastOpenedCase);
         }, 300);
     }
 }
 
-// ===================== БИТВЫ =====================
+// ===== БИТВЫ =====
 function loadBattleData() {
-    fetch('/get_battle_data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id })
-    })
-    .then(res => res.json())
-    .then(data => {
+    apiRequest('/get_battle_data').then(data => {
         document.getElementById('battleWins').textContent = data.wins || 0;
         document.getElementById('battleLosses').textContent = data.losses || 0;
         document.getElementById('battleCommission').textContent = data.commission || 0;
         renderBattleList(data.active_battles || []);
         renderBattleHistory(data.history || []);
-    })
-    .catch(() => {});
+    });
 }
 
 function renderBattleList(battles) {
@@ -949,60 +789,53 @@ function renderBattleHistory(history) {
     `).join('');
 }
 
-// ===================== КОМНАТЫ =====================
+// ===== КОМНАТЫ =====
 function loadBattleRooms() {
-    fetch('/get_battle_rooms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id })
-    })
-    .then(res => res.json())
-    .then(data => {
+    apiRequest('/get_battle_rooms').then(data => {
         const list = document.getElementById('battleRoomsList');
-        const rooms = data.rooms || [];
-        
-        if (rooms.length === 0) {
-            list.innerHTML = '<div class="empty-state">🏠 Нет активных комнат. Создай свою!</div>';
-            return;
-        }
+        const myRooms = data.rooms?.filter(r => r.is_my_room) || [];
+        const otherRooms = data.rooms?.filter(r => !r.is_my_room) || [];
         
         let html = '';
-        rooms.forEach(r => {
-            const isMy = r.is_my_room;
-            const player1Icon = r.player1 === 'ТЫ' || r.player1 === user_id.toString() ? '⭐' : '👤';
-            const player2Icon = r.player2 === 'ОЖИДАНИЕ...' ? '⏳' : '👤';
-            
-            html += `
-                <div class="room-item" style="border-color: ${isMy ? 'rgba(255,215,0,0.3)' : 'rgba(255,255,255,0.06)'}; ${isMy ? 'background: rgba(255,215,0,0.05);' : ''}">
-                    <div class="room-info" style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                        <span class="room-creator">${player1Icon} ${r.player1}</span>
-                        <span class="room-creator" style="font-size: 13px; color: #aaa;">${player2Icon} ${r.player2}</span>
-                        <span style="display: flex; gap: 12px; font-size: 13px;">
-                            <span class="room-case">📦 ${r.case_type}</span>
-                            <span class="room-players">👥 ${r.players_count}/2</span>
-                            ${isMy ? '<span style="color: #ffd700;">⭐</span>' : ''}
-                        </span>
+        
+        if (myRooms.length > 0) {
+            html += `<div style="color: #ffd700; font-size: 14px; margin-bottom: 8px;">⭐ ТВОИ КОМНАТЫ:</div>`;
+            myRooms.forEach(r => {
+                html += `
+                    <div class="room-item" style="border-color: rgba(255,215,0,0.3);">
+                        <span class="room-creator">👤 ${r.player1} vs ${r.player2}</span>
+                        <span class="room-case">📦 ${r.case_type}</span>
+                        <span class="room-players">👥 ${r.players_count}/2</span>
+                        <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ВЕРНУТЬСЯ</button>
                     </div>
-                    <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')" style="${isMy ? 'background: linear-gradient(135deg, #ffd700, #f9a825); color: #000;' : ''}">
-                        ${isMy ? '⚔️ ВЕРНУТЬСЯ' : '⚔️ ПРИСОЕДИНИТЬСЯ'}
-                    </button>
-                </div>
-            `;
-        });
+                `;
+            });
+        }
+        
+        if (otherRooms.length > 0) {
+            html += `<div style="color: #aaa; font-size: 14px; margin: 8px 0;">📋 ДРУГИЕ КОМНАТЫ:</div>`;
+            otherRooms.forEach(r => {
+                html += `
+                    <div class="room-item">
+                        <span class="room-creator">👤 ${r.player1}</span>
+                        <span class="room-case">📦 ${r.case_type}</span>
+                        <span class="room-players">👥 ${r.players_count}/2</span>
+                        <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ПРИСОЕДИНИТЬСЯ</button>
+                    </div>
+                `;
+            });
+        }
+        
+        if (!html) {
+            html = '<div class="empty-state">🏠 Нет активных комнат. Создай свою!</div>';
+        }
         
         list.innerHTML = html;
-    })
-    .catch(() => {});
+    });
 }
 
 function checkActiveRoom() {
-    fetch('/get_user_room', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id })
-    })
-    .then(res => res.json())
-    .then(data => {
+    apiRequest('/get_user_room').then(data => {
         if (data.room_id) {
             const room = data.room;
             if (confirm('⚠️ У тебя есть активная комната! Вернуться?')) {
@@ -1011,8 +844,7 @@ function checkActiveRoom() {
                 startOpponentChecker(data.room_id);
             }
         }
-    })
-    .catch(() => {});
+    });
 }
 
 function showCreateBattle() {
@@ -1027,7 +859,7 @@ document.querySelectorAll('.battle-case-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         document.querySelectorAll('.battle-case-btn').forEach(b => b.classList.remove('active'));
         this.classList.add('active');
-        selectedBattleCase = this.dataset.case;
+        state.selectedBattleCase = this.dataset.case;
     });
 });
 
@@ -1035,39 +867,23 @@ document.querySelectorAll('.bot-case-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         document.querySelectorAll('.bot-case-btn').forEach(b => b.classList.remove('active'));
         this.classList.add('active');
-        selectedBotCase = this.dataset.case;
+        state.selectedBotCase = this.dataset.case;
     });
 });
 
 function createBattleRoom() {
-    const case_type = selectedBattleCase;
+    const case_type = state.selectedBattleCase;
     
-    showLoader();
-    fetch('/create_battle_room', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, case_type })
-    })
-    .then(res => res.json())
-    .then(data => {
-        hideLoader();
+    apiRequest('/create_battle_room', { case_type }).then(data => {
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
             return;
         }
-        if (!data.room_id) {
-            tg.showAlert('❌ Не удалось создать комнату');
-            return;
-        }
-        currentRoomId = data.room_id;
+        state.currentRoomId = data.room_id;
         closeCreateBattle();
         showWaitingRoom(data.room_id, data.case_type);
         startListeningForOpponent(data.room_id);
         startOpponentChecker(data.room_id);
-    })
-    .catch(() => {
-        hideLoader();
-        tg.showAlert('❌ Ошибка создания комнаты');
     });
 }
 
@@ -1084,48 +900,20 @@ function exitWaitingRoom() {
     if (window.opponentInterval) clearInterval(window.opponentInterval);
     if (window.opponentChecker) clearInterval(window.opponentChecker);
     
-    if (!currentRoomId) {
-        document.getElementById('waitingRoom').style.display = 'none';
-        document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
-        document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
-        document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
-        showBattles();
-        return;
+    if (state.currentRoomId) {
+        apiRequest('/exit_battle_room', { room_id: state.currentRoomId }).then(() => {
+            state.currentRoomId = null;
+            document.getElementById('waitingRoom').style.display = 'none';
+            document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
+            document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
+            document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
+            showBattles();
+        });
     }
-    
-    showLoader();
-    fetch('/exit_battle_room', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, room_id: currentRoomId })
-    })
-    .then(res => res.json())
-    .then(data => {
-        hideLoader();
-        currentRoomId = null;
-        document.getElementById('waitingRoom').style.display = 'none';
-        document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
-        document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
-        document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
-        showBattles();
-        tg.showAlert('✅ Ты вышел из комнаты');
-    })
-    .catch(() => {
-        hideLoader();
-        tg.showAlert('❌ Ошибка при выходе из комнаты');
-    });
 }
 
 function joinBattleRoom(room_id) {
-    showLoader();
-    fetch('/join_battle_room', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, room_id })
-    })
-    .then(res => res.json())
-    .then(data => {
-        hideLoader();
+    apiRequest('/join_battle_room', { room_id }).then(data => {
         if (data.error) {
             if (data.already_in_room) {
                 tg.showAlert('⚠️ Ты уже в этой комнате');
@@ -1143,10 +931,6 @@ function joinBattleRoom(room_id) {
             syncPreviewStart(data.room_id);
             startOpponentChecker(data.room_id);
         }
-    })
-    .catch(() => {
-        hideLoader();
-        tg.showAlert('❌ Ошибка соединения');
     });
 }
 
@@ -1157,96 +941,82 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     
     const overlay = document.createElement('div');
     overlay.id = 'battlePreviewOverlay';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: ${style.bg};
-        background-image: ${style.bgGradient};
-        backdrop-filter: blur(30px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 999;
-        padding: 20px;
-        animation: fadeIn 0.3s ease;
-    `;
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: style.bg,
+        backgroundImage: style.bgGradient,
+        backdropFilter: 'blur(30px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '999',
+        padding: '20px',
+        animation: 'fadeIn 0.3s ease'
+    });
     
     const title = document.createElement('div');
-    title.style.cssText = `
-        font-size: 24px;
-        font-weight: 800;
-        color: ${style.titleColor};
-        margin-bottom: 16px;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-        text-shadow: 0 0 40px ${style.glowColor};
-        text-align: center;
-    `;
+    Object.assign(title.style, {
+        fontSize: '24px',
+        fontWeight: '800',
+        color: style.titleColor,
+        marginBottom: '16px',
+        textTransform: 'uppercase',
+        letterSpacing: '3px',
+        textShadow: `0 0 40px ${style.glowColor}`,
+        textAlign: 'center'
+    });
     title.textContent = isBot ? '🤖 БИТВА С БОТОМ' : '⚔️ БИТВА КЕЙСОВ';
     overlay.appendChild(title);
     
     const playersContainer = document.createElement('div');
-    playersContainer.style.cssText = `
-        display: flex;
-        gap: 20px;
-        justify-content: center;
-        align-items: stretch;
-        width: 100%;
-        max-width: 700px;
-        margin-bottom: 16px;
-    `;
+    playersContainer.style.cssText = 'display:flex; gap:20px; justify-content:center; align-items:stretch; width:100%; max-width:700px; margin-bottom:16px;';
     
+    // Лента 1
     const p1Container = document.createElement('div');
-    p1Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
+    p1Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
     let p1Cards = '';
     for (let r = 0; r < 4; r++) {
         prizes.forEach(p => {
             const isLarge = p > 1000;
-            p1Cards += `<div class="preview-card" style="width: 70px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); font-size: ${isLarge ? '16px' : '20px'}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
+            p1Cards += `<div class="preview-card" style="width:70px; height:100px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${isLarge ? '16px' : '20px'}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
         });
     }
     const totalWidth = prizes.length * 76 * 4;
     p1Container.innerHTML = `
-        <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 ${player1}</div>
-        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
-            <div id="previewTrack1" style="display: flex; gap: 6px; padding: 10px 0; animation: scrollTapeForward ${prizes.length * 2}s linear infinite; will-change: transform; position: relative; width: ${totalWidth}px;">
+        <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 ${player1}</div>
+        <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
+            <div id="previewTrack1" style="display:flex; gap:6px; padding:10px 0; animation:scrollTapeForward ${prizes.length * 2}s linear infinite; will-change:transform; position:relative; width:${totalWidth}px;">
                 ${p1Cards}
             </div>
-            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
+            <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
         </div>
     `;
     playersContainer.appendChild(p1Container);
     
     const vsDiv = document.createElement('div');
-    vsDiv.style.cssText = `
-        display: flex;
-        align-items: center;
-        font-size: 28px;
-        font-weight: 900;
-        color: #ff6b6b;
-        text-shadow: 0 0 30px rgba(255,0,0,0.3);
-        flex-shrink: 0;
-    `;
+    vsDiv.style.cssText = 'display:flex; align-items:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0;';
     vsDiv.textContent = isBot ? '🤖' : '⚔️';
     playersContainer.appendChild(vsDiv);
     
+    // Лента 2
     const p2Container = document.createElement('div');
-    p2Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
+    p2Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
     let p2Cards = '';
     for (let r = 0; r < 4; r++) {
         prizes.forEach(p => {
             const isLarge = p > 1000;
-            p2Cards += `<div class="preview-card" style="width: 70px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); font-size: ${isLarge ? '16px' : '20px'}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
+            p2Cards += `<div class="preview-card" style="width:70px; height:100px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${isLarge ? '16px' : '20px'}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
         });
     }
     p2Container.innerHTML = `
-        <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 ${player2}</div>
-        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
-            <div id="previewTrack2" style="display: flex; gap: 6px; padding: 10px 0; animation: scrollTapeForward ${prizes.length * 2}s linear infinite; will-change: transform; position: relative; width: ${totalWidth}px;">
+        <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 ${player2}</div>
+        <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
+            <div id="previewTrack2" style="display:flex; gap:6px; padding:10px 0; animation:scrollTapeForward ${prizes.length * 2}s linear infinite; will-change:transform; position:relative; width:${totalWidth}px;">
                 ${p2Cards}
             </div>
-            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
+            <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
         </div>
     `;
     playersContainer.appendChild(p2Container);
@@ -1254,103 +1024,24 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     overlay.appendChild(playersContainer);
     
     const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = `
-        color: #aaa;
-        font-size: 14px;
-        text-align: center;
-        margin-bottom: 16px;
-    `;
+    infoDiv.style.cssText = 'color:#aaa; font-size:14px; text-align:center; margin-bottom:16px;';
     infoDiv.textContent = `📦 Кейс: ${case_type.toUpperCase()}`;
     overlay.appendChild(infoDiv);
     
-    // ===== ДВЕ КНОПКИ: ГОТОВ И НЕ ГОТОВ =====
-    const btnContainer = document.createElement('div');
-    btnContainer.style.cssText = `
-        display: flex;
-        gap: 12px;
-        justify-content: center;
-        margin-bottom: 10px;
-        flex-wrap: wrap;
-    `;
-    
+    // Кнопка «ГОТОВ»
     const readyBtn = document.createElement('button');
     readyBtn.id = 'battleReadyBtn';
     readyBtn.textContent = '✅ ГОТОВ';
-    readyBtn.style.cssText = `
-        padding: 14px 30px;
-        border: none;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #4caf50, #2e7d32);
-        color: #fff;
-        font-size: 18px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s;
-        min-width: 140px;
-    `;
+    readyBtn.style.cssText = 'padding:14px 40px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-size:18px; font-weight:700; cursor:pointer; transition:all 0.2s; margin-bottom:10px;';
     readyBtn.onmouseover = function() { this.style.transform = 'scale(1.05)'; };
     readyBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
     
-    const notReadyBtn = document.createElement('button');
-    notReadyBtn.id = 'battleNotReadyBtn';
-    notReadyBtn.textContent = '❌ НЕ ГОТОВ';
-    notReadyBtn.style.cssText = `
-        padding: 14px 30px;
-        border: none;
-        border-radius: 14px;
-        background: rgba(255,0,0,0.2);
-        color: #ff6b6b;
-        font-size: 18px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s;
-        min-width: 140px;
-    `;
-    notReadyBtn.onmouseover = function() { this.style.transform = 'scale(1.05)'; };
-    notReadyBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
-    
-    btnContainer.appendChild(readyBtn);
-    btnContainer.appendChild(notReadyBtn);
-    overlay.appendChild(btnContainer);
-    
-    // ===== ЛОГИКА ДЛЯ NOT READY =====
-    notReadyBtn.onclick = function() {
-        if (currentRoomId) {
-            showLoader();
-            fetch('/exit_battle_room', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id, room_id: currentRoomId })
-            })
-            .then(() => {
-                hideLoader();
-                currentRoomId = null;
-                if (window.opponentInterval) clearInterval(window.opponentInterval);
-                if (window.opponentChecker) clearInterval(window.opponentChecker);
-                const overlay = document.getElementById('battlePreviewOverlay');
-                if (overlay) overlay.remove();
-                showBattles();
-            })
-            .catch(() => {
-                hideLoader();
-                tg.showAlert('❌ Ошибка выхода');
-            });
-        } else {
-            const overlay = document.getElementById('battlePreviewOverlay');
-            if (overlay) overlay.remove();
-            showBattles();
-        }
-    };
-    
-    // ===== ЛОГИКА ДЛЯ READY =====
     if (isBot) {
         readyBtn.onclick = function() {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
             this.disabled = true;
             document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Битва начинается...';
-            notReadyBtn.disabled = true;
-            notReadyBtn.style.opacity = '0.5';
             setTimeout(() => {
                 const overlay = document.getElementById('battlePreviewOverlay');
                 if (overlay) overlay.remove();
@@ -1363,8 +1054,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
             this.disabled = true;
-            notReadyBtn.disabled = true;
-            notReadyBtn.style.opacity = '0.5';
             document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
             sendBattleReady(room_id);
         };
@@ -1373,52 +1062,25 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     
     const statusDiv = document.createElement('div');
     statusDiv.id = 'battlePreviewStatus';
-    statusDiv.style.cssText = `
-        color: #666;
-        font-size: 14px;
-        text-align: center;
-        margin-top: 6px;
-    `;
+    statusDiv.style.cssText = 'color:#666; font-size:14px; text-align:center;';
     statusDiv.textContent = isBot ? 'Нажми «ГОТОВ», чтобы начать битву с ботом' : 'Нажми «ГОТОВ», чтобы начать битву';
     overlay.appendChild(statusDiv);
     
-    // Кнопка "Назад" (дублирующая)
+    // Кнопка "Назад"
     const backBtn = document.createElement('button');
     backBtn.textContent = '🔙 НАЗАД';
-    backBtn.style.cssText = `
-        padding: 12px 30px;
-        border: none;
-        border-radius: 12px;
-        background: rgba(255,255,255,0.06);
-        color: #888;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        margin-top: 10px;
-        transition: all 0.2s;
-    `;
+    backBtn.style.cssText = 'padding:12px 30px; border:none; border-radius:12px; background:rgba(255,255,255,0.06); color:#888; font-size:14px; font-weight:600; cursor:pointer; margin-top:6px; transition:all 0.2s;';
     backBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.12)'; };
     backBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.06)'; };
     backBtn.onclick = function() {
-        if (currentRoomId) {
-            showLoader();
-            fetch('/exit_battle_room', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id, room_id: currentRoomId })
-            })
-            .then(() => {
-                hideLoader();
-                currentRoomId = null;
-                if (window.opponentInterval) clearInterval(window.opponentInterval);
-                if (window.opponentChecker) clearInterval(window.opponentChecker);
+        if (state.currentRoomId) {
+            if (window.opponentInterval) clearInterval(window.opponentInterval);
+            if (window.opponentChecker) clearInterval(window.opponentChecker);
+            apiRequest('/exit_battle_room', { room_id: state.currentRoomId }).then(() => {
+                state.currentRoomId = null;
                 const overlay = document.getElementById('battlePreviewOverlay');
                 if (overlay) overlay.remove();
                 showBattles();
-            })
-            .catch(() => {
-                hideLoader();
-                tg.showAlert('❌ Ошибка выхода');
             });
         } else {
             const overlay = document.getElementById('battlePreviewOverlay');
@@ -1432,15 +1094,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
 }
 
 function sendBattleReady(room_id) {
-    showLoader();
-    fetch('/battle_ready', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, room_id })
-    })
-    .then(res => res.json())
-    .then(data => {
-        hideLoader();
+    apiRequest('/battle_ready', { room_id }).then(data => {
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
             if (data.error.includes('не в этой комнате') || data.error.includes('не найдена')) {
@@ -1455,11 +1109,6 @@ function sendBattleReady(room_id) {
                 btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
                 btn.disabled = false;
             }
-            const notBtn = document.getElementById('battleNotReadyBtn');
-            if (notBtn) {
-                notBtn.disabled = false;
-                notBtn.style.opacity = '1';
-            }
             return;
         }
         
@@ -1473,21 +1122,11 @@ function sendBattleReady(room_id) {
         } else {
             document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
         }
-    })
-    .catch(() => {
-        hideLoader();
-        tg.showAlert('❌ Ошибка готовности');
     });
 }
 
 function syncPreviewStart(room_id) {
-    fetch('/sync_battle_preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, room_id })
-    })
-    .then(res => res.json())
-    .then(data => {
+    apiRequest('/sync_battle_preview', { room_id }).then(data => {
         if (data.error) {
             console.error('Sync error:', data.error);
             return;
@@ -1525,16 +1164,10 @@ function updateReadyStatus(readyStatus) {
 function startOpponentChecker(room_id) {
     if (window.opponentChecker) clearInterval(window.opponentChecker);
     window.opponentChecker = setInterval(() => {
-        fetch('/check_room_status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ room_id })
-        })
-        .then(res => res.json())
-        .then(data => {
+        apiRequest('/check_room_status', { room_id }).then(data => {
             if (data.error || !data.room_exists) {
                 clearInterval(window.opponentChecker);
-                tg.showAlert('⏰ Комната была удалена');
+                tg.showAlert('❌ Комната была удалена');
                 const overlay = document.getElementById('battlePreviewOverlay');
                 if (overlay) overlay.remove();
                 showBattles();
@@ -1548,32 +1181,18 @@ function startOpponentChecker(room_id) {
                 if (overlay) overlay.remove();
                 showBattles();
             }
-        })
-        .catch(() => {});
+        });
     }, 3000);
 }
 
 function startListeningForOpponent(room_id) {
     if (window.opponentInterval) clearInterval(window.opponentInterval);
     window.opponentInterval = setInterval(() => {
-        fetch('/check_room_status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ room_id })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.error || !data.room_exists) {
+        apiRequest('/check_room_status', { room_id }).then(data => {
+            if (data.error) {
                 clearInterval(window.opponentInterval);
-                document.getElementById('waitingRoom').style.display = 'none';
-                document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
-                document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
-                document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
-                tg.showAlert('⏰ Комната была удалена');
-                showBattles();
                 return;
             }
-            
             if (data.opponent_joined) {
                 clearInterval(window.opponentInterval);
                 document.getElementById('waitingRoom').style.display = 'none';
@@ -1588,17 +1207,11 @@ function startListeningForOpponent(room_id) {
                     btn.textContent = '✅ ГОТОВ';
                     btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
                 }
-                const notBtn = document.getElementById('battleNotReadyBtn');
-                if (notBtn) {
-                    notBtn.disabled = false;
-                    notBtn.style.opacity = '1';
-                }
                 document.getElementById('battlePreviewStatus').textContent = 'Нажми «ГОТОВ», чтобы начать битву';
                 startOpponentChecker(room_id);
             }
-        })
-        .catch(() => {});
-    }, 3000);
+        });
+    }, 2000);
 }
 
 // ===== БИТВА С БОТОМ =====
@@ -1611,61 +1224,27 @@ function closeBotBattle() {
 }
 
 function startBotBattle() {
-    const case_type = selectedBotCase;
-    let price = getPrice(case_type);
+    const case_type = state.selectedBotCase;
+    const price = getPrice(case_type);
+    
     if (price === 0) price = 5;
     
-    if (!user_id || user_id === 0) {
-        tg.showAlert('❌ Ошибка: пользователь не авторизован');
-        return;
-    }
-    
-    showLoader();
-    fetch('/check_balance_simple', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user_id, amount: price })
-    })
-    .then(res => {
-        if (!res.ok) {
-            throw new Error('Сервер вернул ошибку: ' + res.status);
-        }
-        return res.json();
-    })
-    .then(data => {
-        hideLoader();
-        if (data.error) {
-            tg.showAlert('❌ Ошибка: ' + data.error);
-            return;
-        }
-        if (!data.has_enough) {
-            tg.showAlert('❌ Недостаточно звёзд! Нужно ' + price + '⭐ для открытия кейса');
+    apiRequest('/check_balance_simple', { amount: price }).then(data => {
+        if (data.error || !data.has_enough) {
+            tg.showAlert('❌ Недостаточно звёзд для открытия кейса!');
             return;
         }
         closeBotBattle();
         showBattlePreview(null, case_type, 'ТЫ', 'БОТ', true);
-    })
-    .catch(err => {
-        hideLoader();
-        console.error('Ошибка:', err);
-        tg.showAlert('❌ Ошибка соединения с сервером. Проверь интернет.');
     });
 }
 
 function startBotBattleAnimation() {
-    const case_type = selectedBotCase;
+    const case_type = state.selectedBotCase;
     
     showBotRouletteAnimation(case_type);
     
-    showLoader();
-    fetch('/start_bot_battle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, case_type })
-    })
-    .then(res => res.json())
-    .then(data => {
-        hideLoader();
+    apiRequest('/start_bot_battle', { case_type }).then(data => {
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
             const overlay = document.getElementById('botRouletteOverlay');
@@ -1677,12 +1256,6 @@ function startBotBattleAnimation() {
             if (overlay) overlay.remove();
             showBotBattleResult(data);
         }, 6500);
-    })
-    .catch(() => {
-        hideLoader();
-        tg.showAlert('❌ Ошибка при запуске битвы с ботом');
-        const overlay = document.getElementById('botRouletteOverlay');
-        if (overlay) overlay.remove();
     });
 }
 
@@ -1692,98 +1265,82 @@ function showBotRouletteAnimation(case_type) {
     
     const overlay = document.createElement('div');
     overlay.id = 'botRouletteOverlay';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: ${style.bg};
-        background-image: ${style.bgGradient};
-        backdrop-filter: blur(30px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 999;
-        padding: 20px;
-        animation: fadeIn 0.3s ease;
-    `;
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: style.bg,
+        backgroundImage: style.bgGradient,
+        backdropFilter: 'blur(30px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '999',
+        padding: '20px',
+        animation: 'fadeIn 0.3s ease'
+    });
     
     const title = document.createElement('div');
-    title.style.cssText = `
-        font-size: 22px;
-        font-weight: 800;
-        color: ${style.titleColor};
-        margin-bottom: 16px;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-        text-shadow: 0 0 40px ${style.glowColor};
-        text-align: center;
-    `;
+    Object.assign(title.style, {
+        fontSize: '22px',
+        fontWeight: '800',
+        color: style.titleColor,
+        marginBottom: '16px',
+        textTransform: 'uppercase',
+        letterSpacing: '3px',
+        textShadow: `0 0 40px ${style.glowColor}`,
+        textAlign: 'center'
+    });
     title.textContent = `🤖 ${case_type.toUpperCase()} BATTLE`;
     overlay.appendChild(title);
     
     const playersContainer = document.createElement('div');
-    playersContainer.style.cssText = `
-        display: flex;
-        gap: 20px;
-        justify-content: center;
-        align-items: stretch;
-        width: 100%;
-        max-width: 700px;
-        margin-bottom: 16px;
-    `;
+    playersContainer.style.cssText = 'display:flex; gap:20px; justify-content:center; align-items:stretch; width:100%; max-width:700px; margin-bottom:16px;';
     
     const cardWidth = 130;
     const cardGap = 8;
     
     const p1Container = document.createElement('div');
-    p1Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
+    p1Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
     let cards1 = '';
     for (let i = 0; i < 60; i++) {
         const p = prizes[Math.floor(Math.random() * prizes.length)];
         const isLarge = p > 1000;
         const fontSize = isLarge ? '22px' : '28px';
-        cards1 += `<div class="roulette-card" style="width: ${cardWidth}px; height: 120px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); font-size: ${fontSize}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
+        cards1 += `<div class="roulette-card" style="width:${cardWidth}px; height:120px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
     }
     p1Container.innerHTML = `
-        <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 ТЫ</div>
-        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
-            <div id="botRouletteTrack1" style="display: flex; gap: ${cardGap}px; padding: 10px 0; transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change: transform; position: relative;">
+        <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 ТЫ</div>
+        <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
+            <div id="botRouletteTrack1" style="display:flex; gap:${cardGap}px; padding:10px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative;">
                 ${cards1}
             </div>
-            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
+            <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
         </div>
     `;
     playersContainer.appendChild(p1Container);
     
     const vsDiv = document.createElement('div');
-    vsDiv.style.cssText = `
-        display: flex;
-        align-items: center;
-        font-size: 28px;
-        font-weight: 900;
-        color: #ff6b6b;
-        text-shadow: 0 0 30px rgba(255,0,0,0.3);
-        flex-shrink: 0;
-    `;
+    vsDiv.style.cssText = 'display:flex; align-items:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0;';
     vsDiv.textContent = '🤖';
     playersContainer.appendChild(vsDiv);
     
     const p2Container = document.createElement('div');
-    p2Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
+    p2Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
     let cards2 = '';
     for (let i = 0; i < 60; i++) {
         const p = prizes[Math.floor(Math.random() * prizes.length)];
         const isLarge = p > 1000;
         const fontSize = isLarge ? '22px' : '28px';
-        cards2 += `<div class="roulette-card" style="width: ${cardWidth}px; height: 120px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); font-size: ${fontSize}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor};">${p}⭐</div>`;
+        cards2 += `<div class="roulette-card" style="width:${cardWidth}px; height:120px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
     }
     p2Container.innerHTML = `
-        <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 БОТ</div>
-        <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
-            <div id="botRouletteTrack2" style="display: flex; gap: ${cardGap}px; padding: 10px 0; transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change: transform; position: relative;">
+        <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 БОТ</div>
+        <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
+            <div id="botRouletteTrack2" style="display:flex; gap:${cardGap}px; padding:10px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative;">
                 ${cards2}
             </div>
-            <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
+            <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
         </div>
     `;
     playersContainer.appendChild(p2Container);
@@ -1791,25 +1348,13 @@ function showBotRouletteAnimation(case_type) {
     overlay.appendChild(playersContainer);
     
     const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = `
-        color: #888;
-        font-size: 14px;
-        text-align: center;
-        margin-bottom: 10px;
-    `;
+    infoDiv.style.cssText = 'color:#888; font-size:14px; text-align:center; margin-bottom:10px;';
     infoDiv.textContent = `📦 Кейс: ${case_type.toUpperCase()}`;
     overlay.appendChild(infoDiv);
     
     const statusDiv = document.createElement('div');
     statusDiv.id = 'botRouletteStatus';
-    statusDiv.style.cssText = `
-        color: ${style.titleColor};
-        font-size: 16px;
-        font-weight: 600;
-        opacity: 0.6;
-        text-align: center;
-        letter-spacing: 1px;
-    `;
+    statusDiv.style.cssText = `color:${style.titleColor}; font-size:16px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px;`;
     statusDiv.textContent = '🎰 Открытие...';
     overlay.appendChild(statusDiv);
     
@@ -1824,55 +1369,56 @@ function showBotRouletteAnimation(case_type) {
 
 function showBotBattleResult(data) {
     const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.92);
-        backdrop-filter: blur(20px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        padding: 30px;
-        animation: fadeIn 0.3s ease;
-    `;
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: 'rgba(0,0,0,0.92)',
+        backdropFilter: 'blur(20px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '1000',
+        padding: '30px',
+        animation: 'fadeIn 0.3s ease'
+    });
     
     const iconMap = { 'win': '🎉', 'lose': '😢', 'draw': '🤝' };
     const titleMap = { 'win': 'ПОБЕДА!', 'lose': 'ПОРАЖЕНИЕ...', 'draw': 'НИЧЬЯ!' };
     const colorMap = { 'win': '#4caf50', 'lose': '#f44336', 'draw': '#ffd700' };
     
-    const commissionHtml = (data.commission !== undefined && data.commission > 0) 
-        ? `<div style="color: #888; font-size: 12px;">💸 Комиссия: ${data.commission}⭐</div>` 
+    const commissionHtml = data.commission !== undefined && data.commission > 0 
+        ? `<div style="color:#888; font-size:12px;">💸 Комиссия: ${data.commission}⭐</div>` 
         : '';
     
     overlay.innerHTML = `
-        <div style="font-size: 80px; margin-bottom: 10px;">${iconMap[data.result]}</div>
-        <div style="font-size: 32px; font-weight: 800; color: ${colorMap[data.result]}; margin-bottom: 20px;">
+        <div style="font-size:80px; margin-bottom:10px;">${iconMap[data.result]}</div>
+        <div style="font-size:32px; font-weight:800; color:${colorMap[data.result]}; margin-bottom:20px;">
             ${titleMap[data.result]}
         </div>
-        <div style="display: flex; gap: 40px; margin-bottom: 20px;">
-            <div style="text-align: center;">
-                <div style="font-size: 40px;">👤</div>
-                <div style="font-weight: 700; color: ${data.result === 'win' ? '#4caf50' : '#aaa'};">ТЫ</div>
-                <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.player_prize}⭐</div>
+        <div style="display:flex; gap:40px; margin-bottom:20px;">
+            <div style="text-align:center;">
+                <div style="font-size:40px;">👤</div>
+                <div style="font-weight:700; color:${data.result === 'win' ? '#4caf50' : '#aaa'};">ТЫ</div>
+                <div style="font-size:28px; font-weight:800; color:#ffd700;">${data.player_prize}⭐</div>
             </div>
-            <div style="display: flex; align-items: center; font-size: 36px; color: #ff6b6b;">🤖</div>
-            <div style="text-align: center;">
-                <div style="font-size: 40px;">🤖</div>
-                <div style="font-weight: 700; color: ${data.result === 'lose' ? '#4caf50' : '#aaa'};">БОТ</div>
-                <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.bot_prize}⭐</div>
+            <div style="display:flex; align-items:center; font-size:36px; color:#ff6b6b;">🤖</div>
+            <div style="text-align:center;">
+                <div style="font-size:40px;">🤖</div>
+                <div style="font-weight:700; color:${data.result === 'lose' ? '#4caf50' : '#aaa'};">БОТ</div>
+                <div style="font-size:28px; font-weight:800; color:#ffd700;">${data.bot_prize}⭐</div>
             </div>
         </div>
-        <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 16px 24px; margin-bottom: 20px; text-align: center;">
-            <div style="color: #aaa; font-size: 14px;">${data.result_text}</div>
+        <div style="background:rgba(255,255,255,0.05); border-radius:16px; padding:16px 24px; margin-bottom:20px; text-align:center;">
+            <div style="color:#aaa; font-size:14px;">${data.result_text}</div>
             ${commissionHtml}
+            ${data.result === 'win' ? `<div style="color:#4caf50; font-size:16px; font-weight:700;">🏆 Ты получил: ${data.winnings}⭐</div>` : ''}
         </div>
-        <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
-            <button onclick="this.closest('div').remove(); showBotBattle();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+        <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+            <button onclick="this.closest('div').remove(); showBotBattle();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🤖 СНОВА
             </button>
-            <button onclick="this.closest('div').remove(); showMain();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+            <button onclick="this.closest('div').remove(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔙 НАЗАД
             </button>
         </div>
@@ -1884,15 +1430,7 @@ function showBotBattleResult(data) {
 
 // ===== АНИМАЦИЯ БИТВЫ (2 РУЛЕТКИ) =====
 function startBattleAnimation(room_id) {
-    showLoader();
-    fetch('/get_battle_animation_data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room_id })
-    })
-    .then(res => res.json())
-    .then(data => {
-        hideLoader();
+    apiRequest('/get_battle_animation_data', { room_id }).then(data => {
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
             const overlay = document.getElementById('battleRouletteOverlay');
@@ -1905,98 +1443,82 @@ function startBattleAnimation(room_id) {
         
         const overlay = document.createElement('div');
         overlay.id = 'battleRouletteOverlay';
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: ${style.bg};
-            background-image: ${style.bgGradient};
-            backdrop-filter: blur(30px);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 999;
-            padding: 20px;
-            animation: fadeIn 0.3s ease;
-        `;
+        Object.assign(overlay.style, {
+            position: 'fixed',
+            top: '0', left: '0', right: '0', bottom: '0',
+            background: style.bg,
+            backgroundImage: style.bgGradient,
+            backdropFilter: 'blur(30px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: '999',
+            padding: '20px',
+            animation: 'fadeIn 0.3s ease'
+        });
         
         const title = document.createElement('div');
-        title.style.cssText = `
-            font-size: 22px;
-            font-weight: 800;
-            color: ${style.titleColor};
-            margin-bottom: 16px;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            text-shadow: 0 0 40px ${style.glowColor};
-            text-align: center;
-        `;
+        Object.assign(title.style, {
+            fontSize: '22px',
+            fontWeight: '800',
+            color: style.titleColor,
+            marginBottom: '16px',
+            textTransform: 'uppercase',
+            letterSpacing: '3px',
+            textShadow: `0 0 40px ${style.glowColor}`,
+            textAlign: 'center'
+        });
         title.textContent = `⚔️ ${data.case_type.toUpperCase()} BATTLE`;
         overlay.appendChild(title);
         
         const playersContainer = document.createElement('div');
-        playersContainer.style.cssText = `
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            align-items: stretch;
-            width: 100%;
-            max-width: 700px;
-            margin-bottom: 16px;
-        `;
+        playersContainer.style.cssText = 'display:flex; gap:20px; justify-content:center; align-items:stretch; width:100%; max-width:700px; margin-bottom:16px;';
         
         const cardWidth = 130;
         const cardGap = 8;
         
         const p1Container = document.createElement('div');
-        p1Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
+        p1Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
         let cards1 = '';
         for (let i = 0; i < 60; i++) {
             const p = prizes[Math.floor(Math.random() * prizes.length)];
             const isLarge = p > 1000;
             const fontSize = isLarge ? '22px' : '28px';
-            cards1 += `<div class="roulette-card" data-index="${i}" style="width: ${cardWidth}px; height: 120px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); font-size: ${fontSize}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor}; transition: all 0.2s ease;">${p}⭐</div>`;
+            cards1 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:120px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
         }
         p1Container.innerHTML = `
-            <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 ${data.player1}</div>
-            <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
-                <div id="rouletteTrack1" style="display: flex; gap: ${cardGap}px; padding: 10px 0; transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change: transform; position: relative;">
+            <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 ${data.player1}</div>
+            <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
+                <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:10px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative;">
                     ${cards1}
                 </div>
-                <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
+                <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
             </div>
         `;
         playersContainer.appendChild(p1Container);
         
         const vsDiv = document.createElement('div');
-        vsDiv.style.cssText = `
-            display: flex;
-            align-items: center;
-            font-size: 28px;
-            font-weight: 900;
-            color: #ff6b6b;
-            text-shadow: 0 0 30px rgba(255,0,0,0.3);
-            flex-shrink: 0;
-        `;
+        vsDiv.style.cssText = 'display:flex; align-items:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0;';
         vsDiv.textContent = '⚔️';
         playersContainer.appendChild(vsDiv);
         
         const p2Container = document.createElement('div');
-        p2Container.style.cssText = `flex: 1; text-align: center; display: flex; flex-direction: column;`;
+        p2Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
         let cards2 = '';
         for (let i = 0; i < 60; i++) {
             const p = prizes[Math.floor(Math.random() * prizes.length)];
             const isLarge = p > 1000;
             const fontSize = isLarge ? '22px' : '28px';
-            cards2 += `<div class="roulette-card" data-index="${i}" style="width: ${cardWidth}px; height: 120px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); font-size: ${fontSize}; font-weight: 700; color: ${style.itemColor}; text-shadow: 0 0 20px ${style.glowColor}; transition: all 0.2s ease;">${p}⭐</div>`;
+            cards2 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:120px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
         }
         p2Container.innerHTML = `
-            <div style="font-size: 14px; color: #aaa; margin-bottom: 6px;">👤 ${data.player2}</div>
-            <div style="position: relative; overflow: hidden; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3); height: 120px; flex: 1;">
-                <div id="rouletteTrack2" style="display: flex; gap: ${cardGap}px; padding: 10px 0; transition: transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change: transform; position: relative;">
+            <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 ${data.player2}</div>
+            <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
+                <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:10px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative;">
                     ${cards2}
                 </div>
-                <div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: ${style.highlightColor}; text-shadow: 0 0 20px ${style.highlightColor}; pointer-events: none; line-height: 1;">▼</div>
+                <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
             </div>
         `;
         playersContainer.appendChild(p2Container);
@@ -2004,25 +1526,13 @@ function startBattleAnimation(room_id) {
         overlay.appendChild(playersContainer);
         
         const infoDiv = document.createElement('div');
-        infoDiv.style.cssText = `
-            color: #888;
-            font-size: 14px;
-            text-align: center;
-            margin-bottom: 10px;
-        `;
+        infoDiv.style.cssText = 'color:#888; font-size:14px; text-align:center; margin-bottom:10px;';
         infoDiv.textContent = `📦 Кейс: ${data.case_type.toUpperCase()}`;
         overlay.appendChild(infoDiv);
         
         const statusDiv = document.createElement('div');
         statusDiv.id = 'battleRouletteStatus';
-        statusDiv.style.cssText = `
-            color: ${style.titleColor};
-            font-size: 16px;
-            font-weight: 600;
-            opacity: 0.6;
-            text-align: center;
-            letter-spacing: 1px;
-        `;
+        statusDiv.style.cssText = `color:${style.titleColor}; font-size:16px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px;`;
         statusDiv.textContent = '🎰 Открытие...';
         overlay.appendChild(statusDiv);
         
@@ -2036,23 +1546,11 @@ function startBattleAnimation(room_id) {
         
         if (window.battleResultInterval) clearInterval(window.battleResultInterval);
         window.battleResultInterval = setInterval(checkBattleResultWithRoulette, 2000);
-    })
-    .catch(() => {
-        hideLoader();
-        tg.showAlert('❌ Ошибка загрузки анимации');
-        const overlay = document.getElementById('battleRouletteOverlay');
-        if (overlay) overlay.remove();
     });
 }
 
 function checkBattleResultWithRoulette() {
-    fetch('/get_battle_result', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id })
-    })
-    .then(res => res.json())
-    .then(data => {
+    apiRequest('/get_battle_result').then(data => {
         if (data.pending) return;
         if (data.result) {
             if (window.battleResultInterval) clearInterval(window.battleResultInterval);
@@ -2118,60 +1616,59 @@ function checkBattleResultWithRoulette() {
                 showBattleResult(data);
             }, 6500);
         }
-    })
-    .catch(() => {});
+    });
 }
 
-// ===== РЕЗУЛЬТАТЫ =====
+// ===== РЕЗУЛЬТАТЫ БИТВ =====
 function showBattleResult(data) {
     document.getElementById('waitingRoom').style.display = 'none';
     document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
     document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
     document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
-    currentRoomId = null;
+    state.currentRoomId = null;
     
     const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.92);
-        backdrop-filter: blur(20px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        padding: 30px;
-        animation: fadeIn 0.3s ease;
-    `;
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: 'rgba(0,0,0,0.92)',
+        backdropFilter: 'blur(20px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '1000',
+        padding: '30px',
+        animation: 'fadeIn 0.3s ease'
+    });
     
     if (data.is_draw) {
         overlay.innerHTML = `
-            <div style="font-size: 80px; margin-bottom: 10px;">🤝</div>
-            <div style="font-size: 32px; font-weight: 800; color: #ffd700; margin-bottom: 20px;">НИЧЬЯ!</div>
-            <div style="display: flex; gap: 40px; margin-bottom: 20px;">
-                <div style="text-align: center;">
-                    <div style="font-size: 40px;">👤</div>
-                    <div style="font-weight: 700; color: #aaa;">Игрок 1</div>
-                    <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.player1_prize}⭐</div>
-                    <div style="font-size: 14px; color: #888;">-${data.commission1}⭐ комиссия</div>
+            <div style="font-size:80px; margin-bottom:10px;">🤝</div>
+            <div style="font-size:32px; font-weight:800; color:#ffd700; margin-bottom:20px;">НИЧЬЯ!</div>
+            <div style="display:flex; gap:40px; margin-bottom:20px;">
+                <div style="text-align:center;">
+                    <div style="font-size:40px;">👤</div>
+                    <div style="font-weight:700; color:#aaa;">Игрок 1</div>
+                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${data.player1_prize}⭐</div>
+                    <div style="font-size:14px; color:#888;">-${data.commission1}⭐ комиссия</div>
                 </div>
-                <div style="display: flex; align-items: center; font-size: 36px; color: #ff6b6b;">⚔️</div>
-                <div style="text-align: center;">
-                    <div style="font-size: 40px;">👤</div>
-                    <div style="font-weight: 700; color: #aaa;">Игрок 2</div>
-                    <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${data.player2_prize}⭐</div>
-                    <div style="font-size: 14px; color: #888;">-${data.commission2}⭐ комиссия</div>
+                <div style="display:flex; align-items:center; font-size:36px; color:#ff6b6b;">⚔️</div>
+                <div style="text-align:center;">
+                    <div style="font-size:40px;">👤</div>
+                    <div style="font-weight:700; color:#aaa;">Игрок 2</div>
+                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${data.player2_prize}⭐</div>
+                    <div style="font-size:14px; color:#888;">-${data.commission2}⭐ комиссия</div>
                 </div>
             </div>
-            <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 16px 24px; margin-bottom: 20px; text-align: center; color: #aaa;">
+            <div style="background:rgba(255,255,255,0.05); border-radius:16px; padding:16px 24px; margin-bottom:20px; text-align:center; color:#aaa;">
                 ${data.result_text}
             </div>
-            <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
-                <button onclick="this.closest('div').remove(); showBattles();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+            <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+                <button onclick="this.closest('div').remove(); showBattles();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     ⚔️ НОВАЯ БИТВА
                 </button>
-                <button onclick="this.closest('div').remove(); showMain();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                <button onclick="this.closest('div').remove(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔙 НАЗАД
                 </button>
             </div>
@@ -2185,31 +1682,31 @@ function showBattleResult(data) {
         const oppPrize = isWin ? data.loser_prize : data.winner_prize;
         
         overlay.innerHTML = `
-            <div style="font-size: 80px; margin-bottom: 10px;">${icon}</div>
-            <div style="font-size: 32px; font-weight: 800; color: ${color}; margin-bottom: 20px;">${title}</div>
-            <div style="display: flex; gap: 40px; margin-bottom: 20px;">
-                <div style="text-align: center;">
-                    <div style="font-size: 40px;">👤</div>
-                    <div style="font-weight: 700; color: ${isWin ? '#4caf50' : '#aaa'};">ТЫ</div>
-                    <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${myPrize}⭐</div>
+            <div style="font-size:80px; margin-bottom:10px;">${icon}</div>
+            <div style="font-size:32px; font-weight:800; color:${color}; margin-bottom:20px;">${title}</div>
+            <div style="display:flex; gap:40px; margin-bottom:20px;">
+                <div style="text-align:center;">
+                    <div style="font-size:40px;">👤</div>
+                    <div style="font-weight:700; color:${isWin ? '#4caf50' : '#aaa'};">ТЫ</div>
+                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${myPrize}⭐</div>
                 </div>
-                <div style="display: flex; align-items: center; font-size: 36px; color: #ff6b6b;">⚔️</div>
-                <div style="text-align: center;">
-                    <div style="font-size: 40px;">👤</div>
-                    <div style="font-weight: 700; color: ${!isWin ? '#4caf50' : '#aaa'};">СОПЕРНИК</div>
-                    <div style="font-size: 28px; font-weight: 800; color: #ffd700;">${oppPrize}⭐</div>
+                <div style="display:flex; align-items:center; font-size:36px; color:#ff6b6b;">⚔️</div>
+                <div style="text-align:center;">
+                    <div style="font-size:40px;">👤</div>
+                    <div style="font-weight:700; color:${!isWin ? '#4caf50' : '#aaa'};">СОПЕРНИК</div>
+                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${oppPrize}⭐</div>
                 </div>
             </div>
-            <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 16px 24px; margin-bottom: 20px; text-align: center;">
-                <div style="color: #aaa; font-size: 14px;">${data.result_text}</div>
-                <div style="color: #888; font-size: 12px;">💸 Комиссия: ${data.commission}⭐</div>
-                ${isWin ? `<div style="color: #4caf50; font-size: 16px; font-weight: 700;">🏆 Ты получил: ${data.winner_winnings}⭐</div>` : ''}
+            <div style="background:rgba(255,255,255,0.05); border-radius:16px; padding:16px 24px; margin-bottom:20px; text-align:center;">
+                <div style="color:#aaa; font-size:14px;">${data.result_text}</div>
+                <div style="color:#888; font-size:12px;">💸 Комиссия: ${data.commission}⭐</div>
+                ${isWin ? `<div style="color:#4caf50; font-size:16px; font-weight:700;">🏆 Ты получил: ${data.winner_winnings}⭐</div>` : ''}
             </div>
-            <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
-                <button onclick="this.closest('div').remove(); showBattles();" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #b388ff, #7c4dff); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+            <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+                <button onclick="this.closest('div').remove(); showBattles();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     ⚔️ НОВАЯ БИТВА
                 </button>
-                <button onclick="this.closest('div').remove(); showMain();" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+                <button onclick="this.closest('div').remove(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔙 НАЗАД
                 </button>
             </div>
@@ -2222,7 +1719,7 @@ function showBattleResult(data) {
 
 // ===================== МИНЁР =====================
 function initMinesBoard() {
-    const board = document.getElementById('minesBoard');
+    const board = DOM.minesBoard;
     board.innerHTML = '';
     for (let i = 0; i < 25; i++) {
         const cell = document.createElement('div');
@@ -2235,7 +1732,7 @@ function initMinesBoard() {
 }
 
 function getBetFromInput() {
-    const input = document.getElementById('betInput');
+    const input = DOM.betInput;
     let val = parseInt(input.value);
     if (isNaN(val) || val < 3) val = 3;
     if (val > 1000) val = 1000;
@@ -2243,7 +1740,7 @@ function getBetFromInput() {
     return val;
 }
 
-document.getElementById('betInput').addEventListener('change', function() {
+DOM.betInput.addEventListener('change', function() {
     let val = parseInt(this.value);
     if (isNaN(val) || val < 3) val = 3;
     if (val > 1000) val = 1000;
@@ -2254,22 +1751,17 @@ document.querySelectorAll('.mines-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         document.querySelectorAll('.mines-btn').forEach(b => b.classList.remove('active'));
         this.classList.add('active');
-        selectedMines = parseInt(this.dataset.mines);
+        state.selectedMines = parseInt(this.dataset.mines);
     });
 });
 
 function getMinesMultiplier(opened) {
-    const multipliers = {
-        1: 1.05, 2: 1.10, 3: 1.20, 4: 1.35, 5: 1.55,
-        6: 1.80, 7: 2.20, 8: 2.70, 9: 3.30, 10: 4.00,
-        11: 4.50, 12: 5.00
-    };
-    return multipliers[opened] || 5.00;
+    return CONFIG.MINES_MULTIPLIERS[opened] || 5.00;
 }
 
 function startMinesGame() {
     const bet = getBetFromInput();
-    const mines = selectedMines;
+    const mines = state.selectedMines;
     
     if (bet < 3 || bet > 1000) {
         tg.showAlert('❌ Ставка должна быть от 3 до 1000⭐');
@@ -2280,34 +1772,19 @@ function startMinesGame() {
         return;
     }
     
-    showLoader();
-    fetch('/check_balance_simple', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, amount: bet })
-    })
-    .then(res => res.json())
-    .then(data => {
+    apiRequest('/check_balance_simple', { amount: bet }).then(data => {
         if (data.error || !data.has_enough) {
-            hideLoader();
             tg.showAlert('❌ Недостаточно звёзд!');
             return;
         }
         
-        fetch('/start_mines_game', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, bet, mines })
-        })
-        .then(res => res.json())
-        .then(gameData => {
-            hideLoader();
+        apiRequest('/start_mines_game', { bet, mines }).then(gameData => {
             if (gameData.error) {
                 tg.showAlert('❌ ' + gameData.error);
                 return;
             }
             
-            minesGameData = {
+            state.minesGameData = {
                 game_id: gameData.game_id,
                 bet: gameData.bet,
                 mines: gameData.mines,
@@ -2320,34 +1797,26 @@ function startMinesGame() {
                 game_over: false
             };
             
-            document.getElementById('minesBetDisplay').textContent = bet;
-            document.getElementById('minesCountDisplay').textContent = mines;
-            document.getElementById('minesTotalSafe').textContent = 25 - mines;
-            document.getElementById('minesOpenedDisplay').textContent = '0';
-            document.getElementById('minesMultiplierDisplay').textContent = 'x1.0';
+            DOM.minesBetDisplay.textContent = bet;
+            DOM.minesCountDisplay.textContent = mines;
+            DOM.minesTotalSafe.textContent = 25 - mines;
+            DOM.minesOpenedDisplay.textContent = '0';
+            DOM.minesMultiplierDisplay.textContent = 'x1.0';
             
-            document.getElementById('minesCashoutBtn').style.display = 'inline-block';
-            document.getElementById('minesStartBtn').textContent = '🔄 ИГРАТЬ СНОВА';
+            DOM.minesCashoutBtn.style.display = 'inline-block';
+            DOM.minesStartBtn.textContent = '🔄 ИГРАТЬ СНОВА';
             
             renderMinesBoard();
             updateMinesCashoutAmount();
-        })
-        .catch(() => {
-            hideLoader();
-            tg.showAlert('❌ Ошибка запуска игры');
         });
-    })
-    .catch(() => {
-        hideLoader();
-        tg.showAlert('❌ Ошибка проверки баланса');
     });
 }
 
 function renderMinesBoard() {
-    const board = document.getElementById('minesBoard');
+    const board = DOM.minesBoard;
     const cells = board.querySelectorAll('.mines-cell');
     
-    if (!minesGameData) {
+    if (!state.minesGameData) {
         cells.forEach(cell => {
             cell.textContent = '❓';
             cell.className = 'mines-cell';
@@ -2356,7 +1825,7 @@ function renderMinesBoard() {
         return;
     }
     
-    const { board: dataBoard, openedCells } = minesGameData;
+    const { board: dataBoard, openedCells } = state.minesGameData;
     
     cells.forEach((cell, i) => {
         if (openedCells[i] === 1) {
@@ -2379,43 +1848,34 @@ function renderMinesBoard() {
 }
 
 function openMinesCell(index) {
-    if (!minesGameData || !minesGameData.active || minesGameData.game_over) return;
-    if (minesGameData.openedCells[index] === 1) return;
+    if (!state.minesGameData || !state.minesGameData.active || state.minesGameData.game_over) return;
+    if (state.minesGameData.openedCells[index] === 1) return;
     
-    showLoader();
-    fetch('/open_mines_cell', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            user_id, 
-            game_id: minesGameData.game_id,
-            index 
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        hideLoader();
+    apiRequest('/open_mines_cell', { 
+        game_id: state.minesGameData.game_id,
+        index 
+    }).then(data => {
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
             return;
         }
         
-        minesGameData.board = data.board;
-        minesGameData.openedCells = data.opened;
-        minesGameData.opened = data.opened_count;
-        minesGameData.multiplier = data.multiplier;
+        state.minesGameData.board = data.board;
+        state.minesGameData.openedCells = data.opened;
+        state.minesGameData.opened = data.opened_count;
+        state.minesGameData.multiplier = data.multiplier;
         
-        document.getElementById('minesOpenedDisplay').textContent = minesGameData.opened;
-        document.getElementById('minesMultiplierDisplay').textContent = 'x' + minesGameData.multiplier;
+        DOM.minesOpenedDisplay.textContent = state.minesGameData.opened;
+        DOM.minesMultiplierDisplay.textContent = 'x' + state.minesGameData.multiplier;
         
         if (data.game_over) {
-            minesGameData.active = false;
-            minesGameData.game_over = true;
-            document.getElementById('minesCashoutBtn').style.display = 'none';
+            state.minesGameData.active = false;
+            state.minesGameData.game_over = true;
+            DOM.minesCashoutBtn.style.display = 'none';
             
             for (let i = 0; i < 25; i++) {
-                if (minesGameData.board[i] === 1) {
-                    minesGameData.openedCells[i] = 1;
+                if (state.minesGameData.board[i] === 1) {
+                    state.minesGameData.openedCells[i] = 1;
                 }
             }
             renderMinesBoard();
@@ -2431,36 +1891,32 @@ function openMinesCell(index) {
         
         renderMinesBoard();
         updateMinesCashoutAmount();
-    })
-    .catch(() => {
-        hideLoader();
-        tg.showAlert('❌ Ошибка открытия клетки');
     });
 }
 
 function showMinesResult(icon, title, text, color) {
-    const board = minesGameData ? minesGameData.board : null;
-    const openedCells = minesGameData ? minesGameData.openedCells : null;
+    const board = state.minesGameData ? state.minesGameData.board : null;
+    const openedCells = state.minesGameData ? state.minesGameData.openedCells : null;
     
     const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.92);
-        backdrop-filter: blur(20px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        padding: 30px;
-        animation: fadeIn 0.3s ease;
-    `;
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: 'rgba(0,0,0,0.92)',
+        backdropFilter: 'blur(20px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '1000',
+        padding: '30px',
+        animation: 'fadeIn 0.3s ease'
+    });
     
     let boardHTML = '';
     if (board) {
         boardHTML = `
-            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-width: 350px; margin: 16px auto; width: 100%;">
+            <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; max-width:350px; margin:16px auto; width:100%;">
                 ${board.map((cell, i) => {
                     const isMine = cell === 1;
                     const isOpened = openedCells && openedCells[i] === 1;
@@ -2490,17 +1946,17 @@ function showMinesResult(icon, title, text, color) {
                     
                     return `
                         <div style="
-                            aspect-ratio: 1;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            font-size: 36px;
-                            background: ${bgColor};
-                            border-radius: 10px;
-                            border: 2px solid ${borderColor};
-                            color: ${textColor};
-                            transition: all 0.2s;
-                            font-weight: 700;
+                            aspect-ratio:1;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            font-size:36px;
+                            background:${bgColor};
+                            border-radius:10px;
+                            border:2px solid ${borderColor};
+                            color:${textColor};
+                            transition:all 0.2s;
+                            font-weight:700;
                         ">
                             ${symbol}
                         </div>
@@ -2511,16 +1967,16 @@ function showMinesResult(icon, title, text, color) {
     }
     
     overlay.innerHTML = `
-        <div style="font-size: 80px; margin-bottom: 10px;">${icon}</div>
-        <div style="font-size: 32px; font-weight: 800; color: ${color}; margin-bottom: 10px;">${title}</div>
-        <div style="color: #aaa; font-size: 18px; margin-bottom: 10px; text-align: center;">${text}</div>
+        <div style="font-size:80px; margin-bottom:10px;">${icon}</div>
+        <div style="font-size:32px; font-weight:800; color:${color}; margin-bottom:10px;">${title}</div>
+        <div style="color:#aaa; font-size:18px; margin-bottom:10px; text-align:center;">${text}</div>
         ${boardHTML}
-        <div style="color: #666; font-size: 13px; margin-bottom: 16px;">💣 — мины | 💎 — безопасные клетки</div>
-        <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
-            <button id="minesPlayAgainBtn" style="padding: 14px 30px; border: none; border-radius: 14px; background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+        <div style="color:#666; font-size:13px; margin-bottom:16px;">💣 — мины | 💎 — безопасные клетки</div>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+            <button id="minesPlayAgainBtn" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔄 ИГРАТЬ СНОВА
             </button>
-            <button id="minesBackBtn" style="padding: 14px 30px; border: none; border-radius: 14px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;">
+            <button id="minesBackBtn" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔙 НАЗАД
             </button>
         </div>
@@ -2540,63 +1996,41 @@ function showMinesResult(icon, title, text, color) {
 }
 
 function cashoutMinesGame() {
-    if (!minesGameData || !minesGameData.active || minesGameData.game_over) return;
-    if (minesGameData.opened < 3) {
+    if (!state.minesGameData || !state.minesGameData.active || state.minesGameData.game_over) return;
+    if (state.minesGameData.opened < 3) {
         tg.showAlert('❌ Нужно открыть минимум 3 клетки!');
         return;
     }
     
-    showLoader();
-    fetch('/cashout_mines', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            user_id, 
-            game_id: minesGameData.game_id 
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        hideLoader();
+    apiRequest('/cashout_mines', { game_id: state.minesGameData.game_id }).then(data => {
         if (data.error) {
             tg.showAlert('❌ ' + data.error);
             return;
         }
         
-        minesGameData.active = false;
-        minesGameData.game_over = true;
-        document.getElementById('minesCashoutBtn').style.display = 'none';
+        state.minesGameData.active = false;
+        state.minesGameData.game_over = true;
+        DOM.minesCashoutBtn.style.display = 'none';
         
         showMinesResult('💰', 'ВЫИГРЫШ!', `Ты забрал ${data.winnings}⭐ (x${data.multiplier})`, '#ffd700');
         loadBalance();
         loadMinesStats();
-    })
-    .catch(() => {
-        hideLoader();
-        tg.showAlert('❌ Ошибка вывода');
     });
 }
 
 function updateMinesCashoutAmount() {
-    if (!minesGameData) return;
-    const amount = Math.floor(minesGameData.bet * minesGameData.multiplier);
+    if (!state.minesGameData) return;
+    const amount = Math.floor(state.minesGameData.bet * state.minesGameData.multiplier);
     document.getElementById('minesCashoutAmount').textContent = amount;
 }
 
 function loadMinesStats() {
-    fetch('/get_mines_stats', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id })
-    })
-    .then(res => res.json())
-    .then(data => {
+    apiRequest('/get_mines_stats').then(data => {
         document.getElementById('minesGames').textContent = data.games || 0;
         document.getElementById('minesWins').textContent = data.wins || 0;
         document.getElementById('minesLosses').textContent = data.losses || 0;
         document.getElementById('minesBestMultiplier').textContent = 'x' + (data.best_multiplier || 1.0);
-    })
-    .catch(() => {});
+    });
 }
 
 // ===================== ПРОФИЛЬ =====================
@@ -2624,24 +2058,12 @@ function showWithdraw() {
         tg.showAlert('❌ Минимум 1000⭐');
         return;
     }
-    showLoader();
-    fetch('/withdraw_request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, amount: num })
-    })
-    .then(res => res.json())
-    .then(data => {
-        hideLoader();
+    apiRequest('/withdraw_request', { amount: num }).then(data => {
         if (data.success) {
             tg.showAlert('✅ Заявка отправлена! Админ свяжется с вами.');
         } else {
             tg.showAlert('❌ ' + data.error);
         }
-    })
-    .catch(() => {
-        hideLoader();
-        tg.showAlert('❌ Ошибка соединения');
     });
 }
 
@@ -2649,6 +2071,4 @@ function showWithdraw() {
 initMinesBoard();
 loadBalance();
 loadMinesStats();
-updateFreeCaseTimer();
-setInterval(updateFreeCaseTimer, 30000);
 tg.ready();
