@@ -22,7 +22,7 @@ cursor = conn.cursor()
 # ===================== ТАБЛИЦЫ БД =====================
 cursor.execute('''CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
-    balance INTEGER DEFAULT 10,
+    balance INTEGER DEFAULT 5,
     total_cases INTEGER DEFAULT 0,
     streak INTEGER DEFAULT 0,
     last_open INTEGER DEFAULT 0,
@@ -30,7 +30,10 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS users (
     refs INTEGER DEFAULT 0,
     daily_claimed INTEGER DEFAULT 0,
     username TEXT DEFAULT '',
-    promo_used INTEGER DEFAULT 0
+    promo_used INTEGER DEFAULT 0,
+    promo_code TEXT DEFAULT '',
+    total_spent INTEGER DEFAULT 0,
+    luck_boost REAL DEFAULT 1.0
 )''')
 conn.commit()
 
@@ -89,6 +92,27 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS commission_log (
 )''')
 conn.commit()
 
+# ===== ПРОМОКОДЫ =====
+cursor.execute('''CREATE TABLE IF NOT EXISTS promo_codes (
+    code TEXT PRIMARY KEY,
+    reward INTEGER DEFAULT 20,
+    created_by INTEGER,
+    created_at INTEGER,
+    max_uses INTEGER DEFAULT 1,
+    used_count INTEGER DEFAULT 0
+)''')
+conn.commit()
+
+# ===== ОТСЛЕЖИВАНИЕ ТРАТ =====
+cursor.execute('''CREATE TABLE IF NOT EXISTS promo_spend (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    promo_code TEXT,
+    spent INTEGER DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+)''')
+conn.commit()
+
 # ===================== КЕЙСЫ =====================
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
 
@@ -135,9 +159,19 @@ CASE_RANGES = {
     }
 }
 
-def get_prize(case_type):
+def get_prize(case_type, user_id=None):
     data = CASE_RANGES[case_type]
     rnd = random.random()
+    
+    # ===== УВЕЛИЧЕНИЕ ШАНСОВ ДЛЯ ОПРЕДЕЛЁННЫХ ИГРОКОВ =====
+    if user_id:
+        cursor.execute("SELECT luck_boost FROM users WHERE id=?", (user_id,))
+        boost = cursor.fetchone()
+        if boost and boost[0] > 1.0:
+            rnd = rnd / boost[0]
+            if rnd > 1.0:
+                rnd = 0.9999
+    
     if rnd < data["jackpot_chance"]:
         return random.choice(data["jackpot"])
     elif rnd < data["jackpot_chance"] + data["legendary_chance"]:
@@ -181,8 +215,14 @@ def update_user(uid, **kwargs):
             data[8] = val
         elif key == 'promo_used':
             data[9] = val
-    cursor.execute("UPDATE users SET balance=?, total_cases=?, streak=?, last_open=?, status=?, refs=?, daily_claimed=?, username=?, promo_used=? WHERE id=?",
-                   (data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], uid))
+        elif key == 'promo_code':
+            data[10] = val
+        elif key == 'total_spent':
+            data[11] = val
+        elif key == 'luck_boost':
+            data[12] = val
+    cursor.execute("UPDATE users SET balance=?, total_cases=?, streak=?, last_open=?, status=?, refs=?, daily_claimed=?, username=?, promo_used=?, promo_code=?, total_spent=?, luck_boost=? WHERE id=?",
+                   (data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10], data[11], data[12], uid))
     conn.commit()
 
 def update_status(uid, total_cases):
@@ -206,7 +246,13 @@ def add_commission(amount):
     cursor.execute("INSERT INTO commission_log (amount, timestamp) VALUES (?, ?)", (amount, int(time.time())))
     conn.commit()
 
-PROMO_CODE = "RANDEVU50"
+def track_spend(uid, promo_code, amount):
+    cursor.execute("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (?, ?, ?)", (uid, promo_code, amount))
+    conn.commit()
+    cursor.execute("UPDATE users SET total_spent = total_spent + ? WHERE id=?", (amount, uid))
+    conn.commit()
+
+PROMO_CODE = "RANDEVU20"
 
 # ===================== ГЛОБАЛЬНЫЕ ДАННЫЕ =====================
 active_battles = {}
@@ -217,13 +263,13 @@ battle_rooms = {}
 battle_results = {}
 battle_ready_status = {}
 
-# ===== КРАШ — ГЛОБАЛЬНЫЙ =====
+# ===== КРАШ — ВСЕГДА АКТИВЕН =====
 crash_data = {
-    'active': False,
+    'active': True,
     'multiplier': 1.00,
     'crashed': False,
-    'start_time': 0,
-    'crash_point': 0,
+    'start_time': time.time(),
+    'crash_point': 12.00,
     'bets': {}
 }
 
@@ -312,46 +358,27 @@ def battle_cleaner():
 
 threading.Thread(target=battle_cleaner, daemon=True).start()
 
-# ===== КРАШ — ЖЁСТКАЯ МЕХАНИКА =====
-def generate_crash_point():
-    rnd = random.random()
-    if rnd < 0.50:
-        crash_point = 1.00 + rnd * 0.40
-    elif rnd < 0.80:
-        crash_point = 1.20 + (rnd - 0.50) * 4.00
-    elif rnd < 0.95:
-        crash_point = 2.00 + (rnd - 0.80) * 20.00
-    elif rnd < 0.99:
-        crash_point = 5.00 + (rnd - 0.95) * 100.00
-    else:
-        crash_point = 10.00 + (rnd - 0.99) * 200.00
-    if crash_point > 12.00:
-        crash_point = 12.00
-    return round(crash_point, 2)
-
-def get_crash_multiplier(elapsed):
-    if elapsed < 0.5:
-        multiplier = 1.00 + elapsed * 0.60
-    elif elapsed < 1.5:
-        multiplier = 1.30 + (elapsed - 0.5) * 0.40
-    elif elapsed < 3.0:
-        multiplier = 1.70 + (elapsed - 1.5) * 0.30
-    elif elapsed < 5.0:
-        multiplier = 2.15 + (elapsed - 3.0) * 0.25
-    else:
-        multiplier = 2.65 + (elapsed - 5.0) * 0.15
-    if multiplier > 12.00:
-        multiplier = 12.00
-    return round(multiplier, 2)
-
+# ===== КРАШ — МЕДЛЕННЫЙ РОСТ =====
 def crash_timer():
     global crash_data
     while True:
         if crash_data['active']:
             elapsed = time.time() - crash_data['start_time']
-            crash_data['multiplier'] = get_crash_multiplier(elapsed)
             
-            if elapsed >= 8:
+            if elapsed < 10:
+                multiplier = 1.00 + elapsed * 0.04
+            elif elapsed < 20:
+                multiplier = 1.40 + (elapsed - 10) * 0.06
+            elif elapsed < 30:
+                multiplier = 2.00 + (elapsed - 20) * 0.08
+            else:
+                multiplier = 2.80 + (elapsed - 30) * 0.10
+            
+            if multiplier > 12.00:
+                multiplier = 12.00
+            crash_data['multiplier'] = round(multiplier, 2)
+            
+            if elapsed >= 40:
                 crash_data['crashed'] = True
                 crash_data['active'] = False
                 crash_data['bets'] = {}
@@ -362,9 +389,13 @@ def crash_timer():
                 crash_data['bets'] = {}
         else:
             if crash_data['crashed']:
-                time.sleep(2)
+                time.sleep(3)
                 crash_data['crashed'] = False
+                crash_data['active'] = True
+                crash_data['start_time'] = time.time()
                 crash_data['multiplier'] = 1.00
+                crash_data['crash_point'] = 1.00 + random.random() * 11.00
+                crash_data['bets'] = {}
         time.sleep(0.05)
 
 threading.Thread(target=crash_timer, daemon=True).start()
@@ -386,14 +417,14 @@ def start(msg):
                 conn.commit()
                 inviter = get_user(inviter_id)
                 if inviter:
-                    update_user(inviter_id, balance=inviter[1] + 30, refs=inviter[6] + 1)
+                    update_user(inviter_id, balance=inviter[1] + 10, refs=inviter[6] + 1)
                     try:
-                        bot.send_message(inviter_id, f"⭐ Ты получил 30 звёзд за приглашение @{username}!")
+                        bot.send_message(inviter_id, f"⭐ Ты получил 10 звёзд за приглашение @{username}!")
                     except:
                         pass
-                    update_user(uid, balance=user[1] + 50)
+                    update_user(uid, balance=user[1] + 5)
                     try:
-                        bot.send_message(uid, f"🎉 Ты получил 50 звёзд за регистрацию по ссылке!")
+                        bot.send_message(uid, f"🎉 Ты получил 5 звёзд за регистрацию по ссылке!")
                     except:
                         pass
         except:
@@ -451,21 +482,146 @@ def promo_handler(msg):
     uid = msg.from_user.id
     args = msg.text.split()
     if len(args) < 2:
-        bot.reply_to(msg, "❌ Введи промокод: /promo RANDEVU50")
+        bot.reply_to(msg, "❌ Введи промокод: /promo RANDEVU20")
         return
-    if args[1] != PROMO_CODE:
+    
+    code = args[1].upper()
+    
+    cursor.execute("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=?", (code,))
+    promo = cursor.fetchone()
+    if not promo:
         bot.reply_to(msg, "❌ Неверный промокод!")
         return
+    
+    reward, max_uses, used_count = promo
+    
+    if max_uses > 0 and used_count >= max_uses:
+        bot.reply_to(msg, "❌ Промокод уже использован максимальное количество раз!")
+        return
+    
     user = get_user(uid)
     if not user:
         bot.reply_to(msg, "Напиши /start")
         return
+    
     if user[9] == 1:
         bot.reply_to(msg, "❌ Ты уже использовал промокод!")
         return
-    update_user(uid, balance=user[1] + 50, promo_used=1)
-    bot.reply_to(msg, f"✅ Промокод активирован! Ты получил 50⭐")
+    
+    update_user(uid, balance=user[1] + reward, promo_used=1, promo_code=code)
+    
+    cursor.execute("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=?", (code,))
+    conn.commit()
+    
+    bot.reply_to(msg, f"✅ Промокод активирован! Ты получил {reward}⭐")
 
+@bot.message_handler(commands=['create_promo'])
+def create_promo(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Формат: /create_promo CODE [reward] [max_uses]")
+        return
+    
+    code = args[1].upper()
+    reward = 20
+    max_uses = 1
+    
+    if len(args) >= 3:
+        try:
+            reward = int(args[2])
+        except:
+            pass
+    if len(args) >= 4:
+        try:
+            max_uses = int(args[3])
+        except:
+            pass
+    
+    cursor.execute("INSERT OR IGNORE INTO promo_codes (code, reward, created_by, created_at, max_uses) VALUES (?, ?, ?, ?, ?)",
+                   (code, reward, ADMIN_ID, int(time.time()), max_uses))
+    conn.commit()
+    
+    bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
+
+@bot.message_handler(commands=['boost'])
+def boost_player(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "❌ Формат: /boost @username 2.0")
+        return
+    
+    username = args[1].replace('@', '')
+    try:
+        boost = float(args[2])
+    except:
+        bot.reply_to(msg, "❌ Множитель должен быть числом (например, 2.0)")
+        return
+    
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        return
+    
+    update_user(user[0], luck_boost=boost)
+    bot.reply_to(msg, f"✅ Шансы @{username} увеличены в {boost}x!")
+
+@bot.message_handler(commands=['promo_stats'])
+def promo_stats(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Формат: /promo_stats CODE")
+        return
+    
+    code = args[1].upper()
+    
+    cursor.execute("SELECT reward, max_uses, used_count, created_at FROM promo_codes WHERE code=?", (code,))
+    promo = cursor.fetchone()
+    if not promo:
+        bot.reply_to(msg, "❌ Промокод не найден")
+        return
+    
+    reward, max_uses, used_count, created_at = promo
+    
+    cursor.execute("SELECT user_id, spent FROM promo_spend WHERE promo_code=?", (code,))
+    spend_data = cursor.fetchall()
+    
+    total_spent = sum([s[1] for s in spend_data]) if spend_data else 0
+    
+    text = f"📊 **СТАТИСТИКА ПРОМОКОДА {code}**\n\n"
+    text += f"🎁 Награда: {reward}⭐\n"
+    text += f"📊 Макс. использований: {max_uses}\n"
+    text += f"✅ Использовано: {used_count}\n"
+    text += f"💰 Всего потрачено: {total_spent}⭐\n"
+    text += f"👥 Пользователей: {len(spend_data) if spend_data else 0}\n"
+    
+    bot.reply_to(msg, text)
+
+@bot.message_handler(commands=['list_promo'])
+def list_promo(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    
+    cursor.execute("SELECT code, reward, max_uses, used_count FROM promo_codes ORDER BY created_at DESC")
+    promos = cursor.fetchall()
+    
+    if not promos:
+        bot.reply_to(msg, "❌ Нет созданных промокодов")
+        return
+    
+    text = "📋 **СПИСОК ПРОМОКОДОВ:**\n\n"
+    for code, reward, max_uses, used_count in promos:
+        status = "✅" if max_uses == 0 or used_count < max_uses else "❌"
+        text += f"{status} `{code}` — {reward}⭐ (исп. {used_count}/{max_uses if max_uses > 0 else '∞'})\n"
+    
+    bot.reply_to(msg, text)
+
+# ===================== ОСТАЛЬНЫЕ КОМАНДЫ =====================
 @bot.message_handler(commands=['add_ad'])
 def add_ad(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -594,7 +750,6 @@ def crash_stats_cmd(msg):
 
 # ===================== ЭНДПОИНТЫ =====================
 
-# ---- КОМНАТЫ ----
 @app.route('/create_battle_room', methods=['POST'])
 def create_battle_room():
     data = request.get_json()
@@ -870,8 +1025,8 @@ def start_battle_opening(room_id):
         room['status'] = 'waiting'
         return
     
-    prize1 = get_prize(case_type)
-    prize2 = get_prize(case_type)
+    prize1 = get_prize(case_type, p1)
+    prize2 = get_prize(case_type, p2)
     
     if prize1 > prize2:
         winner = p1
@@ -913,7 +1068,7 @@ def start_battle_opening(room_id):
         battle_results[p2] = draw_result
         
         room['status'] = 'finished'
-        threading.Timer(15.0, lambda: battle_rooms.pop(room_id, None)).start()
+        threading.Timer(20.0, lambda: battle_rooms.pop(room_id, None)).start()
         return
     
     total_drop = winner_prize + loser_prize
@@ -944,9 +1099,8 @@ def start_battle_opening(room_id):
     battle_results[p2] = result_data
     
     room['status'] = 'finished'
-    threading.Timer(15.0, lambda: battle_rooms.pop(room_id, None)).start()
+    threading.Timer(20.0, lambda: battle_rooms.pop(room_id, None)).start()
 
-# ---- БИТВА С БОТОМ ----
 @app.route('/start_bot_battle', methods=['POST'])
 def start_bot_battle():
     data = request.get_json()
@@ -962,8 +1116,8 @@ def start_bot_battle():
     if user[1] < price:
         return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐'}), 400
     
-    player_prize = get_prize(case_type)
-    bot_prize = get_prize(case_type)
+    player_prize = get_prize(case_type, uid)
+    bot_prize = get_prize(case_type, None)
     total = player_prize + bot_prize
     commission = int(total * 0.10)
     winnings = total - commission
@@ -999,7 +1153,6 @@ def start_bot_battle():
         'winnings': winnings if result == 'win' else 0
     })
 
-# ---- МИНЁР ----
 @app.route('/start_mines_game', methods=['POST'])
 def start_mines_game():
     data = request.get_json()
@@ -1154,7 +1307,6 @@ def get_mines_stats():
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
-# ---- КРАШ ----
 @app.route('/start_crash', methods=['POST'])
 def start_crash():
     global crash_data
@@ -1173,6 +1325,8 @@ def start_crash():
     if crash_data['active'] and not crash_data['crashed']:
         crash_data['bets'][uid] = bet
         update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
+        if user[9] == 1 and user[10]:
+            track_spend(uid, user[10], bet)
         return jsonify({
             'game_id': int(time.time()),
             'already_running': True,
@@ -1180,22 +1334,24 @@ def start_crash():
             'crash_point': crash_data['crash_point']
         })
     
-    crash_point = generate_crash_point()
+    crash_point = 1.00 + random.random() * 11.00
     crash_data = {
         'active': True,
         'multiplier': 1.00,
         'crashed': False,
         'start_time': time.time(),
-        'crash_point': crash_point,
+        'crash_point': round(crash_point, 2),
         'bets': {uid: bet}
     }
     
     update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
+    if user[9] == 1 and user[10]:
+        track_spend(uid, user[10], bet)
     
     return jsonify({
         'game_id': int(time.time()),
         'already_running': False,
-        'crash_point': crash_point
+        'crash_point': round(crash_point, 2)
     })
 
 @app.route('/crash_status', methods=['POST'])
@@ -1254,7 +1410,6 @@ def get_crash_stats():
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
-# ---- ОБЫЧНЫЕ КЕЙСЫ ----
 @app.route('/')
 def home():
     return send_from_directory('static', 'index.html')
@@ -1278,9 +1433,10 @@ def get_prize_endpoint():
     if not data:
         return jsonify({'error': 'No data provided'}), 400
     case_type = data.get('case_type')
+    uid = data.get('user_id')
     if case_type not in CASE_RANGES:
         return jsonify({'error': 'Invalid case type'}), 400
-    prize = get_prize(case_type)
+    prize = get_prize(case_type, uid)
     return jsonify({'prize': prize})
 
 @app.route('/check_balance', methods=['POST'])
@@ -1320,7 +1476,7 @@ def open_case():
         if prize_from_client is not None:
             prize = prize_from_client
         else:
-            prize = get_prize(case_type)
+            prize = get_prize(case_type, user_id)
         new_bal = user[1] - price + prize
         new_total = user[2] + 1
         new_streak = user[3] + 1
