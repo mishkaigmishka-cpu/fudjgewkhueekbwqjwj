@@ -312,16 +312,34 @@ def battle_cleaner():
 
 threading.Thread(target=battle_cleaner, daemon=True).start()
 
-# ===== КРАШ — ТАЙМЕР =====
+# ===== КРАШ — ЖЁСТКАЯ МЕХАНИКА =====
 def generate_crash_point():
     rnd = random.random()
-    crash_point = 1 / ((1 - rnd) ** 1.3)
+    if rnd < 0.50:
+        crash_point = 1.00 + rnd * 0.40
+    elif rnd < 0.80:
+        crash_point = 1.20 + (rnd - 0.50) * 4.00
+    elif rnd < 0.95:
+        crash_point = 2.00 + (rnd - 0.80) * 20.00
+    elif rnd < 0.99:
+        crash_point = 5.00 + (rnd - 0.95) * 100.00
+    else:
+        crash_point = 10.00 + (rnd - 0.99) * 200.00
     if crash_point > 12.00:
         crash_point = 12.00
     return round(crash_point, 2)
 
 def get_crash_multiplier(elapsed):
-    multiplier = 1.00 + (elapsed ** 1.1) * 0.012
+    if elapsed < 0.5:
+        multiplier = 1.00 + elapsed * 0.60
+    elif elapsed < 1.5:
+        multiplier = 1.30 + (elapsed - 0.5) * 0.40
+    elif elapsed < 3.0:
+        multiplier = 1.70 + (elapsed - 1.5) * 0.30
+    elif elapsed < 5.0:
+        multiplier = 2.15 + (elapsed - 3.0) * 0.25
+    else:
+        multiplier = 2.65 + (elapsed - 5.0) * 0.15
     if multiplier > 12.00:
         multiplier = 12.00
     return round(multiplier, 2)
@@ -333,11 +351,21 @@ def crash_timer():
             elapsed = time.time() - crash_data['start_time']
             crash_data['multiplier'] = get_crash_multiplier(elapsed)
             
+            if elapsed >= 8:
+                crash_data['crashed'] = True
+                crash_data['active'] = False
+                crash_data['bets'] = {}
+            
             if crash_data['multiplier'] >= crash_data['crash_point']:
                 crash_data['crashed'] = True
                 crash_data['active'] = False
                 crash_data['bets'] = {}
-        time.sleep(0.1)
+        else:
+            if crash_data['crashed']:
+                time.sleep(2)
+                crash_data['crashed'] = False
+                crash_data['multiplier'] = 1.00
+        time.sleep(0.05)
 
 threading.Thread(target=crash_timer, daemon=True).start()
 
@@ -674,6 +702,9 @@ def exit_battle_room():
     if uid in room['players']:
         room['players'].remove(uid)
     
+    if room_id in battle_ready_status:
+        del battle_ready_status[room_id]
+    
     if len(room['players']) == 0:
         del battle_rooms[room_id]
         return jsonify({'success': True, 'room_kept': False})
@@ -923,6 +954,9 @@ def start_bot_battle():
     case_type = data.get('case_type')
     
     user = get_user(uid)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    
     prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
     price = prices.get(case_type, 0)
     if user[1] < price:
@@ -1138,11 +1172,12 @@ def start_crash():
     
     if crash_data['active'] and not crash_data['crashed']:
         crash_data['bets'][uid] = bet
-        update_user(uid, balance=user[1] - bet)
+        update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
         return jsonify({
             'game_id': int(time.time()),
             'already_running': True,
-            'multiplier': crash_data['multiplier']
+            'multiplier': crash_data['multiplier'],
+            'crash_point': crash_data['crash_point']
         })
     
     crash_point = generate_crash_point()
@@ -1155,7 +1190,7 @@ def start_crash():
         'bets': {uid: bet}
     }
     
-    update_user(uid, balance=user[1] - bet)
+    update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
     
     return jsonify({
         'game_id': int(time.time()),
