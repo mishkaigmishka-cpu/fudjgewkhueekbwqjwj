@@ -271,21 +271,6 @@ header {
 }
 .mines-btn:hover { background: rgba(255,255,255,0.08); }
 
-div[style*="overflow-x: auto"]::-webkit-scrollbar {
-    height: 4px;
-}
-div[style*="overflow-x: auto"]::-webkit-scrollbar-track {
-    background: rgba(255,255,255,0.04);
-    border-radius: 4px;
-}
-div[style*="overflow-x: auto"]::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.15);
-    border-radius: 4px;
-}
-div[style*="overflow-x: auto"]::-webkit-scrollbar-thumb:hover {
-    background: rgba(255,255,255,0.25);
-}
-
 .mines-stats {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -309,12 +294,43 @@ div[style*="overflow-x: auto"]::-webkit-scrollbar-thumb:hover {
 .crash-stats span { font-size: 14px; color: #aaa; }
 .crash-stats b { color: #fff; }
 
+#crashChart {
+    position: relative;
+    width: 100%;
+    height: 130px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+#crashCanvas {
+    width: 100%;
+    height: 130px;
+    display: block;
+}
+
 #crashMultiplier {
-    font-size: 72px;
+    position: absolute;
+    top: 6px;
+    right: 12px;
+    font-size: 32px;
     font-weight: 900;
     color: #b388ff;
-    transition: all 0.1s;
+    text-shadow: 0 0 30px rgba(179, 136, 255, 0.5);
+    transition: color 0.3s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1;
 }
+
+#crashProgressBar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #4caf50, #ffd700, #f44336);
+    border-radius: 0 3px 3px 0;
+    transition: width 0.1s ease;
+}
+
 #crashMultiplier.crashed {
     color: #f44336 !important;
     animation: crashPulse 0.5s ease;
@@ -427,7 +443,9 @@ nav {
     to { opacity: 1; transform: scale(1); }
 }
 
-#battlePreviewOverlay, #battleRouletteOverlay, #botRouletteOverlay {
+#battlePreviewOverlay, #battleRouletteOverlay, #botRouletteOverlay,
+#battleResultOverlay, #botBattleResultOverlay, #minesResultOverlay,
+#crashResultOverlay, #resultContainer, #tapeContainer {
     animation: fadeIn 0.3s ease;
 }
 
@@ -442,4 +460,21 @@ nav {
     text-shadow: 0 0 30px #ffd700 !important;
     font-size: 24px !important;
     transform: scale(1.05);
+}
+
+/* ===== СКРОЛЛБАР ===== */
+::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.04);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.15);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.25);
 }
