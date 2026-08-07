@@ -297,6 +297,42 @@ div[style*="overflow-x: auto"]::-webkit-scrollbar-thumb:hover {
 .mines-stats span { font-size: 14px; color: #aaa; }
 .mines-stats b { color: #fff; }
 
+/* ===== КРАШ ===== */
+.crash-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 14px;
+}
+.crash-stats span { font-size: 14px; color: #aaa; }
+.crash-stats b { color: #fff; }
+
+#crashMultiplier {
+    font-size: 72px;
+    font-weight: 900;
+    color: #b388ff;
+    transition: all 0.1s;
+}
+#crashMultiplier.crashed {
+    color: #f44336 !important;
+    animation: crashPulse 0.5s ease;
+}
+@keyframes crashPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+#crashMultiplier.win {
+    color: #4caf50 !important;
+    animation: winPulse 0.5s ease;
+}
+@keyframes winPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
 /* ===== ПРОФИЛЬ ===== */
 .profile-card, .section-card {
     background: rgba(255,255,255,0.04);
