@@ -1,6 +1,5 @@
 // ===============================
 // RANDEVU — FINAL SCRIPT v5.0
-// ВСЕ РЕЖИМЫ: Кейсы, Битвы, Минёр, Краш
 // ===============================
 
 const tg = window.Telegram.WebApp;
@@ -1372,18 +1371,18 @@ function showBotRouletteAnimation(case_type) {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: '999',
-        padding: '12px 16px',
+        padding: '16px 20px',
         animation: 'fadeIn 0.3s ease'
     });
     
     const title = document.createElement('div');
     Object.assign(title.style, {
-        fontSize: '18px',
+        fontSize: '22px',
         fontWeight: '800',
         color: style.titleColor,
-        marginBottom: '8px',
+        marginBottom: '12px',
         textTransform: 'uppercase',
-        letterSpacing: '2px',
+        letterSpacing: '3px',
         textShadow: `0 0 40px ${style.glowColor}`,
         textAlign: 'center',
         flexShrink: '0'
@@ -1392,57 +1391,57 @@ function showBotRouletteAnimation(case_type) {
     overlay.appendChild(title);
     
     const container = document.createElement('div');
-    container.style.cssText = 'display:flex; flex-direction:column; gap:6px; width:100%; max-width:500px; flex:1; justify-content:center;';
+    container.style.cssText = 'display:flex; flex-direction:column; gap:8px; width:100%; max-width:600px; flex:1; justify-content:center;';
     
-    const cardWidth = 80;
-    const cardGap = 5;
-    const totalCards = 35;
-    const winPosition = 20;
+    const cardWidth = 120;
+    const cardGap = 8;
+    const totalCards = 30;
+    const winPosition = 15;
     
-    // Игрок (сверху)
+    // Игрок (сверху) с рамкой
     const p1Wrapper = document.createElement('div');
-    p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0;';
+    p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(76,175,80,0.3); border-radius:12px; padding:6px; background:rgba(76,175,80,0.05);';
     let cards1 = '';
     for (let i = 0; i < totalCards; i++) {
         const p = prizes[Math.floor(Math.random() * prizes.length)];
         const isLarge = p > 1000;
-        const fontSize = isLarge ? '14px' : '18px';
-        cards1 += `<div class="roulette-card" style="width:${cardWidth}px; height:70px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:6px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
+        const fontSize = isLarge ? '18px' : '24px';
+        cards1 += `<div class="roulette-card" style="width:${cardWidth}px; height:90px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
     }
     p1Wrapper.innerHTML = `
-        <div style="font-size:12px; font-weight:700; color:#4caf50; text-align:center; margin-bottom:2px; flex-shrink:0;">👤 ИГРОК</div>
-        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:80px;">
-            <div id="botRouletteTrack1" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+        <div style="font-size:16px; font-weight:700; color:#4caf50; text-align:center; margin-bottom:4px; flex-shrink:0; background:rgba(76,175,80,0.1); padding:4px 0; border-radius:6px;">👤 ИГРОК</div>
+        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:100px;">
+            <div id="botRouletteTrack1" style="display:flex; gap:${cardGap}px; padding:8px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                 ${cards1}
             </div>
-            <div style="position:absolute; top:-3px; left:50%; transform:translateX(-50%); font-size:16px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
+            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:28px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
         </div>
     `;
     container.appendChild(p1Wrapper);
     
     // VS
     const vsDiv = document.createElement('div');
-    vsDiv.style.cssText = 'text-align:center; font-size:20px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:2px 0;';
-    vsDiv.textContent = '🤖';
+    vsDiv.style.cssText = 'text-align:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:4px 0;';
+    vsDiv.textContent = '🤖 VS';
     container.appendChild(vsDiv);
     
-    // Бот (снизу)
+    // Бот (снизу) с рамкой
     const p2Wrapper = document.createElement('div');
-    p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0;';
+    p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(244,67,54,0.3); border-radius:12px; padding:6px; background:rgba(244,67,54,0.05);';
     let cards2 = '';
     for (let i = 0; i < totalCards; i++) {
         const p = prizes[Math.floor(Math.random() * prizes.length)];
         const isLarge = p > 1000;
-        const fontSize = isLarge ? '14px' : '18px';
-        cards2 += `<div class="roulette-card" style="width:${cardWidth}px; height:70px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:6px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
+        const fontSize = isLarge ? '18px' : '24px';
+        cards2 += `<div class="roulette-card" style="width:${cardWidth}px; height:90px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
     }
     p2Wrapper.innerHTML = `
-        <div style="font-size:12px; font-weight:700; color:#f44336; text-align:center; margin-bottom:2px; flex-shrink:0;">🤖 БОТ</div>
-        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:80px;">
-            <div id="botRouletteTrack2" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+        <div style="font-size:16px; font-weight:700; color:#f44336; text-align:center; margin-bottom:4px; flex-shrink:0; background:rgba(244,67,54,0.1); padding:4px 0; border-radius:6px;">🤖 БОТ</div>
+        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:100px;">
+            <div id="botRouletteTrack2" style="display:flex; gap:${cardGap}px; padding:8px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                 ${cards2}
             </div>
-            <div style="position:absolute; top:-3px; left:50%; transform:translateX(-50%); font-size:16px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
+            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:28px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
         </div>
     `;
     container.appendChild(p2Wrapper);
@@ -1450,13 +1449,13 @@ function showBotRouletteAnimation(case_type) {
     overlay.appendChild(container);
     
     const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = 'color:#888; font-size:12px; text-align:center; margin-top:6px; flex-shrink:0;';
+    infoDiv.style.cssText = 'color:#888; font-size:14px; text-align:center; margin-top:8px; flex-shrink:0;';
     infoDiv.textContent = `📦 ${case_type.toUpperCase()}`;
     overlay.appendChild(infoDiv);
     
     const statusDiv = document.createElement('div');
     statusDiv.id = 'botRouletteStatus';
-    statusDiv.style.cssText = `color:${style.titleColor}; font-size:14px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
+    statusDiv.style.cssText = `color:${style.titleColor}; font-size:16px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
     statusDiv.textContent = '🎰 Открытие...';
     overlay.appendChild(statusDiv);
     
@@ -1556,16 +1555,16 @@ function startBattleAnimation(room_id) {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: '999',
-            padding: '12px 16px',
+            padding: '16px 20px',
             animation: 'fadeIn 0.3s ease'
         });
         
         const title = document.createElement('div');
         Object.assign(title.style, {
-            fontSize: '18px',
+            fontSize: '20px',
             fontWeight: '800',
             color: style.titleColor,
-            marginBottom: '6px',
+            marginBottom: '10px',
             textTransform: 'uppercase',
             letterSpacing: '2px',
             textShadow: `0 0 40px ${style.glowColor}`,
@@ -1576,57 +1575,57 @@ function startBattleAnimation(room_id) {
         overlay.appendChild(title);
         
         const container = document.createElement('div');
-        container.style.cssText = 'display:flex; flex-direction:column; gap:5px; width:100%; max-width:500px; flex:1; justify-content:center;';
+        container.style.cssText = 'display:flex; flex-direction:column; gap:6px; width:100%; max-width:600px; flex:1; justify-content:center;';
         
-        const cardWidth = 75;
-        const cardGap = 4;
-        const totalCards = 35;
-        const winPosition = 20;
+        const cardWidth = 110;
+        const cardGap = 8;
+        const totalCards = 30;
+        const winPosition = 15;
         
-        // Игрок 1 (сверху)
+        // Игрок 1 (сверху) с рамкой
         const p1Wrapper = document.createElement('div');
-        p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0;';
+        p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
         let cards1 = '';
         for (let i = 0; i < totalCards; i++) {
             const p = prizes[Math.floor(Math.random() * prizes.length)];
             const isLarge = p > 1000;
-            const fontSize = isLarge ? '13px' : '17px';
-            cards1 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:65px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:6px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
+            const fontSize = isLarge ? '16px' : '22px';
+            cards1 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:85px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
         }
         p1Wrapper.innerHTML = `
-            <div style="font-size:12px; font-weight:700; color:#ffd700; text-align:center; margin-bottom:2px; flex-shrink:0;">👤 ИГРОК 1</div>
-            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:75px;">
-                <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:5px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+            <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 1</div>
+            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
+                <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                     ${cards1}
                 </div>
-                <div style="position:absolute; top:-3px; left:50%; transform:translateX(-50%); font-size:16px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
+                <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
             </div>
         `;
         container.appendChild(p1Wrapper);
         
         // VS
         const vsDiv = document.createElement('div');
-        vsDiv.style.cssText = 'text-align:center; font-size:18px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:2px 0;';
-        vsDiv.textContent = '⚔️';
+        vsDiv.style.cssText = 'text-align:center; font-size:24px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:3px 0;';
+        vsDiv.textContent = '⚔️ VS';
         container.appendChild(vsDiv);
         
-        // Игрок 2 (снизу)
+        // Игрок 2 (снизу) с рамкой
         const p2Wrapper = document.createElement('div');
-        p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0;';
+        p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
         let cards2 = '';
         for (let i = 0; i < totalCards; i++) {
             const p = prizes[Math.floor(Math.random() * prizes.length)];
             const isLarge = p > 1000;
-            const fontSize = isLarge ? '13px' : '17px';
-            cards2 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:65px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:6px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
+            const fontSize = isLarge ? '16px' : '22px';
+            cards2 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:85px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
         }
         p2Wrapper.innerHTML = `
-            <div style="font-size:12px; font-weight:700; color:#ffd700; text-align:center; margin-bottom:2px; flex-shrink:0;">👤 ИГРОК 2</div>
-            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:75px;">
-                <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:5px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+            <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 2</div>
+            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
+                <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                     ${cards2}
                 </div>
-                <div style="position:absolute; top:-3px; left:50%; transform:translateX(-50%); font-size:16px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
+                <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
             </div>
         `;
         container.appendChild(p2Wrapper);
@@ -1634,13 +1633,13 @@ function startBattleAnimation(room_id) {
         overlay.appendChild(container);
         
         const infoDiv = document.createElement('div');
-        infoDiv.style.cssText = 'color:#888; font-size:12px; text-align:center; margin-top:6px; flex-shrink:0;';
+        infoDiv.style.cssText = 'color:#888; font-size:13px; text-align:center; margin-top:8px; flex-shrink:0;';
         infoDiv.textContent = `📦 ${data.case_type.toUpperCase()}`;
         overlay.appendChild(infoDiv);
         
         const statusDiv = document.createElement('div');
         statusDiv.id = 'battleRouletteStatus';
-        statusDiv.style.cssText = `color:${style.titleColor}; font-size:14px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
+        statusDiv.style.cssText = `color:${style.titleColor}; font-size:15px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
         statusDiv.textContent = '🎰 Открытие...';
         overlay.appendChild(statusDiv);
         
@@ -1697,7 +1696,7 @@ function checkBattleResultWithRoulette(room_id) {
             const track1 = overlay._track1;
             const track2 = overlay._track2;
             const style = overlay._style;
-            const winPos = overlay._winPos || 20;
+            const winPos = overlay._winPos || 15;
             
             if (!track1 || !track2) {
                 showBattleResult(data);
@@ -2142,7 +2141,6 @@ function loadMinesStats() {
 }
 
 // ===== КРАШ =====
-// === ГРАФИК ===
 let crashChartData = [];
 let crashCanvas = null;
 let crashCtx = null;
@@ -2221,6 +2219,17 @@ function drawCrashChart() {
         const progress = Math.min((currentVal / 12) * 100, 100);
         progressEl.style.width = progress + '%';
     }
+    
+    // Потенциальный выигрыш
+    const bet = parseInt(DOM.crashBetDisplay.textContent) || 0;
+    const potentialWin = Math.floor(bet * currentVal * 0.95);
+    const winDisplay = document.getElementById('crashPotentialWin');
+    if (winDisplay) {
+        winDisplay.textContent = potentialWin + '⭐';
+        if (potentialWin > 0) {
+            winDisplay.style.color = potentialWin > bet * 2 ? '#4caf50' : '#ffd700';
+        }
+    }
 }
 
 function updateCrashChart(multiplier) {
@@ -2242,6 +2251,11 @@ function resetCrashChart() {
     const progressEl = document.getElementById('crashProgressBar');
     if (progressEl) {
         progressEl.style.width = '0%';
+    }
+    const winDisplay = document.getElementById('crashPotentialWin');
+    if (winDisplay) {
+        winDisplay.textContent = '0⭐';
+        winDisplay.style.color = '#4caf50';
     }
 }
 
