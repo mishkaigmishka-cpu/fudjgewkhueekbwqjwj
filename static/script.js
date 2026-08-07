@@ -150,8 +150,45 @@ let state = {
     intervals: {}
 };
 
+// ===== ЗАКРЫТИЕ ВСЕХ ОВЕРЛЕЕВ =====
+function closeAllOverlays() {
+    const ids = [
+        'tapeContainer',
+        'resultContainer',
+        'battlePreviewOverlay',
+        'battleRouletteOverlay',
+        'botRouletteOverlay',
+        'battleResultOverlay',
+        'botBattleResultOverlay',
+        'minesResultOverlay',
+        'crashResultOverlay',
+        'result'
+    ];
+    
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    });
+    
+    state.isOpening = false;
+    state.tapeContainer = null;
+    state.crashRunning = false;
+    
+    if (state.crashInterval) {
+        clearInterval(state.crashInterval);
+        state.crashInterval = null;
+    }
+    if (window.opponentInterval) clearInterval(window.opponentInterval);
+    if (window.opponentChecker) clearInterval(window.opponentChecker);
+    if (window.battleResultInterval) clearInterval(window.battleResultInterval);
+    
+    const nav = document.querySelector('nav');
+    if (nav) nav.style.display = 'flex';
+}
+
 // ===== НАВИГАЦИЯ =====
 function showMain() {
+    closeAllOverlays();
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
     document.getElementById('mainScreen').classList.add('active');
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -160,6 +197,7 @@ function showMain() {
 }
 
 function showBattles() {
+    closeAllOverlays();
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
     document.getElementById('battlesScreen').classList.add('active');
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -172,6 +210,7 @@ function showBattles() {
 }
 
 function showMines() {
+    closeAllOverlays();
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
     document.getElementById('minesScreen').classList.add('active');
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -191,6 +230,7 @@ function showMines() {
 }
 
 function showCrash() {
+    closeAllOverlays();
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
     document.getElementById('crashScreen').classList.add('active');
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -200,6 +240,7 @@ function showCrash() {
 }
 
 function showProfile() {
+    closeAllOverlays();
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
     document.getElementById('profileScreen').classList.add('active');
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -208,8 +249,7 @@ function showProfile() {
 }
 
 function goBack() {
-    closeTape();
-    closeResult();
+    closeAllOverlays();
     showMain();
 }
 
@@ -247,7 +287,7 @@ async function fetchRealPrize(type) {
 
 function previewCase(type) {
     if (state.isOpening) return;
-    closeTape();
+    closeAllOverlays();
     showTape(type, 'preview');
 }
 
@@ -255,7 +295,7 @@ function showTape(type, mode = 'preview') {
     const prizes = getPrizes(type);
     const style = getStyle(type);
     const price = getPrice(type);
-    closeTape();
+    closeAllOverlays();
 
     const tapeContainer = document.createElement('div');
     tapeContainer.id = 'tapeContainer';
@@ -461,7 +501,7 @@ function showTape(type, mode = 'preview') {
             transition: 'all 0.2s',
             minWidth: '170px'
         });
-        closeBtn.onclick = closeTape;
+        closeBtn.onclick = () => { closeAllOverlays(); showMain(); };
         btnContainer.appendChild(closeBtn);
         bottomSection.appendChild(btnContainer);
 
@@ -512,7 +552,7 @@ function openCaseDirect(type) {
         fetchRealPrize(type).then(prize => {
             if (prize === null) { state.isOpening = false; return; }
             state.currentPrize = prize;
-            closeTape();
+            closeAllOverlays();
             showTape(type, 'roulette');
             setTimeout(() => startFinalSpin(type), 300);
         });
@@ -528,7 +568,7 @@ function startFinalSpin(type) {
     const track = tapeContainer._track;
     const viewport = tapeContainer._viewport;
     const targetPrize = state.currentPrize;
-    if (targetPrize === null) { tg.showAlert('❌ Ошибка: награда не получена'); closeTape(); return; }
+    if (targetPrize === null) { tg.showAlert('❌ Ошибка: награда не получена'); closeAllOverlays(); return; }
 
     const cardWidth = 130;
     const cardGap = 8;
@@ -670,17 +710,8 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
             textShadow: '0 2px 10px rgba(0,0,0,0.3)',
             minWidth: '160px'
         });
-        againBtn.onmouseover = function() {
-            this.style.transform = 'scale(1.05)';
-            this.style.boxShadow = `0 6px 40px ${style.shadowColor}`;
-        };
-        againBtn.onmouseout = function() {
-            this.style.transform = 'scale(1)';
-            this.style.boxShadow = `0 4px 30px ${style.shadowColor}`;
-        };
         againBtn.onclick = function() {
-            resultContainer.remove();
-            closeTape();
+            closeAllOverlays();
             setTimeout(() => {
                 openCaseDirect(type);
             }, 300);
@@ -700,11 +731,8 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
             transition: 'all 0.2s',
             minWidth: '160px'
         });
-        backBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.15)'; };
-        backBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.08)'; };
         backBtn.onclick = function() {
-            resultContainer.remove();
-            closeTape();
+            closeAllOverlays();
             showMain();
         };
 
@@ -746,25 +774,15 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
 }
 
 function closeTape() {
-    if (state.tapeContainer) {
-        const track = state.tapeContainer.querySelector('#track');
-        if (track) {
-            track.style.animation = 'none';
-            track.style.transition = 'none';
-        }
-        state.tapeContainer.remove();
-        state.tapeContainer = null;
-    }
-    state.isOpening = false;
+    closeAllOverlays();
 }
 
 function closeResult() {
-    const resultDiv = document.getElementById('result');
-    if (resultDiv) resultDiv.style.display = 'none';
+    closeAllOverlays();
 }
 
 function openAgain() {
-    closeResult();
+    closeAllOverlays();
     if (state.lastOpenedCase) {
         setTimeout(() => {
             openCaseDirect(state.lastOpenedCase);
@@ -864,11 +882,9 @@ function checkActiveRoom() {
     apiRequest('/get_user_room').then(data => {
         if (data.room_id) {
             const room = data.room;
-            if (confirm('⚠️ У тебя есть активная комната! Вернуться?')) {
-                showBattlePreview(data.room_id, room.case_type, room.player1, room.player2, false);
-                startListeningForOpponent(data.room_id);
-                startOpponentChecker(data.room_id);
-            }
+            showBattlePreview(data.room_id, room.case_type, room.player1, room.player2, false);
+            startListeningForOpponent(data.room_id);
+            startOpponentChecker(data.room_id);
         }
     });
 }
@@ -933,10 +949,7 @@ function exitWaitingRoom() {
     if (state.currentRoomId) {
         apiRequest('/exit_battle_room', { room_id: state.currentRoomId }).then(() => {
             state.currentRoomId = null;
-            document.getElementById('waitingRoom').style.display = 'none';
-            document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
-            document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
-            document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
+            closeAllOverlays();
             showBattles();
         });
     }
@@ -1001,7 +1014,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     title.textContent = isBot ? '🤖 БИТВА С БОТОМ' : '⚔️ БИТВА КЕЙСОВ';
     overlay.appendChild(title);
     
-    // ИНДИКАТОРЫ ГОТОВНОСТИ
+    // Индикаторы готовности
     const readyIndicator = document.createElement('div');
     readyIndicator.style.cssText = 'display:flex; justify-content:space-between; width:100%; max-width:700px; margin-bottom:8px;';
     readyIndicator.innerHTML = `
@@ -1081,8 +1094,7 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
             const statusEl = document.getElementById('battlePreviewStatus');
             if (statusEl) statusEl.textContent = '🤖 Бот готов! Битва начинается...';
             setTimeout(() => {
-                const overlay = document.getElementById('battlePreviewOverlay');
-                if (overlay) overlay.remove();
+                closeAllOverlays();
                 startBotBattleAnimation(state.selectedBotCase);
             }, 500);
         };
@@ -1106,7 +1118,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     statusDiv.textContent = isBot ? 'Нажми «ГОТОВ», чтобы начать битву с ботом' : 'Нажми «ГОТОВ», чтобы начать битву';
     overlay.appendChild(statusDiv);
     
-    // КНОПКА НАЗАД — ЗАКРЫВАЕТ ВСЁ ЧИСТО
     const backBtn = document.createElement('button');
     backBtn.textContent = '🔙 НАЗАД';
     backBtn.style.cssText = 'padding:12px 30px; border:none; border-radius:12px; background:rgba(255,255,255,0.06); color:#888; font-size:14px; font-weight:600; cursor:pointer; margin-top:6px; transition:all 0.2s;';
@@ -1119,13 +1130,11 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         if (state.currentRoomId) {
             apiRequest('/exit_battle_room', { room_id: state.currentRoomId }).then(() => {
                 state.currentRoomId = null;
-                const overlay = document.getElementById('battlePreviewOverlay');
-                if (overlay) overlay.remove();
+                closeAllOverlays();
                 showBattles();
             });
         } else {
-            const overlay = document.getElementById('battlePreviewOverlay');
-            if (overlay) overlay.remove();
+            closeAllOverlays();
             showBattles();
         }
     };
@@ -1140,8 +1149,7 @@ function sendBattleReady(room_id) {
             tg.showAlert('❌ ' + data.error);
             if (data.error.includes('не в этой комнате') || data.error.includes('не найдена')) {
                 tg.showAlert('❌ Соперник вышел из комнаты!');
-                const overlay = document.getElementById('battlePreviewOverlay');
-                if (overlay) overlay.remove();
+                closeAllOverlays();
                 showBattles();
             }
             const btn = document.getElementById('battleReadyBtn');
@@ -1157,8 +1165,7 @@ function sendBattleReady(room_id) {
             const statusEl = document.getElementById('battlePreviewStatus');
             if (statusEl) statusEl.textContent = '✅ Оба игрока готовы! Битва начинается...';
             setTimeout(() => {
-                const overlay = document.getElementById('battlePreviewOverlay');
-                if (overlay) overlay.remove();
+                closeAllOverlays();
                 startBattleAnimation(room_id);
             }, 1000);
         } else {
@@ -1191,17 +1198,25 @@ function updateReadyStatus(readyStatus) {
     const p2El = document.getElementById('player2Ready');
     const btn = document.getElementById('battleReadyBtn');
     
-    // Получаем имена игроков
-    const p1Name = p1El ? p1El.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '').replace(': ГОТОВ', '') : 'Игрок 1';
-    const p2Name = p2El ? p2El.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '').replace(': ГОТОВ', '') : 'Игрок 2';
+    if (!p1El || !p2El) return;
     
-    if (p1El) {
-        p1El.textContent = readyStatus && readyStatus[0] ? '✅ ' + p1Name + ': ГОТОВ' : '⏳ ' + p1Name + ': ОЖИДАНИЕ...';
-        p1El.style.color = readyStatus && readyStatus[0] ? '#4caf50' : '#888';
+    const p1Name = p1El.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '').replace(': ГОТОВ', '');
+    const p2Name = p2El.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '').replace(': ГОТОВ', '');
+    
+    if (readyStatus && readyStatus[0]) {
+        p1El.textContent = '✅ ' + p1Name + ': ГОТОВ';
+        p1El.style.color = '#4caf50';
+    } else {
+        p1El.textContent = '⏳ ' + p1Name + ': ОЖИДАНИЕ...';
+        p1El.style.color = '#888';
     }
-    if (p2El) {
-        p2El.textContent = readyStatus && readyStatus[1] ? '✅ ' + p2Name + ': ГОТОВ' : '⏳ ' + p2Name + ': ОЖИДАНИЕ...';
-        p2El.style.color = readyStatus && readyStatus[1] ? '#4caf50' : '#888';
+    
+    if (readyStatus && readyStatus[1]) {
+        p2El.textContent = '✅ ' + p2Name + ': ГОТОВ';
+        p2El.style.color = '#4caf50';
+    } else {
+        p2El.textContent = '⏳ ' + p2Name + ': ОЖИДАНИЕ...';
+        p2El.style.color = '#888';
     }
     
     if (readyStatus && readyStatus[0] && readyStatus[1]) {
@@ -1230,8 +1245,7 @@ function startOpponentChecker(room_id) {
             if (data.error || !data.room_exists) {
                 clearInterval(window.opponentChecker);
                 tg.showAlert('❌ Комната была удалена');
-                const overlay = document.getElementById('battlePreviewOverlay');
-                if (overlay) overlay.remove();
+                closeAllOverlays();
                 showBattles();
                 return;
             }
@@ -1239,8 +1253,7 @@ function startOpponentChecker(room_id) {
             if (data.opponent_left) {
                 clearInterval(window.opponentChecker);
                 tg.showAlert('❌ Ваш соперник вышел из комнаты!');
-                const overlay = document.getElementById('battlePreviewOverlay');
-                if (overlay) overlay.remove();
+                closeAllOverlays();
                 showBattles();
                 return;
             }
@@ -1248,8 +1261,7 @@ function startOpponentChecker(room_id) {
             if (data.opponent_joined === false && data.players_count === 1) {
                 clearInterval(window.opponentChecker);
                 tg.showAlert('❌ Ваш соперник вышел из комнаты!');
-                const overlay = document.getElementById('battlePreviewOverlay');
-                if (overlay) overlay.remove();
+                closeAllOverlays();
                 showBattles();
             }
         });
@@ -1313,7 +1325,6 @@ function startBotBattle() {
 function startBotBattleAnimation(case_type) {
     showBotRouletteAnimation(case_type);
     
-    // Анимация треков
     setTimeout(() => {
         const track1 = document.getElementById('botRouletteTrack1');
         const track2 = document.getElementById('botRouletteTrack2');
@@ -1361,85 +1372,91 @@ function showBotRouletteAnimation(case_type) {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: '999',
-        padding: '20px',
+        padding: '12px 16px',
         animation: 'fadeIn 0.3s ease'
     });
     
     const title = document.createElement('div');
     Object.assign(title.style, {
-        fontSize: '22px',
+        fontSize: '18px',
         fontWeight: '800',
         color: style.titleColor,
-        marginBottom: '16px',
+        marginBottom: '8px',
         textTransform: 'uppercase',
-        letterSpacing: '3px',
+        letterSpacing: '2px',
         textShadow: `0 0 40px ${style.glowColor}`,
-        textAlign: 'center'
+        textAlign: 'center',
+        flexShrink: '0'
     });
     title.textContent = `🤖 ${case_type.toUpperCase()} BATTLE`;
     overlay.appendChild(title);
     
-    const playersContainer = document.createElement('div');
-    playersContainer.style.cssText = 'display:flex; gap:20px; justify-content:center; align-items:stretch; width:100%; max-width:700px; margin-bottom:16px;';
+    const container = document.createElement('div');
+    container.style.cssText = 'display:flex; flex-direction:column; gap:6px; width:100%; max-width:500px; flex:1; justify-content:center;';
     
-    const cardWidth = 130;
-    const cardGap = 8;
+    const cardWidth = 80;
+    const cardGap = 5;
+    const totalCards = 35;
+    const winPosition = 20;
     
-    const p1Container = document.createElement('div');
-    p1Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
+    // Игрок (сверху)
+    const p1Wrapper = document.createElement('div');
+    p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0;';
     let cards1 = '';
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < totalCards; i++) {
         const p = prizes[Math.floor(Math.random() * prizes.length)];
         const isLarge = p > 1000;
-        const fontSize = isLarge ? '22px' : '28px';
-        cards1 += `<div class="roulette-card" style="width:${cardWidth}px; height:120px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
+        const fontSize = isLarge ? '14px' : '18px';
+        cards1 += `<div class="roulette-card" style="width:${cardWidth}px; height:70px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:6px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
     }
-    p1Container.innerHTML = `
-        <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 ТЫ</div>
-        <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
-            <div id="botRouletteTrack1" style="display:flex; gap:${cardGap}px; padding:10px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative;">
+    p1Wrapper.innerHTML = `
+        <div style="font-size:12px; font-weight:700; color:#4caf50; text-align:center; margin-bottom:2px; flex-shrink:0;">👤 ИГРОК</div>
+        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:80px;">
+            <div id="botRouletteTrack1" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                 ${cards1}
             </div>
-            <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
+            <div style="position:absolute; top:-3px; left:50%; transform:translateX(-50%); font-size:16px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
         </div>
     `;
-    playersContainer.appendChild(p1Container);
+    container.appendChild(p1Wrapper);
     
+    // VS
     const vsDiv = document.createElement('div');
-    vsDiv.style.cssText = 'display:flex; align-items:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0;';
+    vsDiv.style.cssText = 'text-align:center; font-size:20px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:2px 0;';
     vsDiv.textContent = '🤖';
-    playersContainer.appendChild(vsDiv);
+    container.appendChild(vsDiv);
     
-    const p2Container = document.createElement('div');
-    p2Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
+    // Бот (снизу)
+    const p2Wrapper = document.createElement('div');
+    p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0;';
     let cards2 = '';
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < totalCards; i++) {
         const p = prizes[Math.floor(Math.random() * prizes.length)];
         const isLarge = p > 1000;
-        const fontSize = isLarge ? '22px' : '28px';
-        cards2 += `<div class="roulette-card" style="width:${cardWidth}px; height:120px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
+        const fontSize = isLarge ? '14px' : '18px';
+        cards2 += `<div class="roulette-card" style="width:${cardWidth}px; height:70px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:6px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
     }
-    p2Container.innerHTML = `
-        <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 БОТ</div>
-        <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
-            <div id="botRouletteTrack2" style="display:flex; gap:${cardGap}px; padding:10px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative;">
+    p2Wrapper.innerHTML = `
+        <div style="font-size:12px; font-weight:700; color:#f44336; text-align:center; margin-bottom:2px; flex-shrink:0;">🤖 БОТ</div>
+        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:80px;">
+            <div id="botRouletteTrack2" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                 ${cards2}
             </div>
-            <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
+            <div style="position:absolute; top:-3px; left:50%; transform:translateX(-50%); font-size:16px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
         </div>
     `;
-    playersContainer.appendChild(p2Container);
+    container.appendChild(p2Wrapper);
     
-    overlay.appendChild(playersContainer);
+    overlay.appendChild(container);
     
     const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = 'color:#888; font-size:14px; text-align:center; margin-bottom:10px;';
-    infoDiv.textContent = `📦 Кейс: ${case_type.toUpperCase()}`;
+    infoDiv.style.cssText = 'color:#888; font-size:12px; text-align:center; margin-top:6px; flex-shrink:0;';
+    infoDiv.textContent = `📦 ${case_type.toUpperCase()}`;
     overlay.appendChild(infoDiv);
     
     const statusDiv = document.createElement('div');
     statusDiv.id = 'botRouletteStatus';
-    statusDiv.style.cssText = `color:${style.titleColor}; font-size:16px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px;`;
+    statusDiv.style.cssText = `color:${style.titleColor}; font-size:14px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
     statusDiv.textContent = '🎰 Открытие...';
     overlay.appendChild(statusDiv);
     
@@ -1498,10 +1515,10 @@ function showBotBattleResult(data) {
             ${data.result === 'win' ? `<div style="color:#4caf50; font-size:16px; font-weight:700;">🏆 Ты получил: ${data.winnings}⭐</div>` : ''}
         </div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-            <button onclick="this.closest('div').remove(); showBotBattle();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+            <button onclick="closeAllOverlays(); showBotBattle();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🤖 СНОВА
             </button>
-            <button onclick="this.closest('div').remove(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+            <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔙 НАЗАД
             </button>
         </div>
@@ -1516,7 +1533,6 @@ function startBattleAnimation(room_id) {
     apiRequest('/get_battle_animation_data', { room_id }).then(data => {
         if (data.error) {
             if (data.error.includes('не найдена') || data.error.includes('завершена')) {
-                // Пытаемся получить результат напрямую
                 checkBattleResultDirect();
                 return;
             }
@@ -1540,85 +1556,91 @@ function startBattleAnimation(room_id) {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: '999',
-            padding: '20px',
+            padding: '12px 16px',
             animation: 'fadeIn 0.3s ease'
         });
         
         const title = document.createElement('div');
         Object.assign(title.style, {
-            fontSize: '22px',
+            fontSize: '18px',
             fontWeight: '800',
             color: style.titleColor,
-            marginBottom: '16px',
+            marginBottom: '6px',
             textTransform: 'uppercase',
-            letterSpacing: '3px',
+            letterSpacing: '2px',
             textShadow: `0 0 40px ${style.glowColor}`,
-            textAlign: 'center'
+            textAlign: 'center',
+            flexShrink: '0'
         });
         title.textContent = `⚔️ ${data.case_type.toUpperCase()} BATTLE`;
         overlay.appendChild(title);
         
-        const playersContainer = document.createElement('div');
-        playersContainer.style.cssText = 'display:flex; gap:20px; justify-content:center; align-items:stretch; width:100%; max-width:700px; margin-bottom:16px;';
+        const container = document.createElement('div');
+        container.style.cssText = 'display:flex; flex-direction:column; gap:5px; width:100%; max-width:500px; flex:1; justify-content:center;';
         
-        const cardWidth = 130;
-        const cardGap = 8;
+        const cardWidth = 75;
+        const cardGap = 4;
+        const totalCards = 35;
+        const winPosition = 20;
         
-        const p1Container = document.createElement('div');
-        p1Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
+        // Игрок 1 (сверху)
+        const p1Wrapper = document.createElement('div');
+        p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0;';
         let cards1 = '';
-        for (let i = 0; i < 60; i++) {
+        for (let i = 0; i < totalCards; i++) {
             const p = prizes[Math.floor(Math.random() * prizes.length)];
             const isLarge = p > 1000;
-            const fontSize = isLarge ? '22px' : '28px';
-            cards1 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:120px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
+            const fontSize = isLarge ? '13px' : '17px';
+            cards1 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:65px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:6px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
         }
-        p1Container.innerHTML = `
-            <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 ${data.player1}</div>
-            <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
-                <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:10px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative;">
+        p1Wrapper.innerHTML = `
+            <div style="font-size:12px; font-weight:700; color:#ffd700; text-align:center; margin-bottom:2px; flex-shrink:0;">👤 ИГРОК 1</div>
+            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:75px;">
+                <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:5px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                     ${cards1}
                 </div>
-                <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
+                <div style="position:absolute; top:-3px; left:50%; transform:translateX(-50%); font-size:16px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
             </div>
         `;
-        playersContainer.appendChild(p1Container);
+        container.appendChild(p1Wrapper);
         
+        // VS
         const vsDiv = document.createElement('div');
-        vsDiv.style.cssText = 'display:flex; align-items:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0;';
+        vsDiv.style.cssText = 'text-align:center; font-size:18px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:2px 0;';
         vsDiv.textContent = '⚔️';
-        playersContainer.appendChild(vsDiv);
+        container.appendChild(vsDiv);
         
-        const p2Container = document.createElement('div');
-        p2Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
+        // Игрок 2 (снизу)
+        const p2Wrapper = document.createElement('div');
+        p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0;';
         let cards2 = '';
-        for (let i = 0; i < 60; i++) {
+        for (let i = 0; i < totalCards; i++) {
             const p = prizes[Math.floor(Math.random() * prizes.length)];
             const isLarge = p > 1000;
-            const fontSize = isLarge ? '22px' : '28px';
-            cards2 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:120px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
+            const fontSize = isLarge ? '13px' : '17px';
+            cards2 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:65px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:6px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
         }
-        p2Container.innerHTML = `
-            <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 ${data.player2}</div>
-            <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
-                <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:10px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative;">
+        p2Wrapper.innerHTML = `
+            <div style="font-size:12px; font-weight:700; color:#ffd700; text-align:center; margin-bottom:2px; flex-shrink:0;">👤 ИГРОК 2</div>
+            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:75px;">
+                <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:5px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                     ${cards2}
                 </div>
-                <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
+                <div style="position:absolute; top:-3px; left:50%; transform:translateX(-50%); font-size:16px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
             </div>
         `;
-        playersContainer.appendChild(p2Container);
+        container.appendChild(p2Wrapper);
         
-        overlay.appendChild(playersContainer);
+        overlay.appendChild(container);
         
         const infoDiv = document.createElement('div');
-        infoDiv.style.cssText = 'color:#888; font-size:14px; text-align:center; margin-bottom:10px;';
-        infoDiv.textContent = `📦 Кейс: ${data.case_type.toUpperCase()}`;
+        infoDiv.style.cssText = 'color:#888; font-size:12px; text-align:center; margin-top:6px; flex-shrink:0;';
+        infoDiv.textContent = `📦 ${data.case_type.toUpperCase()}`;
         overlay.appendChild(infoDiv);
         
         const statusDiv = document.createElement('div');
         statusDiv.id = 'battleRouletteStatus';
-        statusDiv.style.cssText = `color:${style.titleColor}; font-size:16px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px;`;
+        statusDiv.style.cssText = `color:${style.titleColor}; font-size:14px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
         statusDiv.textContent = '🎰 Открытие...';
         overlay.appendChild(statusDiv);
         
@@ -1627,8 +1649,23 @@ function startBattleAnimation(room_id) {
         overlay._track1 = document.getElementById('rouletteTrack1');
         overlay._track2 = document.getElementById('rouletteTrack2');
         overlay._style = style;
-        overlay._winPos = 40;
+        overlay._winPos = winPosition;
         overlay._totalCardWidth = cardWidth + cardGap;
+        
+        setTimeout(() => {
+            const viewportWidth = window.innerWidth * 0.85;
+            const centerOffset = viewportWidth / 2;
+            const shift = (winPosition * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+            const noise1 = Math.floor(Math.random() * 30) - 15;
+            const noise2 = Math.floor(Math.random() * 30) - 15;
+            
+            if (overlay._track1) {
+                overlay._track1.style.transform = `translateX(-${shift + noise1}px)`;
+            }
+            if (overlay._track2) {
+                overlay._track2.style.transform = `translateX(-${shift + noise2}px)`;
+            }
+        }, 300);
         
         if (window.battleResultInterval) clearInterval(window.battleResultInterval);
         window.battleResultInterval = setInterval(() => checkBattleResultWithRoulette(room_id), 2000);
@@ -1639,6 +1676,7 @@ function checkBattleResultDirect() {
     apiRequest('/get_battle_result').then(data => {
         if (data.pending) return;
         if (data.result) {
+            closeAllOverlays();
             showBattleResult(data);
         }
     });
@@ -1659,8 +1697,7 @@ function checkBattleResultWithRoulette(room_id) {
             const track1 = overlay._track1;
             const track2 = overlay._track2;
             const style = overlay._style;
-            const winPos = overlay._winPos || 40;
-            const totalCardWidth = overlay._totalCardWidth || 138;
+            const winPos = overlay._winPos || 20;
             
             if (!track1 || !track2) {
                 showBattleResult(data);
@@ -1676,7 +1713,7 @@ function checkBattleResultWithRoulette(room_id) {
                 cards1[winPos].style.border = `2px solid ${style.highlightColor}`;
                 cards1[winPos].style.color = '#FFFFFF';
                 cards1[winPos].style.textShadow = `0 0 30px ${style.highlightColor}`;
-                cards1[winPos].style.fontSize = '24px';
+                cards1[winPos].style.fontSize = '20px';
                 cards1[winPos].classList.add('win');
             }
             
@@ -1686,30 +1723,14 @@ function checkBattleResultWithRoulette(room_id) {
                 cards2[winPos].style.border = `2px solid ${style.highlightColor}`;
                 cards2[winPos].style.color = '#FFFFFF';
                 cards2[winPos].style.textShadow = `0 0 30px ${style.highlightColor}`;
-                cards2[winPos].style.fontSize = '24px';
+                cards2[winPos].style.fontSize = '20px';
                 cards2[winPos].classList.add('win');
-            }
-            
-            const viewportWidth = window.innerWidth * 0.45;
-            const centerOffset = viewportWidth / 2;
-            const shift = (winPos * totalCardWidth) - centerOffset + (totalCardWidth / 2);
-            const noise1 = Math.floor(Math.random() * 40) - 20;
-            const noise2 = Math.floor(Math.random() * 40) - 20;
-            
-            track1.style.transform = `translateX(-${shift + noise1}px)`;
-            track2.style.transform = `translateX(-${shift + noise2}px)`;
-            
-            const statusDiv = document.getElementById('battleRouletteStatus');
-            if (statusDiv) {
-                statusDiv.textContent = '⏳ Результат...';
-                statusDiv.style.color = '#ffd700';
-                statusDiv.style.opacity = '1';
             }
             
             setTimeout(() => {
                 if (overlay.parentNode) overlay.remove();
                 showBattleResult(data);
-            }, 6500);
+            }, 1500);
         }
     });
 }
@@ -1720,6 +1741,9 @@ function showBattleResult(data) {
     document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
     document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
     state.currentRoomId = null;
+    
+    const oldOverlay = document.getElementById('battleResultOverlay');
+    if (oldOverlay) oldOverlay.remove();
     
     const overlay = document.createElement('div');
     overlay.id = 'battleResultOverlay';
@@ -1737,7 +1761,10 @@ function showBattleResult(data) {
         animation: 'fadeIn 0.3s ease'
     });
     
-    if (data.is_draw) {
+    const isWin = data.winner_id == user_id;
+    const isDraw = data.is_draw;
+    
+    if (isDraw) {
         overlay.innerHTML = `
             <div style="font-size:80px; margin-bottom:10px;">🤝</div>
             <div style="font-size:32px; font-weight:800; color:#ffd700; margin-bottom:20px;">НИЧЬЯ!</div>
@@ -1760,16 +1787,15 @@ function showBattleResult(data) {
                 ${data.result_text}
             </div>
             <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="this.closest('div').remove(); showBattles();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); showBattles();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     ⚔️ НОВАЯ БИТВА
                 </button>
-                <button onclick="this.closest('div').remove(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔙 НАЗАД
                 </button>
             </div>
         `;
     } else {
-        const isWin = data.winner_id == user_id;
         const icon = isWin ? '🎉' : '😢';
         const title = isWin ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ...';
         const color = isWin ? '#4caf50' : '#f44336';
@@ -1798,10 +1824,10 @@ function showBattleResult(data) {
                 ${isWin ? `<div style="color:#4caf50; font-size:16px; font-weight:700;">🏆 Ты получил: ${data.winner_winnings}⭐</div>` : ''}
             </div>
             <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="this.closest('div').remove(); showBattles();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); showBattles();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     ⚔️ НОВАЯ БИТВА
                 </button>
-                <button onclick="this.closest('div').remove(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔙 НАЗАД
                 </button>
             </div>
@@ -1812,7 +1838,7 @@ function showBattleResult(data) {
     loadBattleData();
 }
 
-// ===================== МИНЁР =====================
+// ===== МИНЁР =====
 function initMinesBoard() {
     const board = DOM.minesBoard;
     board.innerHTML = '';
@@ -2065,10 +2091,10 @@ function showMinesResult(icon, title, text, color) {
         ${boardHTML}
         <div style="color:#666; font-size:13px; margin-bottom:16px;">💣 — мины | 💎 — безопасные клетки</div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-            <button onclick="this.closest('div').remove(); startMinesGame();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+            <button onclick="closeAllOverlays(); startMinesGame();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔄 ИГРАТЬ СНОВА
             </button>
-            <button onclick="this.closest('div').remove(); showMines();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+            <button onclick="closeAllOverlays(); showMines();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔙 НАЗАД
             </button>
         </div>
@@ -2115,7 +2141,110 @@ function loadMinesStats() {
     });
 }
 
-// ===================== КРАШ =====================
+// ===== КРАШ =====
+// === ГРАФИК ===
+let crashChartData = [];
+let crashCanvas = null;
+let crashCtx = null;
+
+function initCrashChart() {
+    crashCanvas = document.getElementById('crashCanvas');
+    if (!crashCanvas) return;
+    crashCtx = crashCanvas.getContext('2d');
+    crashChartData = [];
+    drawCrashChart();
+}
+
+function drawCrashChart() {
+    if (!crashCtx) return;
+    const w = crashCanvas.width;
+    const h = crashCanvas.height;
+    
+    crashCtx.clearRect(0, 0, w, h);
+    
+    if (crashChartData.length < 2) {
+        crashCtx.fillStyle = 'rgba(255,255,255,0.05)';
+        crashCtx.font = '14px sans-serif';
+        crashCtx.textAlign = 'center';
+        crashCtx.fillText('Ожидание игры...', w/2, h/2 + 5);
+        return;
+    }
+    
+    const maxVal = Math.max(...crashChartData, 1);
+    const scaleY = (h - 20) / (maxVal * 1.2);
+    const scaleX = (w - 20) / (crashChartData.length - 1);
+    
+    crashCtx.beginPath();
+    crashCtx.strokeStyle = '#b388ff';
+    crashCtx.lineWidth = 2.5;
+    crashCtx.shadowColor = 'rgba(179,136,255,0.3)';
+    crashCtx.shadowBlur = 10;
+    
+    crashChartData.forEach((val, i) => {
+        const x = 10 + i * scaleX;
+        const y = h - 10 - (val * scaleY);
+        if (i === 0) {
+            crashCtx.moveTo(x, y);
+        } else {
+            crashCtx.lineTo(x, y);
+        }
+    });
+    crashCtx.stroke();
+    
+    const lastX = 10 + (crashChartData.length - 1) * scaleX;
+    const lastY = h - 10 - (crashChartData[crashChartData.length - 1] * scaleY);
+    crashCtx.lineTo(lastX, h - 10);
+    crashCtx.lineTo(10, h - 10);
+    crashCtx.closePath();
+    crashCtx.fillStyle = 'rgba(179,136,255,0.08)';
+    crashCtx.fill();
+    
+    const currentVal = crashChartData[crashChartData.length - 1] || 1.00;
+    const color = currentVal < 2 ? '#4caf50' : currentVal < 5 ? '#ffd700' : currentVal < 8 ? '#ff9800' : '#f44336';
+    
+    crashCtx.beginPath();
+    crashCtx.arc(lastX, lastY, 5, 0, Math.PI * 2);
+    crashCtx.fillStyle = color;
+    crashCtx.shadowColor = color;
+    crashCtx.shadowBlur = 15;
+    crashCtx.fill();
+    crashCtx.shadowBlur = 0;
+    
+    const multiplierEl = document.getElementById('crashMultiplier');
+    if (multiplierEl) {
+        multiplierEl.textContent = `x${currentVal.toFixed(2)}`;
+        multiplierEl.style.color = color;
+    }
+    
+    const progressEl = document.getElementById('crashProgressBar');
+    if (progressEl) {
+        const progress = Math.min((currentVal / 12) * 100, 100);
+        progressEl.style.width = progress + '%';
+    }
+}
+
+function updateCrashChart(multiplier) {
+    crashChartData.push(multiplier);
+    if (crashChartData.length > 200) {
+        crashChartData.shift();
+    }
+    drawCrashChart();
+}
+
+function resetCrashChart() {
+    crashChartData = [];
+    drawCrashChart();
+    const multiplierEl = document.getElementById('crashMultiplier');
+    if (multiplierEl) {
+        multiplierEl.textContent = 'x1.00';
+        multiplierEl.style.color = '#b388ff';
+    }
+    const progressEl = document.getElementById('crashProgressBar');
+    if (progressEl) {
+        progressEl.style.width = '0%';
+    }
+}
+
 function resetCrashUI() {
     DOM.crashMultiplier.textContent = 'x1.00';
     DOM.crashMultiplier.className = '';
@@ -2133,12 +2262,13 @@ function resetCrashUI() {
         clearInterval(state.crashInterval);
         state.crashInterval = null;
     }
+    resetCrashChart();
 }
 
 function getCrashBet() {
     const input = DOM.crashBetInput;
     let val = parseInt(input.value);
-    if (isNaN(val) || val < 2) val = 2;
+    if (isNaN(val) || val < 1) val = 1;
     if (val > 1000) val = 1000;
     input.value = val;
     return val;
@@ -2146,7 +2276,7 @@ function getCrashBet() {
 
 DOM.crashBetInput.addEventListener('change', function() {
     let val = parseInt(this.value);
-    if (isNaN(val) || val < 2) val = 2;
+    if (isNaN(val) || val < 1) val = 1;
     if (val > 1000) val = 1000;
     this.value = val;
 });
@@ -2171,6 +2301,8 @@ function startCrashGame() {
             state.crashGameId = gameData.game_id;
             state.crashRunning = true;
             
+            resetCrashChart();
+            
             DOM.crashStartBtn.disabled = true;
             DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
             DOM.crashCashoutBtn.style.display = 'inline-block';
@@ -2192,7 +2324,9 @@ function startCrashGame() {
                     
                     const elapsed = (Date.now() - startTime) / 1000;
                     DOM.crashTimer.textContent = `⏱ ${elapsed.toFixed(1)} сек`;
-                    DOM.crashMultiplier.textContent = `x${status.multiplier}`;
+                    
+                    updateCrashChart(status.multiplier);
+                    
                     DOM.crashMultiplierDisplay.textContent = `x${status.multiplier}`;
                     
                     if (status.crashed) {
@@ -2264,10 +2398,10 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="font-size:28px; font-weight:700; color:#ffd700;">${winnings}⭐</div>
             <div style="color:#aaa; font-size:16px; margin-top:4px;">Множитель: x${multiplier}</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="this.closest('div').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔄 ИГРАТЬ СНОВА
                 </button>
-                <button onclick="this.closest('div').remove(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔙 НАЗАД
                 </button>
             </div>
@@ -2279,10 +2413,10 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="color:#aaa; font-size:16px;">Множитель: x${multiplier}</div>
             <div style="color:#888; font-size:14px; margin-top:4px;">Ты потерял ставку</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="this.closest('div').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #ff6b6b, #ee5a24); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #ff6b6b, #ee5a24); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔄 ИГРАТЬ СНОВА
                 </button>
-                <button onclick="this.closest('div').remove(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔙 НАЗАД
                 </button>
             </div>
@@ -2301,7 +2435,7 @@ function loadCrashStats() {
     });
 }
 
-// ===================== ПРОФИЛЬ =====================
+// ===== ПРОФИЛЬ =====
 function showInvite() {
     document.querySelector('.profile-card').style.display = 'none';
     document.getElementById('inviteSection').style.display = 'block';
@@ -2340,4 +2474,5 @@ initMinesBoard();
 loadBalance();
 loadMinesStats();
 loadCrashStats();
+initCrashChart();
 tg.ready();
