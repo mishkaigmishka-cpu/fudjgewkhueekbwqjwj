@@ -1,6 +1,6 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v6.0
-// ПОЛНАЯ ВЕРСИЯ
+// RANDEVU — FINAL SCRIPT v7.0
+// ВСЕ ИСПРАВЛЕНИЯ ВНЕСЕНЫ
 // ===============================
 
 const tg = window.Telegram.WebApp;
@@ -419,7 +419,8 @@ function showTape(type, mode = 'preview') {
         top: mode === 'preview' ? '15px' : '10px'
     });
 
-    const repeats = mode === 'preview' ? 4 : 60;
+    // ===== ИСПРАВЛЕНИЕ 5: ВСЕ НАГРАДЫ В ПРЕДПРОСМОТРЕ =====
+    const repeats = mode === 'preview' ? 10 : 60;
     const winPosition = 40;
     let cards = [];
     for (let i = 0; i < repeats; i++) {
@@ -1369,23 +1370,9 @@ function startBotBattle() {
     });
 }
 
+// ===== ИСПРАВЛЕНИЕ 3: АНИМАЦИЯ С БОТОМ — ПРАВИЛЬНЫЕ НАГРАДЫ =====
 function startBotBattleAnimation(case_type) {
     showBotRouletteAnimation(case_type);
-    
-    setTimeout(() => {
-        const track1 = document.getElementById('botRouletteTrack1');
-        const track2 = document.getElementById('botRouletteTrack2');
-        if (track1) {
-            const shift1 = Math.floor(Math.random() * 2000) + 1000;
-            track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
-            track1.style.transform = `translateX(-${shift1}px)`;
-        }
-        if (track2) {
-            const shift2 = Math.floor(Math.random() * 2000) + 1000;
-            track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
-            track2.style.transform = `translateX(-${shift2}px)`;
-        }
-    }, 300);
     
     apiRequest('/start_bot_battle', { case_type }).then(data => {
         if (data.error) {
@@ -1394,11 +1381,37 @@ function startBotBattleAnimation(case_type) {
             if (overlay) overlay.remove();
             return;
         }
+        
+        setTimeout(() => {
+            const track1 = document.getElementById('botRouletteTrack1');
+            const track2 = document.getElementById('botRouletteTrack2');
+            const overlay = document.getElementById('botRouletteOverlay');
+            
+            if (track1 && track2 && overlay) {
+                const cardWidth = 120;
+                const cardGap = 8;
+                const winPosition = 15;
+                const viewportWidth = window.innerWidth * 0.85;
+                const centerOffset = viewportWidth / 2;
+                const shift = (winPosition * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+                
+                track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+                track1.style.transform = `translateX(-${shift}px)`;
+                track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+                track2.style.transform = `translateX(-${shift}px)`;
+                
+                overlay._winPosition = winPosition;
+                overlay._cardWidth = cardWidth;
+                overlay._cardGap = cardGap;
+                overlay._data = data;
+            }
+        }, 500);
+        
         setTimeout(() => {
             const overlay = document.getElementById('botRouletteOverlay');
             if (overlay) overlay.remove();
             showBotBattleResult(data);
-        }, 6500);
+        }, 7000);
     });
 }
 
@@ -1584,133 +1597,150 @@ function startBattleAnimation(room_id) {
             return;
         }
         
-        const style = getStyle(data.case_type);
-        const prizes = getPrizes(data.case_type);
-        
-        const overlay = document.createElement('div');
-        overlay.id = 'battleRouletteOverlay';
-        Object.assign(overlay.style, {
-            position: 'fixed',
-            top: '0', left: '0', right: '0', bottom: '0',
-            background: style.bg,
-            backgroundImage: style.bgGradient,
-            backdropFilter: 'blur(30px)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: '999',
-            padding: '16px 20px',
-            animation: 'fadeIn 0.3s ease'
-        });
-        
-        const title = document.createElement('div');
-        Object.assign(title.style, {
-            fontSize: '20px',
-            fontWeight: '800',
-            color: style.titleColor,
-            marginBottom: '10px',
-            textTransform: 'uppercase',
-            letterSpacing: '2px',
-            textShadow: `0 0 40px ${style.glowColor}`,
-            textAlign: 'center',
-            flexShrink: '0'
-        });
-        title.textContent = `⚔️ ${data.case_type.toUpperCase()} BATTLE`;
-        overlay.appendChild(title);
-        
-        const container = document.createElement('div');
-        container.style.cssText = 'display:flex; flex-direction:column; gap:6px; width:100%; max-width:600px; flex:1; justify-content:center;';
-        
-        const cardWidth = 110;
-        const cardGap = 8;
-        const totalCards = 30;
-        const winPosition = 15;
-        
-        const p1Wrapper = document.createElement('div');
-        p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
-        let cards1 = '';
-        for (let i = 0; i < totalCards; i++) {
-            const p = prizes[Math.floor(Math.random() * prizes.length)];
-            const isLarge = p > 1000;
-            const fontSize = isLarge ? '16px' : '22px';
-            cards1 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:85px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
-        }
-        p1Wrapper.innerHTML = `
-            <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 1</div>
-            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
-                <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
-                    ${cards1}
-                </div>
-                <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
-            </div>
-        `;
-        container.appendChild(p1Wrapper);
-        
-        const vsDiv = document.createElement('div');
-        vsDiv.style.cssText = 'text-align:center; font-size:24px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:3px 0;';
-        vsDiv.textContent = '⚔️ VS';
-        container.appendChild(vsDiv);
-        
-        const p2Wrapper = document.createElement('div');
-        p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
-        let cards2 = '';
-        for (let i = 0; i < totalCards; i++) {
-            const p = prizes[Math.floor(Math.random() * prizes.length)];
-            const isLarge = p > 1000;
-            const fontSize = isLarge ? '16px' : '22px';
-            cards2 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:85px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
-        }
-        p2Wrapper.innerHTML = `
-            <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 2</div>
-            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
-                <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
-                    ${cards2}
-                </div>
-                <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
-            </div>
-        `;
-        container.appendChild(p2Wrapper);
-        
-        overlay.appendChild(container);
-        
-        const infoDiv = document.createElement('div');
-        infoDiv.style.cssText = 'color:#888; font-size:13px; text-align:center; margin-top:8px; flex-shrink:0;';
-        infoDiv.textContent = `📦 ${data.case_type.toUpperCase()}`;
-        overlay.appendChild(infoDiv);
-        
-        const statusDiv = document.createElement('div');
-        statusDiv.id = 'battleRouletteStatus';
-        statusDiv.style.cssText = `color:${style.titleColor}; font-size:15px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
-        statusDiv.textContent = '🎰 Открытие...';
-        overlay.appendChild(statusDiv);
-        
-        document.body.appendChild(overlay);
-        
-        overlay._track1 = document.getElementById('rouletteTrack1');
-        overlay._track2 = document.getElementById('rouletteTrack2');
-        overlay._style = style;
-        overlay._winPos = winPosition;
-        overlay._totalCardWidth = cardWidth + cardGap;
-        
-        setTimeout(() => {
-            const viewportWidth = window.innerWidth * 0.85;
-            const centerOffset = viewportWidth / 2;
-            const shift = (winPosition * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
-            const noise1 = Math.floor(Math.random() * 30) - 15;
-            const noise2 = Math.floor(Math.random() * 30) - 15;
-            
-            if (overlay._track1) {
-                overlay._track1.style.transform = `translateX(-${shift + noise1}px)`;
-            }
-            if (overlay._track2) {
-                overlay._track2.style.transform = `translateX(-${shift + noise2}px)`;
-            }
-        }, 300);
+        showPvpRouletteAnimation(data);
         
         if (window.battleResultInterval) clearInterval(window.battleResultInterval);
-        window.battleResultInterval = setInterval(() => checkBattleResultWithRoulette(room_id), 2000);
+        window.battleResultInterval = setInterval(() => {
+            apiRequest('/get_battle_result').then(res => {
+                if (res.pending) return;
+                if (res.result) {
+                    clearInterval(window.battleResultInterval);
+                    setTimeout(() => {
+                        const overlay = document.getElementById('battleRouletteOverlay');
+                        if (overlay) overlay.remove();
+                        showBattleResult(res);
+                    }, 1500);
+                }
+            });
+        }, 1000);
     });
+}
+
+// ===== ИСПРАВЛЕНИЕ 4: PVP — НОВАЯ АНИМАЦИЯ =====
+function showPvpRouletteAnimation(data) {
+    const style = getStyle(data.case_type);
+    const prizes = getPrizes(data.case_type);
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'battleRouletteOverlay';
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: style.bg,
+        backgroundImage: style.bgGradient,
+        backdropFilter: 'blur(30px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '999',
+        padding: '16px 20px',
+        animation: 'fadeIn 0.3s ease'
+    });
+    
+    const title = document.createElement('div');
+    Object.assign(title.style, {
+        fontSize: '20px',
+        fontWeight: '800',
+        color: style.titleColor,
+        marginBottom: '10px',
+        textTransform: 'uppercase',
+        letterSpacing: '2px',
+        textShadow: `0 0 40px ${style.glowColor}`,
+        textAlign: 'center',
+        flexShrink: '0'
+    });
+    title.textContent = `⚔️ ${data.case_type.toUpperCase()} BATTLE`;
+    overlay.appendChild(title);
+    
+    const container = document.createElement('div');
+    container.style.cssText = 'display:flex; flex-direction:column; gap:6px; width:100%; max-width:600px; flex:1; justify-content:center;';
+    
+    const cardWidth = 110;
+    const cardGap = 8;
+    const totalCards = 30;
+    const winPosition = 15;
+    
+    const p1Wrapper = document.createElement('div');
+    p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
+    let cards1 = '';
+    for (let i = 0; i < totalCards; i++) {
+        const p = prizes[Math.floor(Math.random() * prizes.length)];
+        const isLarge = p > 1000;
+        const fontSize = isLarge ? '16px' : '22px';
+        cards1 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:85px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
+    }
+    p1Wrapper.innerHTML = `
+        <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 1</div>
+        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
+            <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+                ${cards1}
+            </div>
+            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
+        </div>
+    `;
+    container.appendChild(p1Wrapper);
+    
+    const vsDiv = document.createElement('div');
+    vsDiv.style.cssText = 'text-align:center; font-size:24px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:3px 0;';
+    vsDiv.textContent = '⚔️ VS';
+    container.appendChild(vsDiv);
+    
+    const p2Wrapper = document.createElement('div');
+    p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
+    let cards2 = '';
+    for (let i = 0; i < totalCards; i++) {
+        const p = prizes[Math.floor(Math.random() * prizes.length)];
+        const isLarge = p > 1000;
+        const fontSize = isLarge ? '16px' : '22px';
+        cards2 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:85px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
+    }
+    p2Wrapper.innerHTML = `
+        <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 2</div>
+        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
+            <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 6s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+                ${cards2}
+            </div>
+            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
+        </div>
+    `;
+    container.appendChild(p2Wrapper);
+    
+    overlay.appendChild(container);
+    
+    const infoDiv = document.createElement('div');
+    infoDiv.style.cssText = 'color:#888; font-size:13px; text-align:center; margin-top:8px; flex-shrink:0;';
+    infoDiv.textContent = `📦 ${data.case_type.toUpperCase()}`;
+    overlay.appendChild(infoDiv);
+    
+    const statusDiv = document.createElement('div');
+    statusDiv.id = 'battleRouletteStatus';
+    statusDiv.style.cssText = `color:${style.titleColor}; font-size:15px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
+    statusDiv.textContent = '🎰 Открытие...';
+    overlay.appendChild(statusDiv);
+    
+    document.body.appendChild(overlay);
+    
+    overlay._track1 = document.getElementById('rouletteTrack1');
+    overlay._track2 = document.getElementById('rouletteTrack2');
+    overlay._style = style;
+    overlay._winPos = winPosition;
+    overlay._totalCardWidth = cardWidth + cardGap;
+    
+    setTimeout(() => {
+        const viewportWidth = window.innerWidth * 0.85;
+        const centerOffset = viewportWidth / 2;
+        const shift = (winPosition * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+        const noise1 = Math.floor(Math.random() * 30) - 15;
+        const noise2 = Math.floor(Math.random() * 30) - 15;
+        
+        if (overlay._track1) {
+            overlay._track1.style.transform = `translateX(-${shift + noise1}px)`;
+        }
+        if (overlay._track2) {
+            overlay._track2.style.transform = `translateX(-${shift + noise2}px)`;
+        }
+    }, 300);
 }
 
 function checkBattleResultDirect() {
@@ -2558,6 +2588,7 @@ function submitWithdraw() {
     });
 }
 
+// ===== КРАШ — АВТОМАТИЧЕСКИЙ ОПРОС =====
 function startCrashPolling() {
     if (state.crashPollingInterval) clearInterval(state.crashPollingInterval);
     
