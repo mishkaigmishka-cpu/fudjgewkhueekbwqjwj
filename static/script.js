@@ -180,7 +180,8 @@ let state = {
     crashRunning: false,
     crashInterval: null,
     crashPollingInterval: null,
-    intervals: {}
+    intervals: {},
+    _crashStartTime: null
 };
 
 // ===== ЗАКРЫТИЕ ВСЕХ ОВЕРЛЕЕВ =====
@@ -330,6 +331,7 @@ function previewCase(type) {
     showTape(type, 'preview');
 }
 
+// ===== ИСПРАВЛЕНИЕ: ВСЕ НАГРАДЫ В ПРЕДПРОСМОТРЕ =====
 function showTape(type, mode = 'preview') {
     const prizes = getPrizes(type);
     const style = getStyle(type);
@@ -419,8 +421,7 @@ function showTape(type, mode = 'preview') {
         top: mode === 'preview' ? '15px' : '10px'
     });
 
-    // ===== ИСПРАВЛЕНИЕ 5: ВСЕ НАГРАДЫ В ПРЕДПРОСМОТРЕ =====
-    const repeats = mode === 'preview' ? 10 : 60;
+    const repeats = mode === 'preview' ? 20 : 60;
     const winPosition = 40;
     let cards = [];
     for (let i = 0; i < repeats; i++) {
@@ -1214,7 +1215,7 @@ function sendBattleReady(room_id) {
             if (statusEl) statusEl.textContent = '✅ Оба игрока готовы! Битва начинается...';
             setTimeout(() => {
                 closeAllOverlays();
-                startBattleAnimation(room_id);
+                startPvpBattle(room_id);
             }, 1000);
         } else {
             const statusEl = document.getElementById('battlePreviewStatus');
@@ -1370,7 +1371,7 @@ function startBotBattle() {
     });
 }
 
-// ===== ИСПРАВЛЕНИЕ 3: АНИМАЦИЯ С БОТОМ — ПРАВИЛЬНЫЕ НАГРАДЫ =====
+// ===== ИСПРАВЛЕНИЕ: БИТВА С БОТОМ — СИНХРОНИЗАЦИЯ =====
 function startBotBattleAnimation(case_type) {
     showBotRouletteAnimation(case_type);
     
@@ -1382,35 +1383,69 @@ function startBotBattleAnimation(case_type) {
             return;
         }
         
+        const playerPrize = data.player_prize;
+        const botPrize = data.bot_prize;
+        
         setTimeout(() => {
             const track1 = document.getElementById('botRouletteTrack1');
             const track2 = document.getElementById('botRouletteTrack2');
             const overlay = document.getElementById('botRouletteOverlay');
             
             if (track1 && track2 && overlay) {
+                const prizes = CONFIG.CASE_PRIZES[case_type] || [1,10,100];
+                const pos1 = prizes.indexOf(playerPrize);
+                const pos2 = prizes.indexOf(botPrize);
+                const winPos1 = pos1 !== -1 ? pos1 : 15;
+                const winPos2 = pos2 !== -1 ? pos2 : 15;
+                
                 const cardWidth = 120;
                 const cardGap = 8;
-                const winPosition = 15;
                 const viewportWidth = window.innerWidth * 0.85;
                 const centerOffset = viewportWidth / 2;
-                const shift = (winPosition * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+                
+                const shift1 = (winPos1 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+                const shift2 = (winPos2 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
                 
                 track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
-                track1.style.transform = `translateX(-${shift}px)`;
+                track1.style.transform = `translateX(-${shift1}px)`;
                 track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
-                track2.style.transform = `translateX(-${shift}px)`;
+                track2.style.transform = `translateX(-${shift2}px)`;
                 
-                overlay._winPosition = winPosition;
-                overlay._cardWidth = cardWidth;
-                overlay._cardGap = cardGap;
+                overlay._winPos1 = winPos1;
+                overlay._winPos2 = winPos2;
+                overlay._playerPrize = playerPrize;
+                overlay._botPrize = botPrize;
                 overlay._data = data;
             }
         }, 500);
         
         setTimeout(() => {
             const overlay = document.getElementById('botRouletteOverlay');
-            if (overlay) overlay.remove();
-            showBotBattleResult(data);
+            if (overlay) {
+                const track1 = document.getElementById('botRouletteTrack1');
+                const track2 = document.getElementById('botRouletteTrack2');
+                if (track1 && track2) {
+                    const cards1 = track1.querySelectorAll('.roulette-card');
+                    const cards2 = track2.querySelectorAll('.roulette-card');
+                    const winPos1 = overlay._winPos1 || 15;
+                    const winPos2 = overlay._winPos2 || 15;
+                    
+                    if (cards1[winPos1]) {
+                        cards1[winPos1].textContent = `${overlay._playerPrize || data.player_prize}⭐`;
+                        cards1[winPos1].classList.add('win');
+                    }
+                    if (cards2[winPos2]) {
+                        cards2[winPos2].textContent = `${overlay._botPrize || data.bot_prize}⭐`;
+                        cards2[winPos2].classList.add('win');
+                    }
+                }
+                setTimeout(() => {
+                    overlay.remove();
+                    showBotBattleResult(overlay._data || data);
+                }, 1500);
+            } else {
+                showBotBattleResult(data);
+            }
         }, 7000);
     });
 }
@@ -1456,8 +1491,7 @@ function showBotRouletteAnimation(case_type) {
     
     const cardWidth = 120;
     const cardGap = 8;
-    const totalCards = 30;
-    const winPosition = 15;
+    const totalCards = 60;
     
     const p1Wrapper = document.createElement('div');
     p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(76,175,80,0.3); border-radius:12px; padding:6px; background:rgba(76,175,80,0.05);';
@@ -1585,8 +1619,8 @@ function showBotBattleResult(data) {
     loadBattleData();
 }
 
-// ===== АНИМАЦИЯ БИТВЫ =====
-function startBattleAnimation(room_id) {
+// ===== PVP — ПОЛНАЯ ПЕРЕПИСЬ =====
+function startPvpBattle(room_id) {
     apiRequest('/get_battle_animation_data', { room_id }).then(data => {
         if (data.error) {
             if (data.error.includes('не найдена') || data.error.includes('завершена')) {
@@ -1605,18 +1639,58 @@ function startBattleAnimation(room_id) {
                 if (res.pending) return;
                 if (res.result) {
                     clearInterval(window.battleResultInterval);
-                    setTimeout(() => {
-                        const overlay = document.getElementById('battleRouletteOverlay');
-                        if (overlay) overlay.remove();
+                    
+                    const overlay = document.getElementById('battleRouletteOverlay');
+                    if (overlay) {
+                        const track1 = document.getElementById('rouletteTrack1');
+                        const track2 = document.getElementById('rouletteTrack2');
+                        const prizes = CONFIG.CASE_PRIZES[data.case_type] || [1,10,100];
+                        const pos1 = prizes.indexOf(res.player1_prize);
+                        const pos2 = prizes.indexOf(res.player2_prize);
+                        const winPos1 = pos1 !== -1 ? pos1 : 15;
+                        const winPos2 = pos2 !== -1 ? pos2 : 15;
+                        
+                        if (track1 && track2) {
+                            const cardWidth = 110;
+                            const cardGap = 8;
+                            const viewportWidth = window.innerWidth * 0.85;
+                            const centerOffset = viewportWidth / 2;
+                            
+                            const shift1 = (winPos1 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+                            const shift2 = (winPos2 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+                            
+                            track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+                            track1.style.transform = `translateX(-${shift1}px)`;
+                            track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+                            track2.style.transform = `translateX(-${shift2}px)`;
+                            
+                            setTimeout(() => {
+                                const cards1 = track1.querySelectorAll('.roulette-card');
+                                const cards2 = track2.querySelectorAll('.roulette-card');
+                                if (cards1[winPos1]) {
+                                    cards1[winPos1].textContent = `${res.player1_prize}⭐`;
+                                    cards1[winPos1].classList.add('win');
+                                }
+                                if (cards2[winPos2]) {
+                                    cards2[winPos2].textContent = `${res.player2_prize}⭐`;
+                                    cards2[winPos2].classList.add('win');
+                                }
+                            }, 100);
+                        }
+                        
+                        setTimeout(() => {
+                            overlay.remove();
+                            showBattleResult(res);
+                        }, 6500);
+                    } else {
                         showBattleResult(res);
-                    }, 1500);
+                    }
                 }
             });
-        }, 1000);
+        }, 500);
     });
 }
 
-// ===== ИСПРАВЛЕНИЕ 4: PVP — НОВАЯ АНИМАЦИЯ =====
 function showPvpRouletteAnimation(data) {
     const style = getStyle(data.case_type);
     const prizes = getPrizes(data.case_type);
@@ -1658,8 +1732,7 @@ function showPvpRouletteAnimation(data) {
     
     const cardWidth = 110;
     const cardGap = 8;
-    const totalCards = 30;
-    const winPosition = 15;
+    const totalCards = 60;
     
     const p1Wrapper = document.createElement('div');
     p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
@@ -1720,27 +1793,6 @@ function showPvpRouletteAnimation(data) {
     overlay.appendChild(statusDiv);
     
     document.body.appendChild(overlay);
-    
-    overlay._track1 = document.getElementById('rouletteTrack1');
-    overlay._track2 = document.getElementById('rouletteTrack2');
-    overlay._style = style;
-    overlay._winPos = winPosition;
-    overlay._totalCardWidth = cardWidth + cardGap;
-    
-    setTimeout(() => {
-        const viewportWidth = window.innerWidth * 0.85;
-        const centerOffset = viewportWidth / 2;
-        const shift = (winPosition * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
-        const noise1 = Math.floor(Math.random() * 30) - 15;
-        const noise2 = Math.floor(Math.random() * 30) - 15;
-        
-        if (overlay._track1) {
-            overlay._track1.style.transform = `translateX(-${shift + noise1}px)`;
-        }
-        if (overlay._track2) {
-            overlay._track2.style.transform = `translateX(-${shift + noise2}px)`;
-        }
-    }, 300);
 }
 
 function checkBattleResultDirect() {
@@ -1749,59 +1801,6 @@ function checkBattleResultDirect() {
         if (data.result) {
             closeAllOverlays();
             showBattleResult(data);
-        }
-    });
-}
-
-function checkBattleResultWithRoulette(room_id) {
-    apiRequest('/get_battle_result').then(data => {
-        if (data.pending) return;
-        if (data.result) {
-            if (window.battleResultInterval) clearInterval(window.battleResultInterval);
-            
-            const overlay = document.getElementById('battleRouletteOverlay');
-            if (!overlay) {
-                showBattleResult(data);
-                return;
-            }
-            
-            const track1 = overlay._track1;
-            const track2 = overlay._track2;
-            const style = overlay._style;
-            const winPos = overlay._winPos || 15;
-            
-            if (!track1 || !track2) {
-                showBattleResult(data);
-                return;
-            }
-            
-            const cards1 = track1.querySelectorAll('.roulette-card');
-            const cards2 = track2.querySelectorAll('.roulette-card');
-            
-            if (cards1[winPos]) {
-                cards1[winPos].textContent = `${data.player1_prize}⭐`;
-                cards1[winPos].style.background = 'rgba(255,215,0,0.15)';
-                cards1[winPos].style.border = `2px solid ${style.highlightColor}`;
-                cards1[winPos].style.color = '#FFFFFF';
-                cards1[winPos].style.textShadow = `0 0 30px ${style.highlightColor}`;
-                cards1[winPos].style.fontSize = '20px';
-                cards1[winPos].classList.add('win');
-            }
-            
-            if (cards2[winPos]) {
-                cards2[winPos].textContent = `${data.player2_prize}⭐`;
-                cards2[winPos].style.background = 'rgba(255,215,0,0.15)';
-                cards2[winPos].style.border = `2px solid ${style.highlightColor}`;
-                cards2[winPos].style.color = '#FFFFFF';
-                cards2[winPos].style.textShadow = `0 0 30px ${style.highlightColor}`;
-                cards2[winPos].style.fontSize = '20px';
-                cards2[winPos].classList.add('win');
-            }
-            
-            setTimeout(() => {
-                if (overlay.parentNode) overlay.remove();
-                showBattleResult(data);
-            }, 1500);
         }
     });
 }
@@ -2366,6 +2365,66 @@ DOM.crashBetInput.addEventListener('change', function() {
     this.value = val;
 });
 
+// ===== КРАШ — АВТОМАТИЧЕСКИЙ ОПРОС =====
+function startCrashPolling() {
+    if (state.crashPollingInterval) clearInterval(state.crashPollingInterval);
+    
+    state.crashPollingInterval = setInterval(() => {
+        apiRequest('/crash_status', {}).then(status => {
+            if (status.error) {
+                return;
+            }
+            
+            const multiplier = status.multiplier || 1.00;
+            DOM.crashMultiplier.textContent = `x${multiplier}`;
+            DOM.crashMultiplierDisplay.textContent = `x${multiplier}`;
+            
+            updateCrashChart(multiplier);
+            
+            const bet = parseInt(DOM.crashBetDisplay.textContent) || 0;
+            const potentialWin = Math.floor(bet * multiplier * 0.95);
+            const winDisplay = document.getElementById('crashPotentialWin');
+            if (winDisplay) {
+                winDisplay.textContent = potentialWin + '⭐';
+                winDisplay.style.color = potentialWin > bet * 2 ? '#4caf50' : '#ffd700';
+            }
+            
+            const timerEl = document.getElementById('crashTimer');
+            if (timerEl) {
+                if (status.crashed) {
+                    const timeToNew = status.time_to_new_round || 0;
+                    if (timeToNew > 0) {
+                        timerEl.textContent = `⏳ НОВАЯ ИГРА ЧЕРЕЗ ${timeToNew} СЕК`;
+                        timerEl.style.color = '#ffd700';
+                        DOM.crashStatus.textContent = `⏳ Новый раунд через ${timeToNew} сек...`;
+                        DOM.crashStartBtn.disabled = true;
+                        DOM.crashStartBtn.textContent = `⏳ ${timeToNew} СЕК`;
+                    } else {
+                        timerEl.textContent = '🚀 НОВАЯ ИГРА!';
+                        timerEl.style.color = '#4caf50';
+                        DOM.crashStatus.textContent = '🚀 Нажми «СТАРТ», чтобы начать!';
+                        DOM.crashStartBtn.disabled = false;
+                        DOM.crashStartBtn.textContent = '🚀 СТАРТ';
+                    }
+                } else if (status.active) {
+                    const elapsed = Math.floor((Date.now() - (state._crashStartTime || Date.now())) / 1000);
+                    timerEl.textContent = `⏱ ${elapsed} сек`;
+                    timerEl.style.color = '#666';
+                    DOM.crashStatus.textContent = '📈 Множитель растёт...';
+                    DOM.crashStartBtn.disabled = true;
+                    DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
+                }
+            }
+            
+            if (status.crashed && status.time_to_new_round <= 0 && !state.crashRunning) {
+                DOM.crashMultiplier.className = 'crashed';
+                DOM.crashCashoutBtn.style.display = 'none';
+            }
+        });
+    }, 100);
+}
+
+// ===== СТАРТ КРАША =====
 function startCrashGame() {
     if (state.crashRunning) return;
     
@@ -2385,6 +2444,7 @@ function startCrashGame() {
             
             state.crashGameId = gameData.game_id;
             state.crashRunning = true;
+            state._crashStartTime = Date.now();
             
             resetCrashChart();
             
@@ -2394,8 +2454,6 @@ function startCrashGame() {
             DOM.crashBetDisplay.textContent = bet;
             DOM.crashStatus.textContent = '📈 Множитель растёт...';
             DOM.crashMultiplier.className = '';
-            
-            let startTime = Date.now();
             
             if (state.crashInterval) clearInterval(state.crashInterval);
             state.crashInterval = setInterval(() => {
@@ -2407,11 +2465,10 @@ function startCrashGame() {
                         return;
                     }
                     
-                    const elapsed = (Date.now() - startTime) / 1000;
+                    const elapsed = (Date.now() - state._crashStartTime) / 1000;
                     DOM.crashTimer.textContent = `⏱ ${elapsed.toFixed(1)} сек`;
                     
                     updateCrashChart(status.multiplier);
-                    
                     DOM.crashMultiplierDisplay.textContent = `x${status.multiplier}`;
                     
                     if (status.crashed) {
@@ -2586,51 +2643,6 @@ function submitWithdraw() {
             showCustomAlert('❌ ' + data.error);
         }
     });
-}
-
-// ===== КРАШ — АВТОМАТИЧЕСКИЙ ОПРОС =====
-function startCrashPolling() {
-    if (state.crashPollingInterval) clearInterval(state.crashPollingInterval);
-    
-    state.crashPollingInterval = setInterval(() => {
-        apiRequest('/crash_status', {}).then(status => {
-            if (status.error) {
-                return;
-            }
-            
-            const multiplier = status.multiplier || 1.00;
-            DOM.crashMultiplier.textContent = `x${multiplier}`;
-            DOM.crashMultiplierDisplay.textContent = `x${multiplier}`;
-            
-            updateCrashChart(multiplier);
-            
-            const bet = parseInt(DOM.crashBetDisplay.textContent) || 0;
-            const potentialWin = Math.floor(bet * multiplier * 0.95);
-            const winDisplay = document.getElementById('crashPotentialWin');
-            if (winDisplay) {
-                winDisplay.textContent = potentialWin + '⭐';
-                winDisplay.style.color = potentialWin > bet * 2 ? '#4caf50' : '#ffd700';
-            }
-            
-            if (status.crashed) {
-                DOM.crashStatus.textContent = '💥 КРАШ!';
-                DOM.crashMultiplier.className = 'crashed';
-                clearInterval(state.crashPollingInterval);
-                state.crashPollingInterval = null;
-                setTimeout(() => {
-                    if (!state.crashRunning) {
-                        resetCrashUI();
-                        startCrashPolling();
-                    }
-                }, 3000);
-            } else if (status.active) {
-                DOM.crashStatus.textContent = '📈 Множитель растёт...';
-                DOM.crashMultiplier.className = '';
-            } else {
-                DOM.crashStatus.textContent = '⏳ Ожидание нового раунда...';
-            }
-        });
-    }, 100);
 }
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====
