@@ -331,7 +331,6 @@ function previewCase(type) {
     showTape(type, 'preview');
 }
 
-// ===== ИСПРАВЛЕНИЕ: ВСЕ НАГРАДЫ В ПРЕДПРОСМОТРЕ =====
 function showTape(type, mode = 'preview') {
     const prizes = getPrizes(type);
     const style = getStyle(type);
