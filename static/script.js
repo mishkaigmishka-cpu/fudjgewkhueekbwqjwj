@@ -1,6 +1,6 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v3.0
-// Все изменения и исправления применены
+// RANDEVU — FINAL SCRIPT v4.0
+// Все режимы: Кейсы, Битвы, Минёр, Краш
 // ===============================
 
 const tg = window.Telegram.WebApp;
@@ -39,13 +39,21 @@ const CONFIG = {
         'netherite': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(44,62,80,0.7)', titleColor:'#e74c3c', itemColor:'#f1948a', highlightColor:'#ff6b35', glowColor:'rgba(231,76,60,0.3)', shadowColor:'rgba(231,76,60,0.5)', icon:'🔥', bgGradient:'radial-gradient(circle at 50% 50%, rgba(231,76,60,0.08), transparent 70%)' },
         'bedrock': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(52,73,94,0.7)', titleColor:'#5d6d7e', itemColor:'#aeb6bf', highlightColor:'#ffd700', glowColor:'rgba(52,73,94,0.4)', shadowColor:'rgba(52,73,94,0.6)', icon:'⛏️', bgGradient:'radial-gradient(circle at 50% 50%, rgba(52,73,94,0.1), transparent 70%)' }
     },
-    MINES_MULTIPLIERS: { 1:1.05,2:1.10,3:1.20,4:1.35,5:1.55,6:1.80,7:2.20,8:2.70,9:3.30,10:4.00,11:4.50,12:5.00 }
+    MINES_MULTIPLIERS: {
+        3: {1:1.05,2:1.15,3:1.30,4:1.50,5:1.75,6:2.10,7:2.50,8:3.00,9:3.50,10:4.20,11:5.00,12:6.00},
+        4: {1:1.10,2:1.20,3:1.40,4:1.70,5:2.00,6:2.40,7:3.00,8:3.80,9:4.50,10:5.50,11:6.50,12:8.00},
+        5: {1:1.15,2:1.30,3:1.55,4:1.90,5:2.30,6:2.80,7:3.50,8:4.50,9:5.50,10:6.50,11:8.00,12:10.00},
+        6: {1:1.20,2:1.40,3:1.70,4:2.10,5:2.60,6:3.20,7:4.00,8:5.00,9:6.50,10:8.00,11:10.00,12:12.00},
+        7: {1:1.25,2:1.50,3:1.85,4:2.30,5:2.90,6:3.60,7:4.50,8:5.50,9:7.50,10:9.00,11:12.00,12:15.00},
+        8: {1:1.30,2:1.60,3:2.00,4:2.50,5:3.20,6:4.00,7:5.00,8:6.50,9:8.50,10:10.00,11:14.00,12:18.00}
+    }
 };
 
 // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
 const getPrizes = (type) => CONFIG.CASE_PRIZES[type] || [1,10,100];
 const getStyle = (type) => CONFIG.CASE_STYLES[type] || CONFIG.CASE_STYLES['free'];
 const getPrice = (type) => CONFIG.CASE_PRICES[type] || 0;
+const getMinesMultiplier = (opened, mines) => CONFIG.MINES_MULTIPLIERS[mines]?.[opened] || 1.00;
 
 const apiRequest = async (endpoint, body = {}) => {
     try {
@@ -111,6 +119,18 @@ const DOM = {
     minesMultiplierDisplay: document.getElementById('minesMultiplierDisplay'),
     minesBoard: document.getElementById('minesBoard'),
     betInput: document.getElementById('betInput'),
+    crashBetInput: document.getElementById('crashBetInput'),
+    crashMultiplier: document.getElementById('crashMultiplier'),
+    crashStatus: document.getElementById('crashStatus'),
+    crashTimer: document.getElementById('crashTimer'),
+    crashBetDisplay: document.getElementById('crashBetDisplay'),
+    crashMultiplierDisplay: document.getElementById('crashMultiplierDisplay'),
+    crashStartBtn: document.getElementById('crashStartBtn'),
+    crashCashoutBtn: document.getElementById('crashCashoutBtn'),
+    crashGames: document.getElementById('crashGames'),
+    crashWins: document.getElementById('crashWins'),
+    crashLosses: document.getElementById('crashLosses'),
+    crashBestMultiplier: document.getElementById('crashBestMultiplier')
 };
 
 // ===== СОСТОЯНИЕ =====
@@ -124,6 +144,9 @@ let state = {
     selectedBattleCase: 'gold',
     selectedBotCase: 'gold',
     currentRoomId: null,
+    crashGameId: null,
+    crashRunning: false,
+    crashInterval: null,
     intervals: {}
 };
 
@@ -165,6 +188,15 @@ function showMines() {
         DOM.minesMultiplierDisplay.textContent = 'x1.0';
         initMinesBoard();
     }
+}
+
+function showCrash() {
+    document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+    document.getElementById('crashScreen').classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelector('.nav-item[data-tab="crash"]').classList.add('active');
+    loadCrashStats();
+    resetCrashUI();
 }
 
 function showProfile() {
@@ -244,7 +276,6 @@ function showTape(type, mode = 'preview') {
         animation: 'fadeIn 0.3s ease'
     });
 
-    // Заголовок
     const title = document.createElement('div');
     Object.assign(title.style, {
         fontSize: '24px',
@@ -260,7 +291,6 @@ function showTape(type, mode = 'preview') {
     title.textContent = `${style.icon} ${type.toUpperCase()} CASE`;
     tapeContainer.appendChild(title);
 
-    // Баланс
     const balanceDisplay = document.createElement('div');
     Object.assign(balanceDisplay.style, {
         position: 'absolute',
@@ -280,7 +310,6 @@ function showTape(type, mode = 'preview') {
     balanceDisplay.textContent = `💰 ${DOM.balance.textContent}`;
     tapeContainer.appendChild(balanceDisplay);
 
-    // Вьюпорт
     const viewport = document.createElement('div');
     Object.assign(viewport.style, {
         width: '95%',
@@ -311,7 +340,6 @@ function showTape(type, mode = 'preview') {
         top: mode === 'preview' ? '15px' : '10px'
     });
 
-    // Заполнение трека
     const repeats = mode === 'preview' ? 4 : 60;
     const winPosition = 40;
     let cards = [];
@@ -365,7 +393,6 @@ function showTape(type, mode = 'preview') {
 
     tapeContainer.appendChild(viewport);
 
-    // Нижняя секция
     const bottomSection = document.createElement('div');
     Object.assign(bottomSection.style, {
         display: 'flex',
@@ -478,6 +505,7 @@ function showTape(type, mode = 'preview') {
 function openCaseDirect(type) {
     if (state.isOpening) return;
     state.isOpening = true;
+    state.lastOpenedCase = type;
     
     checkBalance(type).then(canOpen => {
         if (!canOpen) { state.isOpening = false; return; }
@@ -507,9 +535,6 @@ function startFinalSpin(type) {
     const totalCardWidth = cardWidth + cardGap;
     const totalCards = 60;
     const winPosition = 40;
-
-    const prizeIndex = prizes.indexOf(targetPrize);
-    if (prizeIndex === -1) { tg.showAlert('❌ Ошибка: награда не найдена'); closeTape(); return; }
 
     const newCards = [];
     for (let i = 0; i < totalCards; i++) {
@@ -793,10 +818,11 @@ function renderBattleHistory(history) {
 function loadBattleRooms() {
     apiRequest('/get_battle_rooms').then(data => {
         const list = document.getElementById('battleRoomsList');
-        const myRooms = data.rooms?.filter(r => r.is_my_room) || [];
-        const otherRooms = data.rooms?.filter(r => !r.is_my_room) || [];
+        const rooms = data.rooms || [];
         
         let html = '';
+        const myRooms = rooms.filter(r => r.is_my_room);
+        const otherRooms = rooms.filter(r => !r.is_my_room);
         
         if (myRooms.length > 0) {
             html += `<div style="color: #ffd700; font-size: 14px; margin-bottom: 8px;">⭐ ТВОИ КОМНАТЫ:</div>`;
@@ -879,6 +905,10 @@ function createBattleRoom() {
             tg.showAlert('❌ ' + data.error);
             return;
         }
+        if (!data.room_id) {
+            tg.showAlert('❌ Не удалось создать комнату');
+            return;
+        }
         state.currentRoomId = data.room_id;
         closeCreateBattle();
         showWaitingRoom(data.room_id, data.case_type);
@@ -927,6 +957,7 @@ function joinBattleRoom(room_id) {
             return;
         }
         if (data.success) {
+            state.currentRoomId = data.room_id;
             showBattlePreview(data.room_id, data.case_type, data.player1, data.player2, false);
             syncPreviewStart(data.room_id);
             startOpponentChecker(data.room_id);
@@ -970,10 +1001,18 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     title.textContent = isBot ? '🤖 БИТВА С БОТОМ' : '⚔️ БИТВА КЕЙСОВ';
     overlay.appendChild(title);
     
+    // Индикаторы готовности
+    const readyIndicator = document.createElement('div');
+    readyIndicator.style.cssText = 'display:flex; justify-content:space-between; width:100%; max-width:700px; margin-bottom:8px;';
+    readyIndicator.innerHTML = `
+        <span id="player1Ready" style="color:#888; font-size:13px;">⏳ ${player1}: ОЖИДАНИЕ...</span>
+        <span id="player2Ready" style="color:#888; font-size:13px;">⏳ ${player2}: ОЖИДАНИЕ...</span>
+    `;
+    overlay.appendChild(readyIndicator);
+    
     const playersContainer = document.createElement('div');
     playersContainer.style.cssText = 'display:flex; gap:20px; justify-content:center; align-items:stretch; width:100%; max-width:700px; margin-bottom:16px;';
     
-    // Лента 1
     const p1Container = document.createElement('div');
     p1Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
     let p1Cards = '';
@@ -1000,7 +1039,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     vsDiv.textContent = isBot ? '🤖' : '⚔️';
     playersContainer.appendChild(vsDiv);
     
-    // Лента 2
     const p2Container = document.createElement('div');
     p2Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
     let p2Cards = '';
@@ -1028,7 +1066,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     infoDiv.textContent = `📦 Кейс: ${case_type.toUpperCase()}`;
     overlay.appendChild(infoDiv);
     
-    // Кнопка «ГОТОВ»
     const readyBtn = document.createElement('button');
     readyBtn.id = 'battleReadyBtn';
     readyBtn.textContent = '✅ ГОТОВ';
@@ -1041,20 +1078,23 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
             this.disabled = true;
-            document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Битва начинается...';
+            const statusEl = document.getElementById('battlePreviewStatus');
+            if (statusEl) statusEl.textContent = '🤖 Бот готов! Битва начинается...';
             setTimeout(() => {
                 const overlay = document.getElementById('battlePreviewOverlay');
                 if (overlay) overlay.remove();
-                startBotBattleAnimation();
+                startBotBattleAnimation(state.selectedBotCase);
             }, 500);
         };
-        document.getElementById('battlePreviewStatus').textContent = '🤖 Бот готов! Нажми «ГОТОВ», чтобы начать';
+        const statusEl = document.getElementById('battlePreviewStatus');
+        if (statusEl) statusEl.textContent = '🤖 Бот готов! Нажми «ГОТОВ», чтобы начать';
     } else {
         readyBtn.onclick = function() {
             this.textContent = '⏳ ОЖИДАНИЕ...';
             this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
             this.disabled = true;
-            document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
+            const statusEl = document.getElementById('battlePreviewStatus');
+            if (statusEl) statusEl.textContent = '⏳ Ожидание соперника...';
             sendBattleReady(room_id);
         };
     }
@@ -1066,7 +1106,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     statusDiv.textContent = isBot ? 'Нажми «ГОТОВ», чтобы начать битву с ботом' : 'Нажми «ГОТОВ», чтобы начать битву';
     overlay.appendChild(statusDiv);
     
-    // Кнопка "Назад"
     const backBtn = document.createElement('button');
     backBtn.textContent = '🔙 НАЗАД';
     backBtn.style.cssText = 'padding:12px 30px; border:none; border-radius:12px; background:rgba(255,255,255,0.06); color:#888; font-size:14px; font-weight:600; cursor:pointer; margin-top:6px; transition:all 0.2s;';
@@ -1113,14 +1152,16 @@ function sendBattleReady(room_id) {
         }
         
         if (data.ready) {
-            document.getElementById('battlePreviewStatus').textContent = '✅ Оба игрока готовы! Битва начинается...';
+            const statusEl = document.getElementById('battlePreviewStatus');
+            if (statusEl) statusEl.textContent = '✅ Оба игрока готовы! Битва начинается...';
             setTimeout(() => {
                 const overlay = document.getElementById('battlePreviewOverlay');
                 if (overlay) overlay.remove();
                 startBattleAnimation(room_id);
             }, 1000);
         } else {
-            document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
+            const statusEl = document.getElementById('battlePreviewStatus');
+            if (statusEl) statusEl.textContent = '⏳ Ожидание соперника...';
         }
     });
 }
@@ -1137,27 +1178,40 @@ function syncPreviewStart(room_id) {
 }
 
 function updatePreviewNames(me, opponent) {
-    const previewTrack1 = document.querySelector('#previewTrack1')?.closest('div')?.previousElementSibling;
-    const previewTrack2 = document.querySelector('#previewTrack2')?.closest('div')?.previousElementSibling;
-    
-    if (previewTrack1) previewTrack1.textContent = '👤 ' + me;
-    if (previewTrack2) previewTrack2.textContent = '👤 ' + opponent;
+    const p1Ready = document.getElementById('player1Ready');
+    const p2Ready = document.getElementById('player2Ready');
+    if (p1Ready) p1Ready.textContent = '⏳ ' + me + ': ОЖИДАНИЕ...';
+    if (p2Ready) p2Ready.textContent = '⏳ ' + opponent + ': ОЖИДАНИЕ...';
 }
 
 function updateReadyStatus(readyStatus) {
+    const p1Ready = document.getElementById('player1Ready');
+    const p2Ready = document.getElementById('player2Ready');
     const btn = document.getElementById('battleReadyBtn');
-    if (!btn) return;
+    
+    if (p1Ready) {
+        p1Ready.textContent = readyStatus && readyStatus[0] ? '✅ ' + p1Ready.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '') + ': ГОТОВ' : p1Ready.textContent;
+    }
+    if (p2Ready) {
+        p2Ready.textContent = readyStatus && readyStatus[1] ? '✅ ' + p2Ready.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '') + ': ГОТОВ' : p2Ready.textContent;
+    }
     
     if (readyStatus && readyStatus[0] && readyStatus[1]) {
-        btn.textContent = '✅ ГОТОВЫ';
-        btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
-        btn.disabled = true;
-        document.getElementById('battlePreviewStatus').textContent = '✅ Оба игрока готовы!';
+        if (btn) {
+            btn.textContent = '✅ ГОТОВЫ';
+            btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
+            btn.disabled = true;
+        }
+        const statusEl = document.getElementById('battlePreviewStatus');
+        if (statusEl) statusEl.textContent = '✅ Оба игрока готовы!';
     } else if (readyStatus && (readyStatus[0] || readyStatus[1])) {
-        btn.textContent = '⏳ ОЖИДАНИЕ...';
-        btn.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
-        btn.disabled = true;
-        document.getElementById('battlePreviewStatus').textContent = '⏳ Ожидание соперника...';
+        if (btn) {
+            btn.textContent = '⏳ ОЖИДАНИЕ...';
+            btn.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
+            btn.disabled = true;
+        }
+        const statusEl = document.getElementById('battlePreviewStatus');
+        if (statusEl) statusEl.textContent = '⏳ Ожидание соперника...';
     }
 }
 
@@ -1207,7 +1261,8 @@ function startListeningForOpponent(room_id) {
                     btn.textContent = '✅ ГОТОВ';
                     btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
                 }
-                document.getElementById('battlePreviewStatus').textContent = 'Нажми «ГОТОВ», чтобы начать битву';
+                const statusEl = document.getElementById('battlePreviewStatus');
+                if (statusEl) statusEl.textContent = 'Нажми «ГОТОВ», чтобы начать битву';
                 startOpponentChecker(room_id);
             }
         });
@@ -1225,8 +1280,7 @@ function closeBotBattle() {
 
 function startBotBattle() {
     const case_type = state.selectedBotCase;
-    const price = getPrice(case_type);
-    
+    let price = getPrice(case_type);
     if (price === 0) price = 5;
     
     apiRequest('/check_balance_simple', { amount: price }).then(data => {
@@ -1239,9 +1293,7 @@ function startBotBattle() {
     });
 }
 
-function startBotBattleAnimation() {
-    const case_type = state.selectedBotCase;
-    
+function startBotBattleAnimation(case_type) {
     showBotRouletteAnimation(case_type);
     
     apiRequest('/start_bot_battle', { case_type }).then(data => {
@@ -1428,13 +1480,15 @@ function showBotBattleResult(data) {
     loadBattleData();
 }
 
-// ===== АНИМАЦИЯ БИТВЫ (2 РУЛЕТКИ) =====
+// ===== АНИМАЦИЯ БИТВЫ =====
 function startBattleAnimation(room_id) {
     apiRequest('/get_battle_animation_data', { room_id }).then(data => {
         if (data.error) {
+            if (data.error.includes('не найдена') || data.error.includes('завершена')) {
+                tg.showAlert('⚠️ Битва уже завершена, проверьте результат');
+                return;
+            }
             tg.showAlert('❌ ' + data.error);
-            const overlay = document.getElementById('battleRouletteOverlay');
-            if (overlay) overlay.remove();
             return;
         }
         
@@ -1545,11 +1599,11 @@ function startBattleAnimation(room_id) {
         overlay._totalCardWidth = cardWidth + cardGap;
         
         if (window.battleResultInterval) clearInterval(window.battleResultInterval);
-        window.battleResultInterval = setInterval(checkBattleResultWithRoulette, 2000);
+        window.battleResultInterval = setInterval(() => checkBattleResultWithRoulette(room_id), 2000);
     });
 }
 
-function checkBattleResultWithRoulette() {
+function checkBattleResultWithRoulette(room_id) {
     apiRequest('/get_battle_result').then(data => {
         if (data.pending) return;
         if (data.result) {
@@ -1619,7 +1673,6 @@ function checkBattleResultWithRoulette() {
     });
 }
 
-// ===== РЕЗУЛЬТАТЫ БИТВ =====
 function showBattleResult(data) {
     document.getElementById('waitingRoom').style.display = 'none';
     document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
@@ -1754,10 +1807,6 @@ document.querySelectorAll('.mines-btn').forEach(btn => {
         state.selectedMines = parseInt(this.dataset.mines);
     });
 });
-
-function getMinesMultiplier(opened) {
-    return CONFIG.MINES_MULTIPLIERS[opened] || 5.00;
-}
 
 function startMinesGame() {
     const bet = getBetFromInput();
@@ -2033,6 +2082,140 @@ function loadMinesStats() {
     });
 }
 
+// ===================== КРАШ =====================
+function resetCrashUI() {
+    DOM.crashMultiplier.textContent = 'x1.00';
+    DOM.crashMultiplier.className = '';
+    DOM.crashStatus.textContent = 'Нажми «СТАРТ», чтобы начать';
+    DOM.crashTimer.textContent = '⏱ 0.0 сек';
+    DOM.crashBetDisplay.textContent = '0';
+    DOM.crashMultiplierDisplay.textContent = 'x1.00';
+    DOM.crashStartBtn.style.display = 'inline-block';
+    DOM.crashCashoutBtn.style.display = 'none';
+    DOM.crashStartBtn.disabled = false;
+    DOM.crashStartBtn.textContent = '🚀 СТАРТ';
+    state.crashRunning = false;
+    state.crashGameId = null;
+    if (state.crashInterval) {
+        clearInterval(state.crashInterval);
+        state.crashInterval = null;
+    }
+}
+
+function getCrashBet() {
+    const input = DOM.crashBetInput;
+    let val = parseInt(input.value);
+    if (isNaN(val) || val < 2) val = 2;
+    if (val > 1000) val = 1000;
+    input.value = val;
+    return val;
+}
+
+DOM.crashBetInput.addEventListener('change', function() {
+    let val = parseInt(this.value);
+    if (isNaN(val) || val < 2) val = 2;
+    if (val > 1000) val = 1000;
+    this.value = val;
+});
+
+function startCrashGame() {
+    if (state.crashRunning) return;
+    
+    const bet = getCrashBet();
+    
+    apiRequest('/check_balance_simple', { amount: bet }).then(data => {
+        if (data.error || !data.has_enough) {
+            tg.showAlert('❌ Недостаточно звёзд!');
+            return;
+        }
+        
+        apiRequest('/start_crash', { bet }).then(gameData => {
+            if (gameData.error) {
+                tg.showAlert('❌ ' + gameData.error);
+                return;
+            }
+            
+            state.crashGameId = gameData.game_id;
+            state.crashRunning = true;
+            
+            DOM.crashStartBtn.disabled = true;
+            DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
+            DOM.crashCashoutBtn.style.display = 'inline-block';
+            DOM.crashBetDisplay.textContent = bet;
+            DOM.crashStatus.textContent = '📈 Множитель растёт...';
+            DOM.crashMultiplier.className = '';
+            
+            let startTime = Date.now();
+            
+            if (state.crashInterval) clearInterval(state.crashInterval);
+            state.crashInterval = setInterval(() => {
+                apiRequest('/crash_status', { game_id: state.crashGameId }).then(status => {
+                    if (status.error) {
+                        clearInterval(state.crashInterval);
+                        state.crashRunning = false;
+                        DOM.crashStatus.textContent = '❌ ' + status.error;
+                        return;
+                    }
+                    
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    DOM.crashTimer.textContent = `⏱ ${elapsed.toFixed(1)} сек`;
+                    DOM.crashMultiplier.textContent = `x${status.multiplier}`;
+                    DOM.crashMultiplierDisplay.textContent = `x${status.multiplier}`;
+                    
+                    if (status.crashed) {
+                        clearInterval(state.crashInterval);
+                        state.crashRunning = false;
+                        DOM.crashMultiplier.className = 'crashed';
+                        DOM.crashStatus.textContent = '💥 КРАШ!';
+                        DOM.crashCashoutBtn.style.display = 'none';
+                        DOM.crashStartBtn.disabled = false;
+                        DOM.crashStartBtn.textContent = '🔄 ИГРАТЬ СНОВА';
+                        loadBalance();
+                        loadCrashStats();
+                    }
+                });
+            }, 100);
+        });
+    });
+}
+
+function cashoutCrash() {
+    if (!state.crashRunning || !state.crashGameId) return;
+    
+    apiRequest('/cashout_crash', { game_id: state.crashGameId }).then(data => {
+        if (data.error) {
+            tg.showAlert('❌ ' + data.error);
+            return;
+        }
+        
+        state.crashRunning = false;
+        if (state.crashInterval) {
+            clearInterval(state.crashInterval);
+            state.crashInterval = null;
+        }
+        
+        DOM.crashMultiplier.className = 'win';
+        DOM.crashStatus.textContent = `💰 Выигрыш: ${data.winnings}⭐ (x${data.multiplier})`;
+        DOM.crashCashoutBtn.style.display = 'none';
+        DOM.crashStartBtn.disabled = false;
+        DOM.crashStartBtn.textContent = '🔄 ИГРАТЬ СНОВА';
+        
+        loadBalance();
+        loadCrashStats();
+        
+        tg.showAlert(`✅ Ты выиграл ${data.winnings}⭐ (x${data.multiplier})`);
+    });
+}
+
+function loadCrashStats() {
+    apiRequest('/get_crash_stats').then(data => {
+        if (DOM.crashGames) DOM.crashGames.textContent = data.games || 0;
+        if (DOM.crashWins) DOM.crashWins.textContent = data.wins || 0;
+        if (DOM.crashLosses) DOM.crashLosses.textContent = data.losses || 0;
+        if (DOM.crashBestMultiplier) DOM.crashBestMultiplier.textContent = 'x' + (data.best_multiplier || 1.0);
+    });
+}
+
 // ===================== ПРОФИЛЬ =====================
 function showInvite() {
     document.querySelector('.profile-card').style.display = 'none';
@@ -2071,4 +2254,5 @@ function showWithdraw() {
 initMinesBoard();
 loadBalance();
 loadMinesStats();
+loadCrashStats();
 tg.ready();
