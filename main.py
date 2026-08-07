@@ -1339,17 +1339,9 @@ def start_crash():
     if user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
     
+    # ===== КРИТИЧЕСКАЯ ПРОВЕРКА: СТАВКУ МОЖНО СДЕЛАТЬ ТОЛЬКО ПОСЛЕ КРАША =====
     if crash_data['active'] and not crash_data['crashed']:
-        crash_data['bets'][uid] = bet
-        update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
-        if user[9] == 1 and user[10]:
-            track_spend(uid, user[10], bet)
-        return jsonify({
-            'game_id': int(time.time()),
-            'already_running': True,
-            'multiplier': crash_data['multiplier'],
-            'crash_point': crash_data['crash_point']
-        })
+        return jsonify({'error': 'Дождись окончания текущего раунда!'}), 400
     
     crash_point = 1.00 + random.random() * 11.00
     crash_data = {
