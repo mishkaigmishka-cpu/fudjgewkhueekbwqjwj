@@ -357,50 +357,71 @@ def battle_cleaner():
 
 threading.Thread(target=battle_cleaner, daemon=True).start()
 
-# ===== КРАШ — 5 СЕКУНД ПЕРЕРЫВ =====
+# ===== КРАШ — ОПТИМИЗИРОВАННЫЙ ТАЙМЕР =====
+def generate_crash_point():
+    rnd = random.random()
+    if rnd < 0.45:
+        crash_point = 1.00 + rnd * 0.45
+    elif rnd < 0.75:
+        crash_point = 1.20 + (rnd - 0.45) * 3.50
+    elif rnd < 0.93:
+        crash_point = 2.00 + (rnd - 0.75) * 15.00
+    elif rnd < 0.985:
+        crash_point = 5.00 + (rnd - 0.93) * 80.00
+    else:
+        crash_point = 10.00 + (rnd - 0.985) * 150.00
+    if crash_point > 12.00:
+        crash_point = 12.00
+    return round(crash_point, 2)
+
+def get_crash_multiplier(elapsed):
+    if elapsed < 0.5:
+        multiplier = 1.00 + elapsed * 0.50
+    elif elapsed < 1.5:
+        multiplier = 1.25 + (elapsed - 0.5) * 0.35
+    elif elapsed < 3.0:
+        multiplier = 1.60 + (elapsed - 1.5) * 0.25
+    elif elapsed < 5.0:
+        multiplier = 1.98 + (elapsed - 3.0) * 0.20
+    else:
+        multiplier = 2.38 + (elapsed - 5.0) * 0.12
+    if multiplier > 12.00:
+        multiplier = 12.00
+    return round(multiplier, 2)
+
 def crash_timer():
     global crash_data
     while True:
         if crash_data['active']:
             elapsed = time.time() - crash_data['start_time']
+            crash_data['multiplier'] = get_crash_multiplier(elapsed)
             
-            if elapsed < 15:
-                multiplier = 1.00 + elapsed * 0.04
-            elif elapsed < 30:
-                multiplier = 1.60 + (elapsed - 15) * 0.05
-            else:
-                multiplier = 2.35 + (elapsed - 30) * 0.06
-            
-            if multiplier > 12.00:
-                multiplier = 12.00
-            crash_data['multiplier'] = round(multiplier, 2)
-            
-            if crash_data['multiplier'] >= crash_data['crash_point']:
+            if elapsed >= 25:
                 if not crash_data['crashed']:
                     crash_data['crashed'] = True
                     crash_data['crash_start_time'] = time.time()
-                
-                if time.time() - crash_data['crash_start_time'] >= 5:
+                if time.time() - crash_data['crash_start_time'] >= 3:
                     crash_data['active'] = False
                     crash_data['bets'] = {}
                     crash_data['crash_time'] = time.time()
             
-            if elapsed >= 50 and not crash_data['crashed']:
+            if crash_data['multiplier'] >= crash_data['crash_point'] and not crash_data['crashed']:
                 crash_data['crashed'] = True
                 crash_data['crash_start_time'] = time.time()
         
         else:
             if crash_data['crashed']:
-                if time.time() - crash_data.get('crash_time', 0) >= 5:
+                if time.time() - crash_data.get('crash_time', 0) >= 3:
                     crash_data['crashed'] = False
                     crash_data['active'] = True
                     crash_data['start_time'] = time.time()
                     crash_data['multiplier'] = 1.00
-                    crash_data['crash_point'] = 1.00 + random.random() * 11.00
+                    crash_data['crash_point'] = generate_crash_point()
                     crash_data['bets'] = {}
+                    crash_data['crash_start_time'] = 0
+                    crash_data['crash_time'] = 0
             else:
                 time.sleep(0.1)
-        
         time.sleep(0.05)
 
 threading.Thread(target=crash_timer, daemon=True).start()
@@ -1347,7 +1368,7 @@ def start_crash():
     if user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
     
-    # ===== СТАВКУ МОЖНО СДЕЛАТЬ ТОЛЬКО ПОСЛЕ КРАША =====
+    # ===== НЕЛЬЗЯ НАЧАТЬ НОВУЮ ИГРУ ПОКА НЕ БЫЛО КРАША =====
     if crash_data['active'] and not crash_data['crashed']:
         return jsonify({'error': 'Дождись окончания текущего раунда!'}), 400
     
@@ -1382,11 +1403,11 @@ def crash_status():
     time_to_new_round = 0
     if crash_data['crashed']:
         elapsed_since_crash = time.time() - crash_data.get('crash_time', 0)
-        time_to_new_round = max(0, 5 - elapsed_since_crash)
+        time_to_new_round = max(0, 3 - elapsed_since_crash)
     
     time_to_crash = 0
     if crash_data['crashed'] and crash_data.get('crash_start_time'):
-        time_to_crash = 5 - (time.time() - crash_data['crash_start_time'])
+        time_to_crash = 3 - (time.time() - crash_data['crash_start_time'])
         if time_to_crash < 0:
             time_to_crash = 0
     
