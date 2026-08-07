@@ -772,7 +772,8 @@ def create_battle_room():
         'players': [uid],
         'status': 'waiting',
         'created_at': time.time(),
-        'opponent_left': False
+        'opponent_left': False,
+        'exit_timer': None
     }
     return jsonify({'room_id': room_id, 'case_type': case_type})
 
@@ -828,6 +829,10 @@ def join_battle_room():
     room['players'].append(uid)
     room['status'] = 'active'
     
+    if room['exit_timer']:
+        room['exit_timer'].cancel()
+        room['exit_timer'] = None
+    
     p1 = get_user(room['players'][0])
     p2 = get_user(room['players'][1])
     
@@ -862,6 +867,22 @@ def exit_battle_room():
     else:
         room['status'] = 'waiting'
         room['opponent_left'] = True
+        
+        if room['exit_timer']:
+            room['exit_timer'].cancel()
+        
+        def remove_player():
+            if room_id in battle_rooms:
+                room = battle_rooms[room_id]
+                if uid in room['players']:
+                    room['players'].remove(uid)
+                    if len(room['players']) == 0:
+                        del battle_rooms[room_id]
+        
+        room['exit_timer'] = threading.Timer(5.0, remove_player)
+        room['exit_timer'].daemon = True
+        room['exit_timer'].start()
+        
         return jsonify({'success': True, 'room_kept': True})
 
 @app.route('/battle_ready', methods=['POST'])
