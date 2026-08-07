@@ -1,5 +1,5 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v5.0
+// RANDEVU — SCRIPT v6.0 (FIXED)
 // ===============================
 
 const tg = window.Telegram.WebApp;
@@ -205,7 +205,7 @@ function showBattles() {
     loadBattleRooms();
     checkActiveRoom();
     clearInterval(state.intervals.battle);
-    state.intervals.battle = setInterval(loadBattleRooms, 5000);
+    state.intervals.battle = setInterval(loadBattleRooms, 2000);
 }
 
 function showMines() {
@@ -948,9 +948,18 @@ function exitWaitingRoom() {
     if (state.currentRoomId) {
         apiRequest('/exit_battle_room', { room_id: state.currentRoomId }).then(() => {
             state.currentRoomId = null;
-            closeAllOverlays();
+            document.getElementById('waitingRoom').style.display = 'none';
+            document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
+            document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
+            document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
             showBattles();
         });
+    } else {
+        document.getElementById('waitingRoom').style.display = 'none';
+        document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
+        document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
+        document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
+        showBattles();
     }
 }
 
@@ -1013,7 +1022,6 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
     title.textContent = isBot ? '🤖 БИТВА С БОТОМ' : '⚔️ БИТВА КЕЙСОВ';
     overlay.appendChild(title);
     
-    // Индикаторы готовности
     const readyIndicator = document.createElement('div');
     readyIndicator.style.cssText = 'display:flex; justify-content:space-between; width:100%; max-width:700px; margin-bottom:8px;';
     readyIndicator.innerHTML = `
@@ -1398,7 +1406,6 @@ function showBotRouletteAnimation(case_type) {
     const totalCards = 30;
     const winPosition = 15;
     
-    // Игрок (сверху) с рамкой
     const p1Wrapper = document.createElement('div');
     p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(76,175,80,0.3); border-radius:12px; padding:6px; background:rgba(76,175,80,0.05);';
     let cards1 = '';
@@ -1419,13 +1426,11 @@ function showBotRouletteAnimation(case_type) {
     `;
     container.appendChild(p1Wrapper);
     
-    // VS
     const vsDiv = document.createElement('div');
     vsDiv.style.cssText = 'text-align:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:4px 0;';
     vsDiv.textContent = '🤖 VS';
     container.appendChild(vsDiv);
     
-    // Бот (снизу) с рамкой
     const p2Wrapper = document.createElement('div');
     p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(244,67,54,0.3); border-radius:12px; padding:6px; background:rgba(244,67,54,0.05);';
     let cards2 = '';
@@ -1582,7 +1587,6 @@ function startBattleAnimation(room_id) {
         const totalCards = 30;
         const winPosition = 15;
         
-        // Игрок 1 (сверху) с рамкой
         const p1Wrapper = document.createElement('div');
         p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
         let cards1 = '';
@@ -1603,13 +1607,11 @@ function startBattleAnimation(room_id) {
         `;
         container.appendChild(p1Wrapper);
         
-        // VS
         const vsDiv = document.createElement('div');
         vsDiv.style.cssText = 'text-align:center; font-size:24px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:3px 0;';
         vsDiv.textContent = '⚔️ VS';
         container.appendChild(vsDiv);
         
-        // Игрок 2 (снизу) с рамкой
         const p2Wrapper = document.createElement('div');
         p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
         let cards2 = '';
@@ -2220,7 +2222,6 @@ function drawCrashChart() {
         progressEl.style.width = progress + '%';
     }
     
-    // Потенциальный выигрыш
     const bet = parseInt(DOM.crashBetDisplay.textContent) || 0;
     const potentialWin = Math.floor(bet * currentVal * 0.95);
     const winDisplay = document.getElementById('crashPotentialWin');
