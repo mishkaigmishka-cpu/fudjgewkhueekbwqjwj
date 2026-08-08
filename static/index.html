@@ -17,7 +17,6 @@
             </div>
         </header>
 
-        <!-- ГЛАВНАЯ -->
         <div id="mainScreen" class="screen active">
             <div class="balance-card">
                 <span class="balance-label">💰 Баланс</span>
@@ -96,26 +95,17 @@
                         <div class="jackpot">🎯 25000⭐</div>
                     </div>
                 </div>
-                <div class="case-card" data-case="obsidian" onclick="previewCase('obsidian')">
-                    <div class="case-icon">🔮</div>
-                    <div class="case-info">
-                        <div class="case-name">Обсидиан</div>
-                        <div class="case-price">2499⭐</div>
-                        <div class="jackpot">🎯 100000⭐</div>
-                    </div>
-                </div>
-                <div class="case-card" data-case="bedrock" onclick="previewCase('bedrock')" style="border: 2px solid rgba(255,215,0,0.4); background: rgba(255,215,0,0.05);">
+                <div class="case-card" data-case="bedrock" onclick="previewCase('bedrock')">
                     <div class="case-icon">⛏️</div>
                     <div class="case-info">
-                        <div class="case-name" style="color: #ffd700;">Бедрок</div>
-                        <div class="case-price" style="color: #ffd700;">10000⭐</div>
-                        <div class="jackpot" style="background: rgba(255,215,0,0.15); color: #ff6b00;">🎯 1 000 000⭐</div>
+                        <div class="case-name">Бедрок</div>
+                        <div class="case-price">2499⭐</div>
+                        <div class="jackpot">🎯 100000⭐</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- БИТВЫ -->
         <div id="battlesScreen" class="screen">
             <div class="section-title">⚔️ БИТВЫ</div>
             <div class="battle-stats">
@@ -150,7 +140,6 @@
             <button onclick="goBack()" class="btn-back">🔙 Назад</button>
         </div>
 
-        <!-- МИНЁР -->
         <div id="minesScreen" class="screen">
             <div class="section-title">💣 МИНЁР</div>
             
@@ -201,7 +190,6 @@
             <button onclick="goBack()" class="btn-back" style="margin-top:12px;">🔙 Назад</button>
         </div>
 
-        <!-- КРАШ -->
         <div id="crashScreen" class="screen">
             <div class="section-title">💥 КРАШ</div>
             
@@ -262,7 +250,6 @@
             <button onclick="goBack()" class="btn-back" style="margin-top:12px;">🔙 Назад</button>
         </div>
 
-        <!-- ПРОФИЛЬ -->
         <div id="profileScreen" class="screen">
             <div class="profile-card">
                 <div class="profile-avatar">👤</div>
@@ -289,7 +276,6 @@
             </div>
         </div>
 
-        <!-- МОДАЛКА: СОЗДАНИЕ БИТВЫ -->
         <div id="createBattleModal" class="modal-overlay">
             <div class="modal">
                 <h2>🔥 СОЗДАНИЕ БИТВЫ</h2>
@@ -304,8 +290,7 @@
                         <button class="battle-case-btn active" data-case="gold">👑 Золото</button>
                         <button class="battle-case-btn" data-case="diamond">💎 Алмаз</button>
                         <button class="battle-case-btn" data-case="netherite">🔥 Незерит</button>
-                        <button class="battle-case-btn" data-case="obsidian">🔮 Обсидиан</button>
-                        <button class="battle-case-btn" data-case="bedrock" style="border-color:rgba(255,215,0,0.3);">⛏️ Бедрок</button>
+                        <button class="battle-case-btn" data-case="bedrock">⛏️ Бедрок</button>
                     </div>
                 </div>
                 <div class="modal-buttons">
@@ -315,7 +300,6 @@
             </div>
         </div>
 
-        <!-- МОДАЛКА: БИТВА С БОТОМ -->
         <div id="botBattleModal" class="modal-overlay">
             <div class="modal">
                 <h2>🤖 БИТВА С БОТОМ</h2>
@@ -330,8 +314,7 @@
                         <button class="bot-case-btn active" data-case="gold">👑 Золото</button>
                         <button class="bot-case-btn" data-case="diamond">💎 Алмаз</button>
                         <button class="bot-case-btn" data-case="netherite">🔥 Незерит</button>
-                        <button class="bot-case-btn" data-case="obsidian">🔮 Обсидиан</button>
-                        <button class="bot-case-btn" data-case="bedrock" style="border-color:rgba(255,215,0,0.3);">⛏️ Бедрок</button>
+                        <button class="bot-case-btn" data-case="bedrock">⛏️ Бедрок</button>
                     </div>
                 </div>
                 <div class="modal-buttons">
@@ -341,7 +324,6 @@
             </div>
         </div>
 
-        <!-- РЕЗУЛЬТАТ ОТКРЫТИЯ КЕЙСА -->
         <div id="result" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(20px);z-index:100;padding:24px;flex-direction:column;align-items:center;justify-content:center;">
             <div id="prizeDisplay" style="font-size:90px;margin-bottom:10px;"></div>
             <div id="prizeName" style="font-size:28px;font-weight:700;margin-bottom:6px;"></div>
