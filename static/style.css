@@ -327,12 +327,14 @@ header {
     font-weight: 600;
     font-size: 14px;
     flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .room-item .room-case {
     color: #ffd700;
     font-size: 13px;
-    margin: 0 10px;
 }
 
 .room-item .room-players {
@@ -351,7 +353,6 @@ header {
     font-size: 13px;
     transition: all 0.2s ease;
     box-shadow: 0 2px 10px rgba(76, 175, 80, 0.2);
-    white-space: nowrap;
 }
 
 .room-item .btn-join:hover {
@@ -833,16 +834,94 @@ nav {
     text-shadow: 0 0 30px #ffd700 !important;
     transform: scale(1.1);
     box-shadow: 0 0 40px rgba(255, 215, 0, 0.2);
+    animation: highlightPulse 0.8s ease-in-out 3;
 }
 
-.section-title {
-    font-size: 22px;
-    font-weight: 800;
-    color: #b388ff;
+@keyframes highlightPulse {
+    0%, 100% { transform: scale(1.1); box-shadow: 0 0 40px rgba(255, 215, 0, 0.2); }
+    50% { transform: scale(1.15); box-shadow: 0 0 60px rgba(255, 215, 0, 0.4); }
+}
+
+#crashStartBtn.countdown {
+    background: linear-gradient(135deg, #ff9800, #e65100) !important;
+    animation: pulseBtn 0.8s ease-in-out infinite;
+}
+
+@keyframes pulseBtn {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+#crashStartBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#crashCashoutBtn.active {
+    display: inline-block;
+    animation: cashoutPulse 0.5s ease-in-out 2;
+}
+
+@keyframes cashoutPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); box-shadow: 0 0 30px rgba(255, 215, 0, 0.3); }
+}
+
+.case-card[data-case="obsidian"] {
+    border-color: rgba(52, 73, 94, 0.4);
+}
+
+.case-card[data-case="obsidian"]:hover {
+    border-color: rgba(52, 73, 94, 0.7);
+    box-shadow: 0 8px 32px rgba(52, 73, 94, 0.2);
+}
+
+.case-card[data-case="bedrock"] {
+    border: 2px solid rgba(255, 215, 0, 0.4) !important;
+    background: rgba(255, 215, 0, 0.05) !important;
+}
+
+.case-card[data-case="bedrock"]:hover {
+    border-color: rgba(255, 215, 0, 0.8) !important;
+    box-shadow: 0 8px 40px rgba(255, 215, 0, 0.15) !important;
+}
+
+.case-card[data-case="bedrock"] .case-name {
+    color: #ffd700;
+}
+
+.case-card[data-case="bedrock"] .case-price {
+    color: #ffd700;
+}
+
+.case-card[data-case="bedrock"] .jackpot {
+    background: rgba(255, 215, 0, 0.15);
+    color: #ff6b00;
+    border-color: rgba(255, 215, 0, 0.2);
+}
+
+#waitingRoom {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 16px;
+    padding: 20px;
     text-align: center;
-    margin-bottom: 16px;
-    text-shadow: 0 0 30px rgba(179, 136, 255, 0.2);
-    letter-spacing: 1px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(10px);
+}
+
+#waitingRoom .waiting-spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #b388ff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 10px auto;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 ::-webkit-scrollbar {
