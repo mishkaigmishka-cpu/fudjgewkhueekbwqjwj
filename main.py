@@ -5,10 +5,8 @@ import time
 import threading
 import logging
 from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
 
 DB_PATH = 'database.db'
 logging.basicConfig(level=logging.INFO)
@@ -336,20 +334,6 @@ CASE_PRIZES = {
     'netherite': [500,550,600,650,700,750,800,850,900,950,1000,1500,2000,2500,3000,3200,3500,4000,5000,10000,15000,20000,25000],
     'obsidian': [1000,1200,1400,1600,1800,2000,2200,2400,2500,2600,2800,3000,3200,3500,4000,4500,5000,5500,6000,7000,8000,9000,10000,12000,15000,18000,20000,22000,25000,28000,30000,50000,100000],
     'bedrock': [5000, 10000, 25000, 50000, 100000, 500000, 1000000]
-}
-
-CASE_STYLES = {
-    'free': { 'bg':'rgba(0,0,0,0.95)', 'border':'3px solid rgba(46,204,113,0.7)', 'titleColor':'#2ecc71', 'itemColor':'#6bcbff', 'highlightColor':'#ffd700', 'glowColor':'rgba(46,204,113,0.3)', 'shadowColor':'rgba(46,204,113,0.5)', 'icon':'🎁', 'bgGradient':'radial-gradient(circle at 50% 50%, rgba(46,204,113,0.08), transparent 70%)' },
-    'mud': { 'bg':'rgba(0,0,0,0.95)', 'border':'3px solid rgba(142,68,173,0.7)', 'titleColor':'#8e44ad', 'itemColor':'#c39bd3', 'highlightColor':'#ff6b6b', 'glowColor':'rgba(142,68,173,0.3)', 'shadowColor':'rgba(142,68,173,0.5)', 'icon':'🟫', 'bgGradient':'radial-gradient(circle at 50% 50%, rgba(142,68,173,0.08), transparent 70%)' },
-    'wood': { 'bg':'rgba(0,0,0,0.95)', 'border':'3px solid rgba(211,84,0,0.7)', 'titleColor':'#d35400', 'itemColor':'#f39c12', 'highlightColor':'#ffd700', 'glowColor':'rgba(211,84,0,0.3)', 'shadowColor':'rgba(211,84,0,0.5)', 'icon':'🌳', 'bgGradient':'radial-gradient(circle at 50% 50%, rgba(211,84,0,0.08), transparent 70%)' },
-    'stone': { 'bg':'rgba(0,0,0,0.95)', 'border':'3px solid rgba(127,140,141,0.7)', 'titleColor':'#7f8c8d', 'itemColor':'#bdc3c7', 'highlightColor':'#ffd700', 'glowColor':'rgba(127,140,141,0.3)', 'shadowColor':'rgba(127,140,141,0.5)', 'icon':'🪨', 'bgGradient':'radial-gradient(circle at 50% 50%, rgba(127,140,141,0.08), transparent 70%)' },
-    'bronze': { 'bg':'rgba(0,0,0,0.95)', 'border':'3px solid rgba(205,127,50,0.7)', 'titleColor':'#cd7f32', 'itemColor':'#f0c27f', 'highlightColor':'#ffd700', 'glowColor':'rgba(205,127,50,0.3)', 'shadowColor':'rgba(205,127,50,0.5)', 'icon':'🥉', 'bgGradient':'radial-gradient(circle at 50% 50%, rgba(205,127,50,0.08), transparent 70%)' },
-    'silver': { 'bg':'rgba(0,0,0,0.95)', 'border':'3px solid rgba(189,195,199,0.7)', 'titleColor':'#bdc3c7', 'itemColor':'#ecf0f1', 'highlightColor':'#ffd700', 'glowColor':'rgba(189,195,199,0.3)', 'shadowColor':'rgba(189,195,199,0.5)', 'icon':'🔘', 'bgGradient':'radial-gradient(circle at 50% 50%, rgba(189,195,199,0.08), transparent 70%)' },
-    'gold': { 'bg':'rgba(0,0,0,0.95)', 'border':'3px solid rgba(241,196,15,0.7)', 'titleColor':'#f1c40f', 'itemColor':'#f9e79f', 'highlightColor':'#ffd700', 'glowColor':'rgba(241,196,15,0.4)', 'shadowColor':'rgba(241,196,15,0.6)', 'icon':'👑', 'bgGradient':'radial-gradient(circle at 50% 50%, rgba(241,196,15,0.1), transparent 70%)' },
-    'diamond': { 'bg':'rgba(0,0,0,0.95)', 'border':'3px solid rgba(52,152,219,0.7)', 'titleColor':'#3498db', 'itemColor':'#85c1e9', 'highlightColor':'#00d4ff', 'glowColor':'rgba(52,152,219,0.3)', 'shadowColor':'rgba(52,152,219,0.5)', 'icon':'💎', 'bgGradient':'radial-gradient(circle at 50% 50%, rgba(52,152,219,0.08), transparent 70%)' },
-    'netherite': { 'bg':'rgba(0,0,0,0.95)', 'border':'3px solid rgba(44,62,80,0.7)', 'titleColor':'#e74c3c', 'itemColor':'#f1948a', 'highlightColor':'#ff6b35', 'glowColor':'rgba(231,76,60,0.3)', 'shadowColor':'rgba(231,76,60,0.5)', 'icon':'🔥', 'bgGradient':'radial-gradient(circle at 50% 50%, rgba(231,76,60,0.08), transparent 70%)' },
-    'obsidian': { 'bg':'rgba(0,0,0,0.95)', 'border':'3px solid rgba(52,73,94,0.7)', 'titleColor':'#5d6d7e', 'itemColor':'#aeb6bf', 'highlightColor':'#ffd700', 'glowColor':'rgba(52,73,94,0.4)', 'shadowColor':'rgba(52,73,94,0.6)', 'icon':'🔮', 'bgGradient':'radial-gradient(circle at 50% 50%, rgba(52,73,94,0.1), transparent 70%)' },
-    'bedrock': { 'bg':'rgba(0,0,0,0.95)', 'border':'3px solid rgba(255,215,0,0.8)', 'titleColor':'#ffd700', 'itemColor':'#ffd700', 'highlightColor':'#ff6b00', 'glowColor':'rgba(255,215,0,0.6)', 'shadowColor':'rgba(255,215,0,0.8)', 'icon':'⛏️', 'bgGradient':'radial-gradient(circle at 50% 50%, rgba(255,215,0,0.15), transparent 70%)' }
 }
 
 def get_prize(case_type, user_id=None):
