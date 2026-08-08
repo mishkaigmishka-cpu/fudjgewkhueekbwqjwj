@@ -1,5 +1,5 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v7.0
+// RANDEVU — FINAL SCRIPT v8.0
 // ВСЕ ИСПРАВЛЕНИЯ ВНЕСЕНЫ
 // ===============================
 
@@ -22,10 +22,11 @@ const CONFIG = {
         'gold': [75,100,150,169,190,220,251,300,400,500,777,999,1000,2000,5000,10000,12500,25000],
         'diamond': [250,300,333,350,444,505,1000,1488,2222,2500,5000,10000,12500,25000,50000],
         'netherite': [500,550,600,650,700,750,800,850,900,950,1000,1500,2000,2500,3000,3200,3500,4000,5000,10000,15000,20000,25000],
-        'bedrock': [1000,1200,1400,1600,1800,2000,2200,2400,2500,2600,2800,3000,3200,3500,4000,4500,5000,5500,6000,7000,8000,9000,10000,12000,15000,18000,20000,22000,25000,28000,30000,50000,100000]
+        'obsidian': [500,1000,1500,2000,2500,3000,4000,5000,7500,10000,15000,25000],
+        'bedrock': [5000,10000,25000,50000,100000,250000,1000000]
     },
     CASE_PRICES: {
-        'free':0,'mud':5,'wood':9,'stone':19,'bronze':49,'silver':99,'gold':249,'diamond':499,'netherite':999,'bedrock':2499
+        'free':0,'mud':5,'wood':9,'stone':19,'bronze':49,'silver':99,'gold':249,'diamond':499,'netherite':999,'obsidian':2499,'bedrock':10000
     },
     CASE_STYLES: {
         'free': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(46,204,113,0.7)', titleColor:'#2ecc71', itemColor:'#6bcbff', highlightColor:'#ffd700', glowColor:'rgba(46,204,113,0.3)', shadowColor:'rgba(46,204,113,0.5)', icon:'🎁', bgGradient:'radial-gradient(circle at 50% 50%, rgba(46,204,113,0.08), transparent 70%)' },
@@ -37,7 +38,8 @@ const CONFIG = {
         'gold': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(241,196,15,0.7)', titleColor:'#f1c40f', itemColor:'#f9e79f', highlightColor:'#ffd700', glowColor:'rgba(241,196,15,0.4)', shadowColor:'rgba(241,196,15,0.6)', icon:'👑', bgGradient:'radial-gradient(circle at 50% 50%, rgba(241,196,15,0.1), transparent 70%)' },
         'diamond': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(52,152,219,0.7)', titleColor:'#3498db', itemColor:'#85c1e9', highlightColor:'#00d4ff', glowColor:'rgba(52,152,219,0.3)', shadowColor:'rgba(52,152,219,0.5)', icon:'💎', bgGradient:'radial-gradient(circle at 50% 50%, rgba(52,152,219,0.08), transparent 70%)' },
         'netherite': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(44,62,80,0.7)', titleColor:'#e74c3c', itemColor:'#f1948a', highlightColor:'#ff6b35', glowColor:'rgba(231,76,60,0.3)', shadowColor:'rgba(231,76,60,0.5)', icon:'🔥', bgGradient:'radial-gradient(circle at 50% 50%, rgba(231,76,60,0.08), transparent 70%)' },
-        'bedrock': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(52,73,94,0.7)', titleColor:'#5d6d7e', itemColor:'#aeb6bf', highlightColor:'#ffd700', glowColor:'rgba(52,73,94,0.4)', shadowColor:'rgba(52,73,94,0.6)', icon:'⛏️', bgGradient:'radial-gradient(circle at 50% 50%, rgba(52,73,94,0.1), transparent 70%)' }
+        'obsidian': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(139,139,158,0.7)', titleColor:'#8b8b9e', itemColor:'#c8c8d4', highlightColor:'#ffd700', glowColor:'rgba(139,139,158,0.4)', shadowColor:'rgba(139,139,158,0.6)', icon:'🪨', bgGradient:'radial-gradient(circle at 50% 50%, rgba(139,139,158,0.08), transparent 70%)' },
+        'bedrock': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(20,20,30,0.9)', titleColor:'#8b8b9e', itemColor:'#c8c8d4', highlightColor:'#ff6b6b', glowColor:'rgba(139,139,158,0.4)', shadowColor:'rgba(139,139,158,0.6)', icon:'🧱', bgGradient:'radial-gradient(circle at 50% 50%, rgba(20,20,30,0.15), transparent 70%)' }
     },
     MINES_MULTIPLIERS: {
         3: {1:1.05,2:1.15,3:1.30,4:1.50,5:1.75,6:2.10,7:2.50,8:3.00,9:3.50,10:4.20,11:5.00,12:6.00},
