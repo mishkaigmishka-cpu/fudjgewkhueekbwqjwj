@@ -129,7 +129,8 @@ CASE_RANGES = {
     "gold": {"common": [75, 100], "rare": [150, 169, 190, 220, 251], "epic": [300, 400, 500, 777], "legendary": [999, 1000, 2000, 5000, 10000, 12500], "jackpot": [25000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
     "diamond": {"common": [250, 300, 333], "rare": [350, 444, 505], "epic": [1000, 1488, 2222], "legendary": [2500, 5000, 10000, 12500, 25000], "jackpot": [50000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
     "netherite": {"common": [500, 550, 600], "rare": [650, 700, 750, 800, 850], "epic": [900, 950, 1000, 1500], "legendary": [2000, 2500, 3000, 3200, 3500, 4000, 5000, 10000, 15000, 20000], "jackpot": [25000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
-    "bedrock": {"common": [1000, 1200, 1400], "rare": [1600, 1800, 2000, 2200, 2400], "epic": [2500, 2600, 2800, 3000, 3200, 3500], "legendary": [4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000], "jackpot": [10000, 12000, 15000, 18000, 20000, 22000, 25000, 28000, 30000, 50000, 100000], "common_chance": 0.25, "rare_chance": 0.6745, "epic_chance": 0.0749, "legendary_chance": 0.0045, "jackpot_chance": 0.00000001}
+    "obsidian": {"common": [500, 1000, 1500], "rare": [2000, 2500, 3000], "epic": [4000, 5000, 7500], "legendary": [10000, 15000], "jackpot": [25000], "common_chance": 0.35, "rare_chance": 0.35, "epic_chance": 0.2, "legendary_chance": 0.09, "jackpot_chance": 0.01},
+    "bedrock": {"common": [5000], "rare": [10000, 25000], "epic": [50000, 100000], "legendary": [250000], "jackpot": [1000000], "common_chance": 0.999, "rare_chance": 0.0009, "epic_chance": 0.00009, "legendary_chance": 0.000009, "jackpot_chance": 0.000001}
 }
 
 def get_prize(case_type, user_id=None):
@@ -244,7 +245,8 @@ crash_data = {
     'bets': {},
     'crash_time': 0,
     'crash_start_time': 0,
-    'round_phase': 'waiting'
+    'round_phase': 'waiting',
+    'crash_multiplier_at_crash': 1.00
 }
 
 def generate_crash_point():
@@ -374,29 +376,28 @@ def crash_timer():
                 elapsed = time.time() - crash_data['start_time']
                 crash_data['multiplier'] = get_crash_multiplier(elapsed)
                 
-                if elapsed >= 25:
-                    if not crash_data['crashed']:
-                        crash_data['crashed'] = True
-                        crash_data['round_phase'] = 'crashed'
-                        crash_data['crash_start_time'] = time.time()
-                        crash_data['crash_time'] = time.time()
+                if elapsed >= 25 and not crash_data['crashed']:
+                    crash_data['crashed'] = True
+                    crash_data['round_phase'] = 'crashed'
+                    crash_data['crash_time'] = time.time()
+                    crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
                 elif crash_data['multiplier'] >= crash_data['crash_point'] and not crash_data['crashed']:
                     crash_data['crashed'] = True
                     crash_data['round_phase'] = 'crashed'
-                    crash_data['crash_start_time'] = time.time()
                     crash_data['crash_time'] = time.time()
+                    crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
             
             elif crash_data['crashed']:
-                if time.time() - crash_data.get('crash_time', 0) >= 5:
+                elapsed_since_crash = time.time() - crash_data.get('crash_time', 0)
+                if elapsed_since_crash >= 5:
                     crash_data['crashed'] = False
-                    crash_data['active'] = False
-                    crash_data['round_phase'] = 'waiting'
+                    crash_data['active'] = True
+                    crash_data['round_phase'] = 'active'
+                    crash_data['start_time'] = time.time()
                     crash_data['multiplier'] = 1.00
                     crash_data['crash_point'] = generate_crash_point()
                     crash_data['bets'] = {}
-                    crash_data['start_time'] = 0
-                    crash_data['crash_start_time'] = 0
-                    crash_data['crash_time'] = 0
+                    crash_data['crash_multiplier_at_crash'] = 1.00
             
             else:
                 crash_data['round_phase'] = 'waiting'
@@ -435,8 +436,11 @@ def start(msg):
         except:
             pass
     update_user(uid, username=username)
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")),
+        InlineKeyboardButton("⚡ Апгрейд", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app/upgrade"))
+    )
     kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
     bot.send_message(msg.chat.id, "Добро пожаловать в RANDEVU!", reply_markup=kb)
 
@@ -458,16 +462,43 @@ def process_topup_amount(message, msg_id):
     if amount < 1 or amount > 5000:
         bot.edit_message_text("❌ Сумма должна быть от 1 до 5000⭐!", chat_id=uid, message_id=msg_id)
         return
-    bot.edit_message_text("💰 Ожидайте оплаты...", chat_id=uid, message_id=msg_id)
-    bot.send_invoice(chat_id=uid, title=f"Пополнение на {amount}⭐", description=f"Ты получишь {amount} звёзд.", invoice_payload=f"stars_{uid}_{int(time.time())}", provider_token="", currency="XTR", prices=[LabeledPrice(label=f"{amount} Stars", amount=amount)], start_parameter="buy_stars")
+    
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("🔙 Назад", callback_data="cancel_topup"))
+    
+    bot.edit_message_text(
+        f"💰 Пополнение на {amount}⭐\n\nНажми «Оплатить», чтобы продолжить, или «Назад» для отмены.",
+        chat_id=uid,
+        message_id=msg_id,
+        reply_markup=kb
+    )
+    
+    bot.send_invoice(
+        chat_id=uid,
+        title=f"Пополнение на {amount}⭐",
+        description=f"Ты получишь {amount} звёзд.",
+        invoice_payload=f"stars_{uid}_{int(time.time())}",
+        provider_token="",
+        currency="XTR",
+        prices=[LabeledPrice(label=f"{amount} Stars", amount=amount)],
+        start_parameter="buy_stars"
+    )
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_topup")
 def cancel_topup(call):
     bot.answer_callback_query(call.id)
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")),
+        InlineKeyboardButton("⚡ Апгрейд", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app/upgrade"))
+    )
     kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
-    bot.edit_message_text("Добро пожаловать в RANDEVU!", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=kb)
+    bot.edit_message_text(
+        "Добро пожаловать в RANDEVU!",
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        reply_markup=kb
+    )
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def handle_pre_checkout(query):
@@ -480,7 +511,17 @@ def handle_payment(message):
     user = get_user(uid)
     if user:
         update_user(uid, balance=user[1] + amount)
-        bot.send_message(uid, f"✅ Пополнено на {amount}⭐\n💰 Новый баланс: {user[1] + amount}⭐")
+        kb = InlineKeyboardMarkup(row_width=2)
+        kb.add(
+            InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")),
+            InlineKeyboardButton("⚡ Апгрейд", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app/upgrade"))
+        )
+        kb.add(InlineKeyboardButton("🔙 Назад", callback_data="cancel_topup"))
+        bot.send_message(
+            uid,
+            f"✅ Пополнено на {amount}⭐\n💰 Новый баланс: {user[1] + amount}⭐",
+            reply_markup=kb
+        )
 
 @bot.message_handler(commands=['promo'])
 def promo_handler(msg):
@@ -754,6 +795,86 @@ def crash_stats_cmd(msg):
 
 # ===================== ЭНДПОИНТЫ =====================
 
+@app.route('/upgrade', methods=['GET'])
+def upgrade_page():
+    return send_from_directory('static', 'upgrade.html')
+
+@app.route('/upgrade_calculate', methods=['POST'])
+def upgrade_calculate():
+    data = request.get_json()
+    uid = data.get('user_id')
+    bet = data.get('bet')
+    target = data.get('target')
+    
+    user = get_user(uid)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    
+    if bet < 1 or bet > 1000:
+        return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
+    
+    if target < bet + 1 or target > 2000:
+        return jsonify({'error': 'Цель должна быть от {} до 2000⭐'.format(bet + 1)}), 400
+    
+    if user[1] < bet:
+        return jsonify({'error': 'Недостаточно звёзд'}), 400
+    
+    raw_chance = (bet / target) * 100
+    chance = min(max(raw_chance, 1.0), 70.0)
+    
+    return jsonify({
+        'chance': round(chance, 2),
+        'bet': bet,
+        'target': target,
+        'balance': user[1]
+    })
+
+@app.route('/upgrade_execute', methods=['POST'])
+def upgrade_execute():
+    data = request.get_json()
+    uid = data.get('user_id')
+    bet = data.get('bet')
+    target = data.get('target')
+    
+    user = get_user(uid)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    
+    if bet < 1 or bet > 1000:
+        return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
+    
+    if target < bet + 1 or target > 2000:
+        return jsonify({'error': 'Цель должна быть от {} до 2000⭐'.format(bet + 1)}), 400
+    
+    if user[1] < bet:
+        return jsonify({'error': 'Недостаточно звёзд'}), 400
+    
+    raw_chance = (bet / target) * 100
+    chance = min(max(raw_chance, 1.0), 70.0)
+    
+    rand = random.random() * 100
+    success = rand <= chance
+    
+    if success:
+        new_balance = user[1] + (target - bet)
+        update_user(uid, balance=new_balance)
+        result = 'win'
+        message = f'✅ УСПЕХ! Ты получил {target}⭐ (+{target - bet}⭐)'
+    else:
+        new_balance = user[1] - bet
+        update_user(uid, balance=new_balance)
+        result = 'lose'
+        message = f'❌ ПРОВАЛ! Ты потерял {bet}⭐'
+    
+    return jsonify({
+        'result': result,
+        'chance': round(chance, 2),
+        'bet': bet,
+        'target': target,
+        'new_balance': new_balance,
+        'message': message
+    })
+
 @app.route('/create_battle_room', methods=['POST'])
 def create_battle_room():
     data = request.get_json()
@@ -764,7 +885,7 @@ def create_battle_room():
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
     
-    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
+    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
     price = prices.get(case_type, 0)
     if user[1] < price:
         return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐'}), 400
@@ -829,7 +950,7 @@ def join_battle_room():
     if uid in room['players']:
         return jsonify({'error': 'Ты уже в этой комнате', 'already_in_room': True}), 400
     
-    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
+    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
     price = prices.get(room['case_type'], 0)
     if user[1] < price:
         return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐'}), 400
@@ -1138,7 +1259,7 @@ def start_bot_battle():
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
     
-    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
+    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
     price = prices.get(case_type, 0)
     if user[1] < price:
         return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐'}), 400
@@ -1390,19 +1511,13 @@ def crash_status():
             elapsed_since_crash = time.time() - crash_data.get('crash_time', 0)
             time_to_new_round = max(0, 5 - elapsed_since_crash)
         
-        time_to_crash = 0
-        if crash_data['crashed'] and crash_data.get('crash_start_time'):
-            time_to_crash = 5 - (time.time() - crash_data['crash_start_time'])
-            if time_to_crash < 0:
-                time_to_crash = 0
-        
         return jsonify({
             'multiplier': crash_data['multiplier'],
             'crashed': crash_data['crashed'],
             'active': crash_data['active'],
             'round_phase': crash_data['round_phase'],
             'time_to_new_round': round(time_to_new_round, 1),
-            'time_to_crash': round(time_to_crash, 1)
+            'crash_multiplier_at_crash': crash_data.get('crash_multiplier_at_crash', 1.00)
         })
 
 @app.route('/cashout_crash', methods=['POST'])
@@ -1487,7 +1602,7 @@ def check_balance():
     user = get_user(user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
+    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
     price = prices.get(case_type, 0)
     if user[1] < price:
         return jsonify({'error': 'Недостаточно звёзд!', 'can_open': False}), 400
@@ -1506,7 +1621,7 @@ def open_case():
         user = get_user(user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 404
-        prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "bedrock": 2499}
+        prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
         price = prices.get(case_type, 0)
         if user[1] < price:
             return jsonify({'error': 'Недостаточно звёзд!'}), 400
