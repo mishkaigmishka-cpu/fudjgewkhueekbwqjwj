@@ -379,7 +379,7 @@ def get_mines_multiplier(opened, mines):
     return multipliers.get(mines, {}).get(opened, 1.00)
 
 # ============================
-# КРАШ
+# КРАШ (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 # ============================
 crash_data = {
     'active': False,
@@ -397,6 +397,7 @@ crash_data = {
 }
 
 def generate_crash_point():
+    # 60% вероятность краша на 1.1-1.5
     rnd = random.random()
     if rnd < 0.60:
         return round(1.10 + random.random() * 0.40, 2)
@@ -408,6 +409,7 @@ def generate_crash_point():
         return round(5.00 + random.random() * 7.00, 2)
 
 def get_crash_multiplier(elapsed):
+    # Динамическая скорость: чем выше множитель, тем быстрее рост
     if elapsed < 2.0:
         return round(1.00 + elapsed * 0.50, 2)
     elif elapsed < 4.5:
@@ -422,6 +424,7 @@ def get_crash_multiplier(elapsed):
 def crash_timer():
     global crash_data
     while True:
+        # Обратный отсчёт
         if crash_data['waiting_for_players']:
             elapsed = time.time() - crash_data['round_start_time']
             remaining = 5 - int(elapsed)
@@ -440,10 +443,12 @@ def crash_timer():
             time.sleep(0.1)
             continue
         
+        # Активный раунд
         if crash_data['active'] and not crash_data['crashed']:
             elapsed = time.time() - crash_data['start_time']
             crash_data['multiplier'] = get_crash_multiplier(elapsed)
             
+            # Краш при достижении точки или при таймауте 12 секунд
             if crash_data['multiplier'] >= crash_data['crash_point'] or elapsed >= 12:
                 crash_data['crashed'] = True
                 crash_data['active'] = False
@@ -453,6 +458,7 @@ def crash_timer():
                     update_crash_stats(uid, won=False, multiplier=0, stars=0)
                 crash_data['bets'] = {}
                 
+                # Запускаем обратный отсчёт
                 crash_data['waiting_for_players'] = True
                 crash_data['round_start_time'] = time.time()
                 crash_data['countdown'] = 5
@@ -521,7 +527,7 @@ def start_battle(room_id):
     conn.close()
 
 # ============================
-# ЭНДПОИНТЫ
+# ЭНДПОИНТЫ (ПОЛНЫЙ СПИСОК)
 # ============================
 
 @app.route('/')
@@ -1178,7 +1184,7 @@ def get_mines_stats_endpoint():
         'best_multiplier': stats[4]
     })
 
-# ===== КРАШ =====
+# ===== КРАШ (ЭНДПОИНТЫ) =====
 @app.route('/start_crash', methods=['POST'])
 def start_crash():
     global crash_data
