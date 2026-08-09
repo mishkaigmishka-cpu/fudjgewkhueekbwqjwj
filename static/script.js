@@ -1,5 +1,5 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v9.0
+// RANDEVU — FINAL SCRIPT v10.0
 // ВСЕ ИСПРАВЛЕНИЯ ВНЕСЕНЫ
 // ===============================
 
@@ -366,6 +366,32 @@ function startUpgradeAnimation(chance, bet, target) {
     let spinning = true;
     let finished = false;
 
+    // === КНОПКА ПРОПУСКА ===
+    const skipBtn = document.createElement('button');
+    skipBtn.textContent = '⏭ ПРОПУСТИТЬ';
+    Object.assign(skipBtn.style, {
+        position: 'fixed',
+        bottom: '100px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        padding: '12px 30px',
+        border: 'none',
+        borderRadius: '14px',
+        background: 'rgba(255,255,255,0.08)',
+        color: '#fff',
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        fontSize: '16px',
+        fontWeight: '700',
+        cursor: 'pointer',
+        zIndex: '1001',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        transition: 'all 0.2s'
+    });
+    skipBtn.onmouseover = () => { skipBtn.style.background = 'rgba(255,255,255,0.15)'; };
+    skipBtn.onmouseout = () => { skipBtn.style.background = 'rgba(255,255,255,0.08)'; };
+    document.body.appendChild(skipBtn);
+
     function drawWheel(angle) {
         ctx.clearRect(0, 0, 400, 400);
 
@@ -473,38 +499,47 @@ function startUpgradeAnimation(chance, bet, target) {
         ctx.shadowBlur = 0;
     }
 
+    function finishUpgrade() {
+        if (finished) return;
+        finished = true;
+        spinning = false;
+        skipBtn.remove();
+
+        const normalizedAngle = angle % (Math.PI * 2);
+        const isWin = normalizedAngle < Math.PI * 2 * successChance;
+
+        apiRequest('/upgrade_execute', { bet, target }).then(data => {
+            if (data.error) {
+                document.getElementById('upgradeResult').textContent = '❌ ' + data.error;
+                document.getElementById('upgradeResult').style.color = '#f44336';
+                return;
+            }
+            document.getElementById('upgradeBalance').textContent = data.new_balance + ' ⭐';
+            showUpgradeResult(data.result, data.message, data.new_balance);
+        });
+
+        drawWheel(angle);
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = isWin ? '#4caf50' : '#f44336';
+        ctx.lineWidth = 5;
+        ctx.shadowColor = isWin ? 'rgba(76,175,80,0.7)' : 'rgba(244,67,54,0.7)';
+        ctx.shadowBlur = 40;
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    skipBtn.onclick = finishUpgrade;
+
     function spin() {
         if (!spinning || finished) return;
         
         speed *= 0.9975;
         
         if (speed < 0.0003) {
-            spinning = false;
-            finished = true;
-            const normalizedAngle = angle % (Math.PI * 2);
-            const isWin = normalizedAngle < Math.PI * 2 * successChance;
-
-            apiRequest('/upgrade_execute', { bet, target }).then(data => {
-                if (data.error) {
-                    document.getElementById('upgradeResult').textContent = '❌ ' + data.error;
-                    document.getElementById('upgradeResult').style.color = '#f44336';
-                    return;
-                }
-                document.getElementById('upgradeBalance').textContent = data.new_balance + ' ⭐';
-                showUpgradeResult(data.result, data.message, data.new_balance);
-            });
-
-            drawWheel(angle);
-            ctx.save();
-            ctx.translate(centerX, centerY);
-            ctx.beginPath();
-            ctx.arc(0, 0, radius, 0, Math.PI * 2);
-            ctx.strokeStyle = isWin ? '#4caf50' : '#f44336';
-            ctx.lineWidth = 5;
-            ctx.shadowColor = isWin ? 'rgba(76,175,80,0.7)' : 'rgba(244,67,54,0.7)';
-            ctx.shadowBlur = 40;
-            ctx.stroke();
-            ctx.restore();
+            finishUpgrade();
             return;
         }
 
@@ -519,6 +554,13 @@ function startUpgradeAnimation(chance, bet, target) {
         speed = 0.18;
         spin();
     }, 400);
+
+    // Убираем кнопку при закрытии
+    const originalClose = closeAllOverlays;
+    closeAllOverlays = function() {
+        skipBtn.remove();
+        originalClose();
+    };
 }
 
 function showUpgradeResult(result, message, newBalance) {
@@ -548,16 +590,27 @@ function showUpgradeResult(result, message, newBalance) {
         <div style="font-size:18px; color:#aaa; text-align:center; margin-bottom:6px;">${message}</div>
         <div style="font-size:16px; color:#888; margin-bottom:20px;">💰 Баланс: ${newBalance} ⭐</div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-            <button onclick="closeAllOverlays(); resetUpgrade();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+            <button onclick="closeUpgradeResult('again')" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔄 ЕЩЁ РАЗ
             </button>
-            <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+            <button onclick="closeUpgradeResult('back')" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔙 НАЗАД
             </button>
         </div>
     `;
     
     document.body.appendChild(overlay);
+}
+
+function closeUpgradeResult(action) {
+    const overlay = document.getElementById('upgradeResultOverlay');
+    if (overlay) overlay.remove();
+    
+    if (action === 'again') {
+        resetUpgrade();
+    } else {
+        showMain();
+    }
 }
 
 function resetUpgrade() {
@@ -1770,14 +1823,6 @@ function startBotBattleAnimation(case_type) {
         
         if (!track1 || !track2 || !overlay) return;
         
-        // Сброс в начало
-        track1.style.transition = 'none';
-        track1.style.transform = 'translateX(0px)';
-        track2.style.transition = 'none';
-        track2.style.transform = 'translateX(0px)';
-        void track1.offsetHeight;
-        void track2.offsetHeight;
-        
         const pos1 = prizes.indexOf(data.player_prize);
         const pos2 = prizes.indexOf(data.bot_prize);
         const winPos1 = pos1 !== -1 ? pos1 : 15;
@@ -1785,16 +1830,24 @@ function startBotBattleAnimation(case_type) {
         
         const cardWidth = 120;
         const cardGap = 8;
+        const totalCardWidth = cardWidth + cardGap;
         const viewportWidth = window.innerWidth * 0.85;
         const centerOffset = viewportWidth / 2;
         
-        const shift1 = (winPos1 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
-        const shift2 = (winPos2 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+        const shift1 = (winPos1 * totalCardWidth) - centerOffset + (cardWidth / 2);
+        const shift2 = (winPos2 * totalCardWidth) - centerOffset + (cardWidth / 2);
         
         const noise1 = Math.floor(Math.random() * 40) - 20;
         const noise2 = Math.floor(Math.random() * 40) - 20;
         const finalShift1 = shift1 + noise1;
         const finalShift2 = shift2 + noise2;
+        
+        track1.style.transition = 'none';
+        track1.style.transform = 'translateX(0px)';
+        track2.style.transition = 'none';
+        track2.style.transform = 'translateX(0px)';
+        void track1.offsetHeight;
+        void track2.offsetHeight;
         
         setTimeout(() => {
             track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
@@ -1946,7 +1999,6 @@ function startPvpBattle(room_id) {
                         const winPos2 = pos2 !== -1 ? pos2 : 15;
                         
                         if (track1 && track2) {
-                            // Сброс в начало
                             track1.style.transition = 'none';
                             track1.style.transform = 'translateX(0px)';
                             track2.style.transition = 'none';
@@ -1956,11 +2008,12 @@ function startPvpBattle(room_id) {
                             
                             const cardWidth = 110;
                             const cardGap = 8;
+                            const totalCardWidth = cardWidth + cardGap;
                             const viewportWidth = window.innerWidth * 0.85;
                             const centerOffset = viewportWidth / 2;
                             
-                            const shift1 = (winPos1 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
-                            const shift2 = (winPos2 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+                            const shift1 = (winPos1 * totalCardWidth) - centerOffset + (cardWidth / 2);
+                            const shift2 = (winPos2 * totalCardWidth) - centerOffset + (cardWidth / 2);
                             
                             const noise1 = Math.floor(Math.random() * 40) - 20;
                             const noise2 = Math.floor(Math.random() * 40) - 20;
@@ -2713,24 +2766,25 @@ function startCrashPolling() {
     
     state.crashPollingInterval = setInterval(() => {
         apiRequest('/crash_status', {}).then(status => {
-            if (status.error) {
-                return;
-            }
+            if (status.error) return;
             
             const multiplier = status.multiplier || 1.00;
             const crashPoint = status.crash_multiplier_at_crash || 1.00;
+            const gameCount = status.game_count || 0;
             
             updateCrashChart(multiplier);
-            
-            const bet = parseInt(DOM.crashBetDisplay.textContent) || 0;
-            const potentialWin = Math.floor(bet * multiplier * 0.95);
-            const winDisplay = document.getElementById('crashPotentialWin');
-            if (winDisplay) {
-                winDisplay.textContent = potentialWin + '⭐';
-                winDisplay.style.color = potentialWin > bet * 2 ? '#4caf50' : '#ffd700';
-            }
+            DOM.crashMultiplierDisplay.textContent = `x${multiplier}`;
             
             const timerEl = document.getElementById('crashTimer');
+            
+            if (DOM.crashStartBtn) {
+                if (gameCount < 2) {
+                    DOM.crashStartBtn.disabled = true;
+                    DOM.crashStartBtn.textContent = `⏳ ИГР ${gameCount}/2`;
+                } else {
+                    DOM.crashStartBtn.disabled = false;
+                }
+            }
             
             if (status.round_phase === 'crashed') {
                 const timeToNew = status.time_to_new_round || 0;
@@ -2738,39 +2792,52 @@ function startCrashPolling() {
                 DOM.crashMultiplier.style.color = '#f44336';
                 DOM.crashMultiplier.className = 'crashed';
                 DOM.crashStatus.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
+                DOM.crashCashoutBtn.style.display = 'none';
                 
                 if (timeToNew > 0) {
                     timerEl.textContent = `⏳ НОВАЯ ИГРА ЧЕРЕЗ ${timeToNew} СЕК`;
                     timerEl.style.color = '#ffd700';
-                    DOM.crashStartBtn.disabled = false;
-                    DOM.crashStartBtn.textContent = `⏳ ${timeToNew} СЕК`;
+                    if (DOM.crashStartBtn) {
+                        DOM.crashStartBtn.disabled = true;
+                        DOM.crashStartBtn.textContent = `⏳ ${timeToNew} СЕК`;
+                    }
                 } else {
                     timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
                     timerEl.style.color = '#4caf50';
-                    DOM.crashStartBtn.disabled = false;
-                    DOM.crashStartBtn.textContent = '🚀 СТАРТ';
+                    if (DOM.crashStartBtn) {
+                        DOM.crashStartBtn.disabled = false;
+                        DOM.crashStartBtn.textContent = '🚀 СТАРТ';
+                    }
                 }
             }
             else if (status.round_phase === 'waiting') {
                 timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
                 timerEl.style.color = '#4caf50';
                 DOM.crashStatus.textContent = '🚀 Нажми «СТАРТ», чтобы начать!';
-                DOM.crashStartBtn.disabled = false;
-                DOM.crashStartBtn.textContent = '🚀 СТАРТ';
+                if (DOM.crashStartBtn) {
+                    DOM.crashStartBtn.disabled = false;
+                    DOM.crashStartBtn.textContent = '🚀 СТАРТ';
+                }
                 DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
                 DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
                 DOM.crashMultiplier.className = '';
+                DOM.crashCashoutBtn.style.display = 'none';
             }
             else if (status.round_phase === 'active') {
                 const elapsed = Math.floor((Date.now() - (state._crashStartTime || Date.now())) / 1000);
                 timerEl.textContent = `⏱ ${elapsed} сек`;
                 timerEl.style.color = '#666';
                 DOM.crashStatus.textContent = '📈 Множитель растёт...';
-                DOM.crashStartBtn.disabled = true;
-                DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
+                if (DOM.crashStartBtn) {
+                    DOM.crashStartBtn.disabled = true;
+                    DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
+                }
                 DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
                 DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
                 DOM.crashMultiplier.className = '';
+                if (state.crashRunning) {
+                    DOM.crashCashoutBtn.style.display = 'inline-block';
+                }
             }
         });
     }, 100);
