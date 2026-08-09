@@ -263,25 +263,33 @@ def generate_crash_point():
         return round(10.00 + (rnd - 0.98) * 60.00, 2)
 
 def get_crash_multiplier(elapsed):
-    # === ОЧЕНЬ МЕДЛЕННЫЙ РОСТ ДО 2.0x ===
+    # === ОЧЕНЬ МЕДЛЕННЫЙ РОСТ ДО 2.0x (10 СЕКУНД) ===
     if elapsed < 1.0:
-        multiplier = 1.00 + elapsed * 0.08
+        multiplier = 1.00 + elapsed * 0.06      # 0-1с: 1.00 → 1.06
     elif elapsed < 2.0:
-        multiplier = 1.08 + (elapsed - 1.0) * 0.10
+        multiplier = 1.06 + (elapsed - 1.0) * 0.08  # 1-2с: 1.06 → 1.14
     elif elapsed < 3.5:
-        multiplier = 1.18 + (elapsed - 2.0) * 0.12
+        multiplier = 1.14 + (elapsed - 2.0) * 0.09  # 2-3.5с: 1.14 → 1.275
     elif elapsed < 5.0:
-        multiplier = 1.36 + (elapsed - 3.5) * 0.15
-    elif elapsed < 7.0:
-        multiplier = 1.585 + (elapsed - 5.0) * 0.20
-    elif elapsed < 9.5:
-        multiplier = 1.985 + (elapsed - 7.0) * 0.30
+        multiplier = 1.275 + (elapsed - 3.5) * 0.10 # 3.5-5с: 1.275 → 1.425
+    elif elapsed < 6.5:
+        multiplier = 1.425 + (elapsed - 5.0) * 0.11 # 5-6.5с: 1.425 → 1.59
+    elif elapsed < 8.0:
+        multiplier = 1.59 + (elapsed - 6.5) * 0.12  # 6.5-8с: 1.59 → 1.77
+    elif elapsed < 10.0:
+        multiplier = 1.77 + (elapsed - 8.0) * 0.13  # 8-10с: 1.77 → 2.03
     elif elapsed < 12.0:
-        multiplier = 2.735 + (elapsed - 9.5) * 0.50
-    elif elapsed < 15.0:
-        multiplier = 3.985 + (elapsed - 12.0) * 0.80
-    elif elapsed < 18.0:
-        multiplier = 6.385 + (elapsed - 15.0) * 1.20
+        multiplier = 2.03 + (elapsed - 10.0) * 0.15 # 10-12с: 2.03 → 2.33
+    elif elapsed < 14.5:
+        multiplier = 2.33 + (elapsed - 12.0) * 0.20 # 12-14.5с: 2.33 → 2.83
+    elif elapsed < 17.0:
+        multiplier = 2.83 + (elapsed - 14.5) * 0.28 # 14.5-17с: 2.83 → 3.53
+    elif elapsed < 20.0:
+        multiplier = 3.53 + (elapsed - 17.0) * 0.40 # 17-20с: 3.53 → 4.73
+    elif elapsed < 23.5:
+        multiplier = 4.73 + (elapsed - 20.0) * 0.60 # 20-23.5с: 4.73 → 6.83
+    elif elapsed < 27.5:
+        multiplier = 6.83 + (elapsed - 23.5) * 0.90 # 23.5-27.5с: 6.83 → 10.43
     else:
         multiplier = 12.00
     
