@@ -263,15 +263,29 @@ def generate_crash_point():
         return round(10.00 + (rnd - 0.98) * 60.00, 2)
 
 def get_crash_multiplier(elapsed):
-    if elapsed < 0.3: return round(1.00 + elapsed * 0.30, 2)
-    elif elapsed < 0.8: return round(1.09 + (elapsed - 0.3) * 0.25, 2)
-    elif elapsed < 1.5: return round(1.22 + (elapsed - 0.8) * 0.20, 2)
-    elif elapsed < 2.5: return round(1.36 + (elapsed - 1.5) * 0.35, 2)
-    elif elapsed < 4.0: return round(1.71 + (elapsed - 2.5) * 0.60, 2)
-    elif elapsed < 6.0: return round(2.61 + (elapsed - 4.0) * 0.80, 2)
-    elif elapsed < 9.0: return round(4.21 + (elapsed - 6.0) * 1.20, 2)
-    elif elapsed < 13.0: return round(7.81 + (elapsed - 9.0) * 1.80, 2)
-    else: return 12.00
+    # === ОЧЕНЬ МЕДЛЕННЫЙ РОСТ ДО 2.0x ===
+    if elapsed < 1.0:
+        multiplier = 1.00 + elapsed * 0.08
+    elif elapsed < 2.0:
+        multiplier = 1.08 + (elapsed - 1.0) * 0.10
+    elif elapsed < 3.5:
+        multiplier = 1.18 + (elapsed - 2.0) * 0.12
+    elif elapsed < 5.0:
+        multiplier = 1.36 + (elapsed - 3.5) * 0.15
+    elif elapsed < 7.0:
+        multiplier = 1.585 + (elapsed - 5.0) * 0.20
+    elif elapsed < 9.5:
+        multiplier = 1.985 + (elapsed - 7.0) * 0.30
+    elif elapsed < 12.0:
+        multiplier = 2.735 + (elapsed - 9.5) * 0.50
+    elif elapsed < 15.0:
+        multiplier = 3.985 + (elapsed - 12.0) * 0.80
+    elif elapsed < 18.0:
+        multiplier = 6.385 + (elapsed - 15.0) * 1.20
+    else:
+        multiplier = 12.00
+    
+    return round(min(multiplier, 12.00), 2)
 
 def get_mines_multiplier(opened, mines):
     multipliers = {
@@ -389,10 +403,10 @@ def crash_timer():
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
                     crash_data['game_count'] += 1
             
-            # === ПОСЛЕ КРАША ===
+            # === ПОСЛЕ КРАША (ОТСЧЁТ 10 СЕК) ===
             elif crash_data['crashed']:
                 elapsed_since_crash = time.time() - crash_data['crash_time']
-                if elapsed_since_crash >= 5:
+                if elapsed_since_crash >= 10:
                     crash_data['crashed'] = False
                     crash_data['active'] = False
                     crash_data['round_phase'] = 'waiting'
@@ -1383,7 +1397,7 @@ def start_crash():
     
     with crash_lock:
         if crash_data['round_phase'] != 'crashed':
-            return jsonify({'error': 'Ставки принимаются только в окне 5 секунд после краша!'}), 400
+            return jsonify({'error': 'Ставки принимаются только в окне 10 секунд после краша!'}), 400
         
         if uid in crash_data['bets']:
             return jsonify({'error': 'Ты уже сделал ставку в этом раунде'}), 400
@@ -1411,7 +1425,7 @@ def crash_status():
         time_to_new_round = 0
         if crash_data['round_phase'] == 'crashed':
             elapsed_since_crash = time.time() - crash_data['crash_time']
-            time_to_new_round = max(0, 5 - elapsed_since_crash)
+            time_to_new_round = max(0, 10 - elapsed_since_crash)
         
         return jsonify({
             'multiplier': crash_data['multiplier'],
