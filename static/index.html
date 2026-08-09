@@ -227,7 +227,7 @@
                     </div>
                 </div>
                 
-                <div id="crashStatus" style="font-size:15px; color:#888; margin-top:2px;">Нажми «ИГРАТЬ», чтобы начать</div>
+                <div id="crashStatus" style="font-size:15px; color:#888; margin-top:2px;">🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!</div>
                 <div id="crashTimer" style="font-size:13px; color:#666; margin-top:2px;">🚀 МОЖНО СТАВИТЬ!</div>
             </div>
 
@@ -247,7 +247,7 @@
             </div>
 
             <div style="display:flex; gap:12px;">
-                <button id="crashStartBtn" onclick="startCrashGame()" style="flex:1; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#4caf50,#2e7d32); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">
+                <button id="crashStartBtn" onclick="placeCrashBet()" style="flex:1; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#4caf50,#2e7d32); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">
                     🎮 ИГРАТЬ
                 </button>
                 <button id="crashCashoutBtn" onclick="cashoutCrash()" style="display:none; flex:1; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-weight:800; font-size:18px; cursor:pointer;">
@@ -255,7 +255,7 @@
                 </button>
             </div>
 
-            <button onclick="goBack()" class="btn-back" style="margin-top:12px;">🔙 Назад</button>
+            <button onclick="closeAllOverlays(); showCrash();" class="btn-back" style="margin-top:12px;">🔙 Назад</button>
         </div>
 
         <!-- ===== АПГРЕЙД ===== -->
@@ -294,7 +294,7 @@
                 </button>
             </div>
 
-            <button onclick="goBack()" class="btn-back" style="margin-top:12px;">🔙 Назад</button>
+            <button onclick="closeAllOverlays(); showUpgrade();" class="btn-back" style="margin-top:12px;">🔙 Назад</button>
         </div>
 
         <div id="profileScreen" class="screen">
