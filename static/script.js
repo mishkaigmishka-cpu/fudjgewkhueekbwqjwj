@@ -365,6 +365,7 @@ function startUpgradeAnimation(chance, bet, target) {
     let speed = 0.18;
     let spinning = true;
     let finished = false;
+    let animationId = null;
 
     // === КНОПКА ПРОПУСКА ===
     const skipBtn = document.createElement('button');
@@ -503,6 +504,10 @@ function startUpgradeAnimation(chance, bet, target) {
         if (finished) return;
         finished = true;
         spinning = false;
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
         skipBtn.remove();
 
         const normalizedAngle = angle % (Math.PI * 2);
@@ -536,7 +541,7 @@ function startUpgradeAnimation(chance, bet, target) {
     function spin() {
         if (!spinning || finished) return;
         
-        speed *= 0.99;  // Ускоренное замедление (6-8 секунд)
+        speed *= 0.99;
         
         if (speed < 0.0003) {
             finishUpgrade();
@@ -545,7 +550,7 @@ function startUpgradeAnimation(chance, bet, target) {
 
         angle += speed;
         drawWheel(angle);
-        requestAnimationFrame(spin);
+        animationId = requestAnimationFrame(spin);
     }
 
     drawWheel(0);
@@ -558,6 +563,10 @@ function startUpgradeAnimation(chance, bet, target) {
     // Убираем кнопку при закрытии
     const originalClose = closeAllOverlays;
     closeAllOverlays = function() {
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
         skipBtn.remove();
         originalClose();
     };
@@ -2724,7 +2733,7 @@ function resetCrashUI() {
     DOM.crashMultiplier.textContent = 'x1.00';
     DOM.crashMultiplier.className = '';
     DOM.crashStatus.textContent = '⏳ Ожидание...';
-    DOM.crashTimer.textContent = '⏱ 0.0 сек';
+    DOM.crashTimer.textContent = '⏱ 0 сек';
     DOM.crashBetDisplay.textContent = '0';
     DOM.crashMultiplierDisplay.textContent = 'x1.00';
     DOM.crashStartBtn.style.display = 'inline-block';
@@ -2765,74 +2774,60 @@ function startCrashPolling() {
             
             const multiplier = status.multiplier || 1.00;
             const crashPoint = status.crash_multiplier_at_crash || 1.00;
-            const gameCount = status.game_count || 0;
-            
-            updateCrashChart(multiplier);
-            DOM.crashMultiplierDisplay.textContent = `x${multiplier}`;
-            
+            const timeToNew = status.time_to_new_round || 0;
             const timerEl = document.getElementById('crashTimer');
             
-            if (DOM.crashStartBtn) {
-                if (gameCount < 2) {
-                    DOM.crashStartBtn.disabled = true;
-                    DOM.crashStartBtn.textContent = `⏳ ИГР ${gameCount}/2`;
-                } else {
-                    DOM.crashStartBtn.disabled = false;
-                }
+            // === ИГРА АКТИВНА ===
+            if (status.round_phase === 'active') {
+                updateCrashChart(multiplier);
+                DOM.crashMultiplierDisplay.textContent = `x${multiplier}`;
+                DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
+                DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
+                DOM.crashMultiplier.className = '';
+                DOM.crashStatus.textContent = '📈 Множитель растёт...';
+                timerEl.textContent = `⏱ ${Math.floor((Date.now() - (state._crashStartTime || Date.now())) / 1000)} сек`;
+                timerEl.style.color = '#666';
+                DOM.crashStartBtn.disabled = true;
+                DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
+                DOM.crashCashoutBtn.style.display = 'inline-block';
             }
             
-            if (status.round_phase === 'crashed') {
-                const timeToNew = status.time_to_new_round || 0;
+            // === КРАШ ===
+            else if (status.round_phase === 'crashed') {
                 DOM.crashMultiplier.textContent = `x${crashPoint.toFixed(2)}`;
                 DOM.crashMultiplier.style.color = '#f44336';
                 DOM.crashMultiplier.className = 'crashed';
                 DOM.crashStatus.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
                 DOM.crashCashoutBtn.style.display = 'none';
+                DOM.crashStartBtn.disabled = false;
                 
                 if (timeToNew > 0) {
-                    timerEl.textContent = `⏳ НОВАЯ ИГРА ЧЕРЕЗ ${timeToNew} СЕК`;
+                    // === ОЧИЩАЕМ ГРАФИК ДЛЯ ОТСЧЁТА ===
+                    resetCrashChart();
+                    timerEl.textContent = `⏳ ${Math.ceil(timeToNew)} СЕК`;
                     timerEl.style.color = '#ffd700';
-                    if (DOM.crashStartBtn) {
-                        DOM.crashStartBtn.disabled = true;
-                        DOM.crashStartBtn.textContent = `⏳ ${timeToNew} СЕК`;
-                    }
+                    DOM.crashStartBtn.textContent = `⏳ ${Math.ceil(timeToNew)} СЕК`;
+                    DOM.crashStatus.textContent = `⏳ Новая игра через ${Math.ceil(timeToNew)} сек...`;
                 } else {
                     timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
                     timerEl.style.color = '#4caf50';
-                    if (DOM.crashStartBtn) {
-                        DOM.crashStartBtn.disabled = false;
-                        DOM.crashStartBtn.textContent = '🚀 СТАРТ';
-                    }
+                    DOM.crashStartBtn.textContent = '🚀 СТАРТ';
+                    DOM.crashStatus.textContent = '🚀 Нажми «СТАРТ», чтобы сделать ставку!';
                 }
             }
+            
+            // === ОЖИДАНИЕ ===
             else if (status.round_phase === 'waiting') {
+                resetCrashChart();
                 timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
                 timerEl.style.color = '#4caf50';
                 DOM.crashStatus.textContent = '🚀 Нажми «СТАРТ», чтобы начать!';
-                if (DOM.crashStartBtn) {
-                    DOM.crashStartBtn.disabled = false;
-                    DOM.crashStartBtn.textContent = '🚀 СТАРТ';
-                }
-                DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
-                DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
+                DOM.crashStartBtn.disabled = false;
+                DOM.crashStartBtn.textContent = '🚀 СТАРТ';
+                DOM.crashMultiplier.textContent = 'x1.00';
+                DOM.crashMultiplier.style.color = '#b388ff';
                 DOM.crashMultiplier.className = '';
                 DOM.crashCashoutBtn.style.display = 'none';
-            }
-            else if (status.round_phase === 'active') {
-                const elapsed = Math.floor((Date.now() - (state._crashStartTime || Date.now())) / 1000);
-                timerEl.textContent = `⏱ ${elapsed} сек`;
-                timerEl.style.color = '#666';
-                DOM.crashStatus.textContent = '📈 Множитель растёт...';
-                if (DOM.crashStartBtn) {
-                    DOM.crashStartBtn.disabled = true;
-                    DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
-                }
-                DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
-                DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
-                DOM.crashMultiplier.className = '';
-                if (state.crashRunning) {
-                    DOM.crashCashoutBtn.style.display = 'inline-block';
-                }
             }
         });
     }, 100);
@@ -2859,6 +2854,7 @@ function startCrashGame() {
             state.crashRunning = true;
             state._crashStartTime = Date.now();
             
+            // === ПОЛНАЯ ОЧИСТКА ГРАФИКА ===
             resetCrashChart();
             
             DOM.crashStartBtn.disabled = true;
@@ -2881,6 +2877,7 @@ function startCrashGame() {
                     const elapsed = (Date.now() - state._crashStartTime) / 1000;
                     DOM.crashTimer.textContent = `⏱ ${elapsed.toFixed(1)} сек`;
                     
+                    // === РИСУЕМ НОВУЮ ЛИНИЮ ===
                     updateCrashChart(status.multiplier);
                     DOM.crashMultiplierDisplay.textContent = `x${status.multiplier}`;
                     
