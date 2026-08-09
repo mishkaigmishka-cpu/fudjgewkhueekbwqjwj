@@ -295,6 +295,199 @@ function goBack() {
     showMain();
 }
 
+// ===== АПГРЕЙД =====
+function showUpgrade() {
+    closeAllOverlays();
+    document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+    document.getElementById('upgradeScreen').classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelector('.nav-item[data-tab="upgrade"]').classList.add('active');
+    loadUpgradeBalance();
+    updateUpgradeChance();
+}
+
+async function loadUpgradeBalance() {
+    const data = await apiRequest('/get_balance');
+    if (data.balance !== undefined) {
+        document.getElementById('upgradeBalance').textContent = data.balance + ' ⭐';
+    }
+}
+
+function updateUpgradeChance() {
+    const bet = parseInt(document.getElementById('upgradeBet').value) || 1;
+    const target = parseInt(document.getElementById('upgradeTarget').value) || bet + 1;
+    if (target <= bet) {
+        document.getElementById('upgradeChance').textContent = '0%';
+        return;
+    }
+    const raw = (bet / target) * 100;
+    const chance = Math.min(Math.max(raw, 1), 70);
+    document.getElementById('upgradeChance').textContent = chance.toFixed(2) + '%';
+}
+
+document.getElementById('upgradeBet').addEventListener('input', updateUpgradeChance);
+document.getElementById('upgradeTarget').addEventListener('input', updateUpgradeChance);
+
+async function startUpgrade() {
+    const bet = parseInt(document.getElementById('upgradeBet').value) || 1;
+    const target = parseInt(document.getElementById('upgradeTarget').value) || bet + 1;
+
+    if (bet < 1 || bet > 1000) {
+        showCustomAlert('❌ Ставка от 1 до 1000⭐');
+        return;
+    }
+    if (target < bet + 1 || target > 2000) {
+        showCustomAlert('❌ Цель от ' + (bet + 1) + ' до 2000⭐');
+        return;
+    }
+
+    const data = await apiRequest('/upgrade_calculate', { bet, target });
+    if (data.error) {
+        showCustomAlert('❌ ' + data.error);
+        return;
+    }
+
+    document.getElementById('upgradeInputSection').style.display = 'none';
+    document.getElementById('upgradeAnimationSection').style.display = 'block';
+    document.getElementById('upgradeResult').textContent = '';
+
+    startUpgradeAnimation(data.chance, bet, target);
+}
+
+function startUpgradeAnimation(chance, bet, target) {
+    const canvas = document.getElementById('upgradeWheel');
+    const ctx = canvas.getContext('2d');
+    const centerX = 200;
+    const centerY = 200;
+    const radius = 180;
+    const successChance = chance / 100;
+    let angle = 0;
+    let speed = 0.15;
+    let spinning = true;
+
+    function drawWheel(angle) {
+        ctx.clearRect(0, 0, 400, 400);
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2 * successChance);
+        ctx.closePath();
+        ctx.fillStyle = '#4caf50';
+        ctx.shadowColor = 'rgba(76, 175, 80, 0.3)';
+        ctx.shadowBlur = 20;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, Math.PI * 2 * successChance, Math.PI * 2);
+        ctx.closePath();
+        ctx.fillStyle = '#f44336';
+        ctx.shadowColor = 'rgba(244, 67, 54, 0.3)';
+        ctx.shadowBlur = 20;
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(centerX + radius * Math.cos(0), centerY + radius * Math.sin(0));
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(centerX + radius * Math.cos(Math.PI * 2 * successChance), centerY + radius * Math.sin(Math.PI * 2 * successChance));
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(0, -radius + 12);
+        ctx.lineTo(-14, -radius + 38);
+        ctx.lineTo(14, -radius + 38);
+        ctx.closePath();
+        ctx.fillStyle = '#ffd700';
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 25;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 16, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = 'rgba(255,255,255,0.2)';
+        ctx.shadowBlur = 15;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    function spin() {
+        if (!spinning) return;
+        speed *= 0.995;
+        if (speed < 0.0004) {
+            spinning = false;
+            const normalizedAngle = angle % (Math.PI * 2);
+            const isWin = normalizedAngle < Math.PI * 2 * successChance;
+
+            apiRequest('/upgrade_execute', { bet, target }).then(data => {
+                if (data.error) {
+                    document.getElementById('upgradeResult').textContent = '❌ ' + data.error;
+                    document.getElementById('upgradeResult').style.color = '#f44336';
+                    return;
+                }
+                document.getElementById('upgradeBalance').textContent = data.new_balance + ' ⭐';
+                if (data.result === 'win') {
+                    document.getElementById('upgradeResult').textContent = '🎉 ' + data.message;
+                    document.getElementById('upgradeResult').style.color = '#4caf50';
+                } else {
+                    document.getElementById('upgradeResult').textContent = '💥 ' + data.message;
+                    document.getElementById('upgradeResult').style.color = '#f44336';
+                }
+            });
+
+            drawWheel(angle);
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = isWin ? '#4caf50' : '#f44336';
+            ctx.lineWidth = 4;
+            ctx.shadowColor = isWin ? 'rgba(76,175,80,0.6)' : 'rgba(244,67,54,0.6)';
+            ctx.shadowBlur = 30;
+            ctx.stroke();
+            ctx.restore();
+            return;
+        }
+        angle += speed;
+        drawWheel(angle);
+        requestAnimationFrame(spin);
+    }
+
+    drawWheel(0);
+    setTimeout(() => {
+        spinning = true;
+        speed = 0.15;
+        spin();
+    }, 500);
+}
+
+function resetUpgrade() {
+    document.getElementById('upgradeInputSection').style.display = 'block';
+    document.getElementById('upgradeAnimationSection').style.display = 'none';
+    document.getElementById('upgradeResult').textContent = '';
+    loadUpgradeBalance();
+    updateUpgradeChance();
+}
+
 // ===== БАЛАНС =====
 async function loadBalance() {
     const data = await apiRequest('/get_balance');
