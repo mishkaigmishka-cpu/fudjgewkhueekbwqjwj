@@ -842,7 +842,6 @@ nav {
     background: rgba(179, 136, 255, 0.5);
 }
 
-/* === ДОПОЛНИТЕЛЬНЫЕ СТИЛИ ДЛЯ КОЛЕСА АПГРЕЙДА === */
 #upgradeWheel {
     border-radius: 50%;
     box-shadow: 0 0 60px rgba(179, 136, 255, 0.15), inset 0 0 60px rgba(179, 136, 255, 0.05);
@@ -881,7 +880,6 @@ nav {
     50% { text-shadow: 0 0 60px rgba(244, 67, 54, 0.7); }
 }
 
-/* === TOAST УВЕДОМЛЕНИЯ === */
 .toast {
     position: fixed;
     bottom: 100px;
@@ -907,7 +905,6 @@ nav {
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
-/* === АДАПТИВНОСТЬ === */
 @media (max-width: 380px) {
     .logo { font-size: 20px; }
     .stars { font-size: 12px; padding: 4px 12px; }
@@ -919,7 +916,6 @@ nav {
     #minesBoard .mines-cell { min-height: 48px; font-size: 24px; }
 }
 
-/* === DISABLED СОСТОЯНИЯ === */
 button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -929,4 +925,11 @@ button:disabled {
 input:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+#crashTimer.large {
+    font-size: 48px;
+    font-weight: 900;
+    color: #ffd700;
+    text-shadow: 0 0 40px rgba(255, 215, 0, 0.3);
 }
