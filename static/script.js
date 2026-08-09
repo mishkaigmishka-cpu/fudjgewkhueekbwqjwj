@@ -1,5 +1,5 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v8.0
+// RANDEVU — FINAL SCRIPT v9.0
 // ВСЕ ИСПРАВЛЕНИЯ ВНЕСЕНЫ
 // ===============================
 
@@ -364,18 +364,15 @@ function startUpgradeAnimation(chance, bet, target) {
     let angle = 0;
     let speed = 0.18;
     let spinning = true;
-    let startTime = Date.now();
     let finished = false;
 
     function drawWheel(angle) {
         ctx.clearRect(0, 0, 400, 400);
 
-        // === ЗЕЛЁНАЯ ЗОНА (ГРАДИЕНТ) ===
         const gradGreen = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
         gradGreen.addColorStop(0, '#66bb6a');
         gradGreen.addColorStop(0.5, '#4caf50');
         gradGreen.addColorStop(1, '#2e7d32');
-        
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2 * successChance);
@@ -385,12 +382,10 @@ function startUpgradeAnimation(chance, bet, target) {
         ctx.shadowBlur = 30;
         ctx.fill();
 
-        // === КРАСНАЯ ЗОНА (ГРАДИЕНТ) ===
         const gradRed = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
         gradRed.addColorStop(0, '#ef5350');
         gradRed.addColorStop(0.5, '#f44336');
         gradRed.addColorStop(1, '#c62828');
-        
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
         ctx.arc(centerX, centerY, radius, Math.PI * 2 * successChance, Math.PI * 2);
@@ -401,27 +396,23 @@ function startUpgradeAnimation(chance, bet, target) {
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        // === КОНТУР КОЛЕСА ===
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(255,255,255,0.15)';
         ctx.lineWidth = 4;
         ctx.stroke();
 
-        // === ТЕКСТ НА КОЛЕСЕ ===
         ctx.shadowBlur = 0;
         ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // УСПЕХ
         const midAngle = Math.PI * successChance;
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = 'rgba(255,255,255,0.3)';
         ctx.shadowBlur = 10;
         ctx.fillText('УСПЕХ', centerX + radius * 0.6 * Math.cos(midAngle / 2), centerY + radius * 0.6 * Math.sin(midAngle / 2));
         
-        // ПРОВАЛ
         const midAngle2 = Math.PI * (1 + successChance);
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = 'rgba(255,255,255,0.3)';
@@ -429,7 +420,6 @@ function startUpgradeAnimation(chance, bet, target) {
         ctx.fillText('ПРОВАЛ', centerX + radius * 0.6 * Math.cos(midAngle2), centerY + radius * 0.6 * Math.sin(midAngle2));
         ctx.shadowBlur = 0;
 
-        // === ДЕЛЕНИЯ ===
         for (let i = 0; i < 20; i++) {
             const a = (i / 20) * Math.PI * 2;
             const len = i % 5 === 0 ? 12 : 6;
@@ -441,7 +431,6 @@ function startUpgradeAnimation(chance, bet, target) {
             ctx.stroke();
         }
 
-        // === СТРЕЛКА ===
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(angle);
@@ -457,7 +446,6 @@ function startUpgradeAnimation(chance, bet, target) {
         ctx.shadowBlur = 0;
         ctx.restore();
 
-        // === ЦЕНТР С ЛОГОТИПОМ ===
         const gradCenter = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 24);
         gradCenter.addColorStop(0, '#7c4dff');
         gradCenter.addColorStop(1, '#b388ff');
@@ -475,7 +463,6 @@ function startUpgradeAnimation(chance, bet, target) {
         ctx.textBaseline = 'middle';
         ctx.fillText('⚡', centerX, centerY + 1);
 
-        // === НЕОНОВОЕ СВЕЧЕНИЕ ===
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         ctx.shadowColor = 'rgba(179, 136, 255, 0.15)';
@@ -489,10 +476,8 @@ function startUpgradeAnimation(chance, bet, target) {
     function spin() {
         if (!spinning || finished) return;
         
-        // Естественное замедление
         speed *= 0.9975;
         
-        // Остановка когда скорость очень мала
         if (speed < 0.0003) {
             spinning = false;
             finished = true;
@@ -506,13 +491,7 @@ function startUpgradeAnimation(chance, bet, target) {
                     return;
                 }
                 document.getElementById('upgradeBalance').textContent = data.new_balance + ' ⭐';
-                if (data.result === 'win') {
-                    document.getElementById('upgradeResult').textContent = '🎉 ' + data.message;
-                    document.getElementById('upgradeResult').style.color = '#4caf50';
-                } else {
-                    document.getElementById('upgradeResult').textContent = '💥 ' + data.message;
-                    document.getElementById('upgradeResult').style.color = '#f44336';
-                }
+                showUpgradeResult(data.result, data.message, data.new_balance);
             });
 
             drawWheel(angle);
@@ -540,6 +519,45 @@ function startUpgradeAnimation(chance, bet, target) {
         speed = 0.18;
         spin();
     }, 400);
+}
+
+function showUpgradeResult(result, message, newBalance) {
+    const overlay = document.createElement('div');
+    overlay.id = 'upgradeResultOverlay';
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: 'rgba(0,0,0,0.92)',
+        backdropFilter: 'blur(20px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '1000',
+        padding: '30px',
+        animation: 'fadeIn 0.3s ease'
+    });
+    
+    const icon = result === 'win' ? '🎉' : '💥';
+    const title = result === 'win' ? 'УСПЕХ!' : 'ПРОВАЛ!';
+    const color = result === 'win' ? '#4caf50' : '#f44336';
+    
+    overlay.innerHTML = `
+        <div style="font-size:80px; margin-bottom:10px;">${icon}</div>
+        <div style="font-size:32px; font-weight:800; color:${color}; margin-bottom:10px;">${title}</div>
+        <div style="font-size:18px; color:#aaa; text-align:center; margin-bottom:6px;">${message}</div>
+        <div style="font-size:16px; color:#888; margin-bottom:20px;">💰 Баланс: ${newBalance} ⭐</div>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+            <button onclick="closeAllOverlays(); resetUpgrade();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                🔄 ЕЩЁ РАЗ
+            </button>
+            <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                🔙 НАЗАД
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
 }
 
 function resetUpgrade() {
@@ -1683,7 +1701,7 @@ function showBotRouletteAnimation(case_type) {
     p1Wrapper.innerHTML = `
         <div style="font-size:16px; font-weight:700; color:#4caf50; text-align:center; margin-bottom:4px; flex-shrink:0; background:rgba(76,175,80,0.1); padding:4px 0; border-radius:6px;">👤 ИГРОК</div>
         <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:100px;">
-            <div id="botRouletteTrack1" style="display:flex; gap:${cardGap}px; padding:8px 0; transition:transform 8s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+            <div id="botRouletteTrack1" style="display:flex; gap:${cardGap}px; padding:8px 0; will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                 ${cards1}
             </div>
             <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:28px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
@@ -1708,7 +1726,7 @@ function showBotRouletteAnimation(case_type) {
     p2Wrapper.innerHTML = `
         <div style="font-size:16px; font-weight:700; color:#f44336; text-align:center; margin-bottom:4px; flex-shrink:0; background:rgba(244,67,54,0.1); padding:4px 0; border-radius:6px;">🤖 БОТ</div>
         <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:100px;">
-            <div id="botRouletteTrack2" style="display:flex; gap:${cardGap}px; padding:8px 0; transition:transform 8s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+            <div id="botRouletteTrack2" style="display:flex; gap:${cardGap}px; padding:8px 0; will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                 ${cards2}
             </div>
             <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:28px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
@@ -1730,9 +1748,6 @@ function showBotRouletteAnimation(case_type) {
     overlay.appendChild(statusDiv);
     
     document.body.appendChild(overlay);
-    
-    overlay._track1 = document.getElementById('botRouletteTrack1');
-    overlay._track2 = document.getElementById('botRouletteTrack2');
 }
 
 function startBotBattleAnimation(case_type) {
@@ -1749,85 +1764,97 @@ function startBotBattleAnimation(case_type) {
             return;
         }
         
+        const track1 = document.getElementById('botRouletteTrack1');
+        const track2 = document.getElementById('botRouletteTrack2');
+        const overlay = document.getElementById('botRouletteOverlay');
+        
+        if (!track1 || !track2 || !overlay) return;
+        
+        // Сброс в начало
+        track1.style.transition = 'none';
+        track1.style.transform = 'translateX(0px)';
+        track2.style.transition = 'none';
+        track2.style.transform = 'translateX(0px)';
+        void track1.offsetHeight;
+        void track2.offsetHeight;
+        
+        const pos1 = prizes.indexOf(data.player_prize);
+        const pos2 = prizes.indexOf(data.bot_prize);
+        const winPos1 = pos1 !== -1 ? pos1 : 15;
+        const winPos2 = pos2 !== -1 ? pos2 : 15;
+        
+        const cardWidth = 120;
+        const cardGap = 8;
+        const viewportWidth = window.innerWidth * 0.85;
+        const centerOffset = viewportWidth / 2;
+        
+        const shift1 = (winPos1 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+        const shift2 = (winPos2 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
+        
+        const noise1 = Math.floor(Math.random() * 40) - 20;
+        const noise2 = Math.floor(Math.random() * 40) - 20;
+        const finalShift1 = shift1 + noise1;
+        const finalShift2 = shift2 + noise2;
+        
         setTimeout(() => {
-            const track1 = document.getElementById('botRouletteTrack1');
-            const track2 = document.getElementById('botRouletteTrack2');
-            const overlay = document.getElementById('botRouletteOverlay');
+            track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+            track1.style.transform = `translateX(-${finalShift1}px)`;
+            track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+            track2.style.transform = `translateX(-${finalShift2}px)`;
+        }, 100);
+        
+        let finished = false;
+        const onFinish = () => {
+            if (finished) return;
+            finished = true;
+            track1.removeEventListener('transitionend', onFinish);
+            track2.removeEventListener('transitionend', onFinish);
             
-            if (track1 && track2 && overlay) {
-                const prizes = CONFIG.CASE_PRIZES[case_type] || [1,10,100];
-                const pos1 = prizes.indexOf(data.player_prize);
-                const pos2 = prizes.indexOf(data.bot_prize);
-                const winPos1 = pos1 !== -1 ? pos1 : 15;
-                const winPos2 = pos2 !== -1 ? pos2 : 15;
-                
-                const cardWidth = 120;
-                const cardGap = 8;
-                const viewportWidth = window.innerWidth * 0.85;
-                const centerOffset = viewportWidth / 2;
-                
-                const shift1 = (winPos1 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
-                const shift2 = (winPos2 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
-                
-                track1.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
-                track1.style.transform = `translateX(-${shift1}px)`;
-                track2.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
-                track2.style.transform = `translateX(-${shift2}px)`;
-                
-                // === ПОДСВЕТКА ТОЛЬКО ПОСЛЕ ЗАВЕРШЕНИЯ АНИМАЦИИ ===
-                let finished = false;
-                const onFinish = () => {
-                    if (finished) return;
-                    finished = true;
-                    track1.removeEventListener('transitionend', onFinish);
-                    track2.removeEventListener('transitionend', onFinish);
-                    
-                    const cards1 = track1.querySelectorAll('.roulette-card');
-                    const cards2 = track2.querySelectorAll('.roulette-card');
-                    if (cards1[winPos1]) {
-                        cards1[winPos1].textContent = `${data.player_prize}⭐`;
-                        cards1[winPos1].classList.add('win');
-                    }
-                    if (cards2[winPos2]) {
-                        cards2[winPos2].textContent = `${data.bot_prize}⭐`;
-                        cards2[winPos2].classList.add('win');
-                    }
-                    
-                    overlay._data = data;
-                    setTimeout(() => {
-                        overlay.remove();
-                        showBotBattleResult(overlay._data || data);
-                    }, 800);
-                };
-                
-                track1.addEventListener('transitionend', onFinish);
-                track2.addEventListener('transitionend', onFinish);
-                
-                // Фолбэк на случай, если событие не сработает
-                setTimeout(() => {
-                    if (!finished) {
-                        finished = true;
-                        track1.removeEventListener('transitionend', onFinish);
-                        track2.removeEventListener('transitionend', onFinish);
-                        const cards1 = track1.querySelectorAll('.roulette-card');
-                        const cards2 = track2.querySelectorAll('.roulette-card');
-                        if (cards1[winPos1]) {
-                            cards1[winPos1].textContent = `${data.player_prize}⭐`;
-                            cards1[winPos1].classList.add('win');
-                        }
-                        if (cards2[winPos2]) {
-                            cards2[winPos2].textContent = `${data.bot_prize}⭐`;
-                            cards2[winPos2].classList.add('win');
-                        }
-                        overlay._data = data;
-                        setTimeout(() => {
-                            overlay.remove();
-                            showBotBattleResult(overlay._data || data);
-                        }, 800);
-                    }
-                }, 9000);
+            const cards1 = track1.querySelectorAll('.roulette-card');
+            const cards2 = track2.querySelectorAll('.roulette-card');
+            
+            if (cards1[winPos1]) {
+                cards1[winPos1].classList.add('win');
+                cards1[winPos1].textContent = `${data.player_prize}⭐`;
             }
-        }, 500);
+            if (cards2[winPos2]) {
+                cards2[winPos2].classList.add('win');
+                cards2[winPos2].textContent = `${data.bot_prize}⭐`;
+            }
+            
+            setTimeout(() => {
+                overlay.remove();
+                showBotBattleResult(data);
+            }, 600);
+        };
+        
+        track1.addEventListener('transitionend', onFinish);
+        track2.addEventListener('transitionend', onFinish);
+        
+        setTimeout(() => {
+            if (!finished) {
+                finished = true;
+                track1.removeEventListener('transitionend', onFinish);
+                track2.removeEventListener('transitionend', onFinish);
+                
+                const cards1 = track1.querySelectorAll('.roulette-card');
+                const cards2 = track2.querySelectorAll('.roulette-card');
+                
+                if (cards1[winPos1]) {
+                    cards1[winPos1].classList.add('win');
+                    cards1[winPos1].textContent = `${data.player_prize}⭐`;
+                }
+                if (cards2[winPos2]) {
+                    cards2[winPos2].classList.add('win');
+                    cards2[winPos2].textContent = `${data.bot_prize}⭐`;
+                }
+                
+                setTimeout(() => {
+                    overlay.remove();
+                    showBotBattleResult(data);
+                }, 600);
+            }
+        }, 7000);
     });
 }
 
@@ -1852,15 +1879,9 @@ function showBotBattleResult(data) {
     const titleMap = { 'win': 'ПОБЕДА!', 'lose': 'ПОРАЖЕНИЕ...', 'draw': 'НИЧЬЯ!' };
     const colorMap = { 'win': '#4caf50', 'lose': '#f44336', 'draw': '#ffd700' };
     
-    const commissionHtml = data.commission !== undefined && data.commission > 0 
-        ? `<div style="color:#888; font-size:12px;">💸 Комиссия: ${data.commission}⭐</div>` 
-        : '';
-    
     overlay.innerHTML = `
         <div style="font-size:80px; margin-bottom:10px;">${iconMap[data.result]}</div>
-        <div style="font-size:32px; font-weight:800; color:${colorMap[data.result]}; margin-bottom:20px;">
-            ${titleMap[data.result]}
-        </div>
+        <div style="font-size:32px; font-weight:800; color:${colorMap[data.result]}; margin-bottom:20px;">${titleMap[data.result]}</div>
         <div style="display:flex; gap:40px; margin-bottom:20px;">
             <div style="text-align:center;">
                 <div style="font-size:40px;">👤</div>
@@ -1876,7 +1897,7 @@ function showBotBattleResult(data) {
         </div>
         <div style="background:rgba(255,255,255,0.05); border-radius:16px; padding:16px 24px; margin-bottom:20px; text-align:center;">
             <div style="color:#aaa; font-size:14px;">${data.result_text}</div>
-            ${commissionHtml}
+            ${data.commission ? `<div style="color:#888; font-size:12px;">💸 Комиссия: ${data.commission}⭐</div>` : ''}
             ${data.result === 'win' ? `<div style="color:#4caf50; font-size:16px; font-weight:700;">🏆 Ты получил: ${data.winnings}⭐</div>` : ''}
         </div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
@@ -1925,6 +1946,14 @@ function startPvpBattle(room_id) {
                         const winPos2 = pos2 !== -1 ? pos2 : 15;
                         
                         if (track1 && track2) {
+                            // Сброс в начало
+                            track1.style.transition = 'none';
+                            track1.style.transform = 'translateX(0px)';
+                            track2.style.transition = 'none';
+                            track2.style.transform = 'translateX(0px)';
+                            void track1.offsetHeight;
+                            void track2.offsetHeight;
+                            
                             const cardWidth = 110;
                             const cardGap = 8;
                             const viewportWidth = window.innerWidth * 0.85;
@@ -1933,12 +1962,18 @@ function startPvpBattle(room_id) {
                             const shift1 = (winPos1 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
                             const shift2 = (winPos2 * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
                             
-                            track1.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
-                            track1.style.transform = `translateX(-${shift1}px)`;
-                            track2.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
-                            track2.style.transform = `translateX(-${shift2}px)`;
+                            const noise1 = Math.floor(Math.random() * 40) - 20;
+                            const noise2 = Math.floor(Math.random() * 40) - 20;
+                            const finalShift1 = shift1 + noise1;
+                            const finalShift2 = shift2 + noise2;
                             
-                            // === ПОДСВЕТКА ТОЛЬКО ПОСЛЕ ЗАВЕРШЕНИЯ АНИМАЦИИ ===
+                            setTimeout(() => {
+                                track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+                                track1.style.transform = `translateX(-${finalShift1}px)`;
+                                track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+                                track2.style.transform = `translateX(-${finalShift2}px)`;
+                            }, 100);
+                            
                             let finished = false;
                             const onFinish = () => {
                                 if (finished) return;
@@ -1949,45 +1984,46 @@ function startPvpBattle(room_id) {
                                 const cards1 = track1.querySelectorAll('.roulette-card');
                                 const cards2 = track2.querySelectorAll('.roulette-card');
                                 if (cards1[winPos1]) {
-                                    cards1[winPos1].textContent = `${res.player1_prize}⭐`;
                                     cards1[winPos1].classList.add('win');
+                                    cards1[winPos1].textContent = `${res.player1_prize}⭐`;
                                 }
                                 if (cards2[winPos2]) {
-                                    cards2[winPos2].textContent = `${res.player2_prize}⭐`;
                                     cards2[winPos2].classList.add('win');
+                                    cards2[winPos2].textContent = `${res.player2_prize}⭐`;
                                 }
                                 
                                 setTimeout(() => {
                                     overlay.remove();
                                     showBattleResult(res);
-                                }, 800);
+                                }, 600);
                             };
                             
                             track1.addEventListener('transitionend', onFinish);
                             track2.addEventListener('transitionend', onFinish);
                             
-                            // Фолбэк
                             setTimeout(() => {
                                 if (!finished) {
                                     finished = true;
                                     track1.removeEventListener('transitionend', onFinish);
                                     track2.removeEventListener('transitionend', onFinish);
+                                    
                                     const cards1 = track1.querySelectorAll('.roulette-card');
                                     const cards2 = track2.querySelectorAll('.roulette-card');
                                     if (cards1[winPos1]) {
-                                        cards1[winPos1].textContent = `${res.player1_prize}⭐`;
                                         cards1[winPos1].classList.add('win');
+                                        cards1[winPos1].textContent = `${res.player1_prize}⭐`;
                                     }
                                     if (cards2[winPos2]) {
-                                        cards2[winPos2].textContent = `${res.player2_prize}⭐`;
                                         cards2[winPos2].classList.add('win');
+                                        cards2[winPos2].textContent = `${res.player2_prize}⭐`;
                                     }
+                                    
                                     setTimeout(() => {
                                         overlay.remove();
                                         showBattleResult(res);
-                                    }, 800);
+                                    }, 600);
                                 }
-                            }, 9000);
+                            }, 7000);
                         }
                     } else {
                         showBattleResult(res);
@@ -2053,7 +2089,7 @@ function showPvpRouletteAnimation(data) {
     p1Wrapper.innerHTML = `
         <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 1</div>
         <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
-            <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 8s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+            <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:6px 0; will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                 ${cards1}
             </div>
             <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
@@ -2078,7 +2114,7 @@ function showPvpRouletteAnimation(data) {
     p2Wrapper.innerHTML = `
         <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 2</div>
         <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
-            <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:6px 0; transition:transform 8s cubic-bezier(0.1, 1, 0.1, 1); will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
+            <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:6px 0; will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
                 ${cards2}
             </div>
             <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
@@ -2696,42 +2732,35 @@ function startCrashPolling() {
             
             const timerEl = document.getElementById('crashTimer');
             
-            // === ФАЗА: КРАШ ===
             if (status.round_phase === 'crashed') {
                 const timeToNew = status.time_to_new_round || 0;
                 DOM.crashMultiplier.textContent = `x${crashPoint.toFixed(2)}`;
                 DOM.crashMultiplier.style.color = '#f44336';
                 DOM.crashMultiplier.className = 'crashed';
+                DOM.crashStatus.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
                 
                 if (timeToNew > 0) {
                     timerEl.textContent = `⏳ НОВАЯ ИГРА ЧЕРЕЗ ${timeToNew} СЕК`;
                     timerEl.style.color = '#ffd700';
-                    DOM.crashStatus.textContent = `⏳ Новый раунд через ${timeToNew} сек...`;
                     DOM.crashStartBtn.disabled = false;
-                    DOM.crashStartBtn.textContent = '🚀 СТАРТ';
-                    DOM.crashStartBtn.style.display = 'inline-block';
+                    DOM.crashStartBtn.textContent = `⏳ ${timeToNew} СЕК`;
                 } else {
                     timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
                     timerEl.style.color = '#4caf50';
-                    DOM.crashStatus.textContent = '🚀 Нажми «СТАРТ», чтобы начать!';
                     DOM.crashStartBtn.disabled = false;
                     DOM.crashStartBtn.textContent = '🚀 СТАРТ';
-                    DOM.crashStartBtn.style.display = 'inline-block';
                 }
             }
-            // === ФАЗА: ОЖИДАНИЕ ===
             else if (status.round_phase === 'waiting') {
                 timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
                 timerEl.style.color = '#4caf50';
                 DOM.crashStatus.textContent = '🚀 Нажми «СТАРТ», чтобы начать!';
                 DOM.crashStartBtn.disabled = false;
                 DOM.crashStartBtn.textContent = '🚀 СТАРТ';
-                DOM.crashStartBtn.style.display = 'inline-block';
                 DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
                 DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
                 DOM.crashMultiplier.className = '';
             }
-            // === ФАЗА: ИГРА АКТИВНА ===
             else if (status.round_phase === 'active') {
                 const elapsed = Math.floor((Date.now() - (state._crashStartTime || Date.now())) / 1000);
                 timerEl.textContent = `⏱ ${elapsed} сек`;
@@ -2739,7 +2768,6 @@ function startCrashPolling() {
                 DOM.crashStatus.textContent = '📈 Множитель растёт...';
                 DOM.crashStartBtn.disabled = true;
                 DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
-                DOM.crashStartBtn.style.display = 'inline-block';
                 DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
                 DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
                 DOM.crashMultiplier.className = '';
@@ -2798,13 +2826,14 @@ function startCrashGame() {
                         clearInterval(state.crashInterval);
                         state.crashRunning = false;
                         DOM.crashMultiplier.className = 'crashed';
-                        DOM.crashStatus.textContent = '💥 КРАШ!';
-                        DOM.crashCashoutBtn.style.display = 'none';
-                        DOM.crashStartBtn.disabled = false;
-                        DOM.crashStartBtn.textContent = '🔄 ИГРАТЬ СНОВА';
                         const crashPoint = status.crash_multiplier_at_crash || status.multiplier;
                         DOM.crashMultiplier.textContent = `x${crashPoint.toFixed(2)}`;
                         DOM.crashMultiplier.style.color = '#f44336';
+                        DOM.crashStatus.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
+                        DOM.crashCashoutBtn.style.display = 'none';
+                        DOM.crashStartBtn.disabled = false;
+                        DOM.crashStartBtn.textContent = '🔄 ИГРАТЬ СНОВА';
+                        
                         showCrashResult('lose', 0, crashPoint);
                         loadBalance();
                         loadCrashStats();
