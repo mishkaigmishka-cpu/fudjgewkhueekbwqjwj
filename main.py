@@ -372,6 +372,7 @@ def crash_timer():
     global crash_data
     while True:
         with crash_lock:
+            # === ФАЗА 1: ИГРА АКТИВНА ===
             if crash_data['active']:
                 elapsed = time.time() - crash_data['start_time']
                 crash_data['multiplier'] = get_crash_multiplier(elapsed)
@@ -387,6 +388,7 @@ def crash_timer():
                     crash_data['crash_time'] = time.time()
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
             
+            # === ФАЗА 2: ПОСЛЕ КРАША (ОТСЧЁТ 5 СЕКУНД) ===
             elif crash_data['crashed']:
                 elapsed_since_crash = time.time() - crash_data.get('crash_time', 0)
                 if elapsed_since_crash >= 5:
@@ -399,6 +401,7 @@ def crash_timer():
                     crash_data['bets'] = {}
                     crash_data['crash_multiplier_at_crash'] = 1.00
             
+            # === ФАЗА 3: ОЖИДАНИЕ (МОЖНО СТАВИТЬ) ===
             else:
                 crash_data['round_phase'] = 'waiting'
         
