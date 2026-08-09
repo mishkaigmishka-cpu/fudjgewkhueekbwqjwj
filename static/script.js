@@ -180,10 +180,14 @@ let state = {
     currentRoomId: null,
     crashGameId: null,
     crashRunning: false,
+    crashBetPlaced: false,
+    crashWaitingForStart: false,
+    crashGameStarted: false,
     crashInterval: null,
     crashPollingInterval: null,
     intervals: {},
-    _crashStartTime: null
+    _crashStartTime: null,
+    _resultShown: false
 };
 
 // ===== ЗАКРЫТИЕ ВСЕХ ОВЕРЛЕЕВ =====
@@ -616,7 +620,7 @@ function closeUpgradeResult(action) {
     if (action === 'again') {
         resetUpgrade();
     } else {
-        showMain();
+        showUpgrade();
     }
 }
 
@@ -2734,6 +2738,7 @@ function resetCrashChart() {
 function resetCrashUI() {
     DOM.crashMultiplier.textContent = 'x1.00';
     DOM.crashMultiplier.className = '';
+    DOM.crashMultiplier.style.transform = 'scale(1)';
     DOM.crashStatus.textContent = '⏳ Ожидание...';
     DOM.crashTimer.textContent = '🚀 МОЖНО СТАВИТЬ!';
     DOM.crashTimer.style.fontSize = '16px';
@@ -2742,14 +2747,38 @@ function resetCrashUI() {
     DOM.crashMultiplierDisplay.textContent = 'x1.00';
     DOM.crashStartBtn.style.display = 'inline-block';
     DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
-    DOM.crashStartBtn.onclick = startCrashGame;
+    DOM.crashStartBtn.onclick = placeCrashBet;
     DOM.crashStartBtn.disabled = false;
     DOM.crashCashoutBtn.style.display = 'none';
     DOM.crashCashoutBtn.disabled = false;
     DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
     DOM.crashCashoutBtn._listenerSet = false;
+    DOM.crashCashoutBtn.style.width = '100%';
+    DOM.crashCashoutBtn.style.padding = '18px';
+    DOM.crashCashoutBtn.style.fontSize = '20px';
+    
+    const backBtn = document.querySelector('.btn-back');
+    if (backBtn) {
+        backBtn.style.display = 'block';
+        backBtn.onclick = function() {
+            closeAllOverlays();
+            showCrash();
+        };
+    }
+    
+    const chart = document.getElementById('crashChart');
+    if (chart) {
+        chart.style.boxShadow = 'none';
+        chart.style.transition = 'none';
+    }
+    
+    window._crashAnimationDone = false;
     state.crashRunning = false;
+    state.crashBetPlaced = false;
+    state.crashWaitingForStart = false;
+    state.crashGameStarted = false;
     state.crashGameId = null;
+    state._resultShown = false;
     if (state.crashInterval) {
         clearInterval(state.crashInterval);
         state.crashInterval = null;
@@ -2792,21 +2821,31 @@ function startCrashPolling() {
                 DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
                 DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
                 DOM.crashMultiplier.className = '';
-                DOM.crashStatus.textContent = '📈 Множитель растёт...';
-                timerEl.textContent = '📈 ИГРА ИДЁТ...';
-                timerEl.style.fontSize = '16px';
-                timerEl.style.fontWeight = '600';
-                timerEl.style.color = '#4caf50';
+                DOM.crashStatus.textContent = '';
+                timerEl.textContent = '';
+                timerEl.style.fontSize = '0px';
+                DOM.crashStartBtn.style.display = 'none';
                 DOM.crashStartBtn.disabled = true;
-                DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
-                DOM.crashStartBtn.onclick = null;
+                
                 if (!DOM.crashCashoutBtn._listenerSet) {
                     DOM.crashCashoutBtn.onclick = cashoutCrash;
                     DOM.crashCashoutBtn._listenerSet = true;
                 }
-                DOM.crashCashoutBtn.style.display = 'inline-block';
+                DOM.crashCashoutBtn.style.display = 'block';
+                DOM.crashCashoutBtn.style.width = '100%';
+                DOM.crashCashoutBtn.style.padding = '18px';
+                DOM.crashCashoutBtn.style.fontSize = '20px';
                 DOM.crashCashoutBtn.disabled = false;
                 DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
+                
+                const backBtn = document.querySelector('.btn-back');
+                if (backBtn) backBtn.style.display = 'none';
+                
+                if (state.crashWaitingForStart) {
+                    state.crashWaitingForStart = false;
+                    state.crashGameStarted = true;
+                }
+                state.crashBetPlaced = false;
             }
             
             // === КРАШ ===
@@ -2816,29 +2855,78 @@ function startCrashPolling() {
                 DOM.crashMultiplier.className = 'crashed';
                 DOM.crashStatus.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
                 DOM.crashCashoutBtn.style.display = 'none';
-                DOM.crashCashoutBtn.disabled = false;
-                DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
-                DOM.crashStartBtn.disabled = true;
+                DOM.crashStartBtn.style.display = 'none';
                 
-                if (timeToNew > 0) {
-                    resetCrashChart();
-                    timerEl.textContent = `${Math.ceil(timeToNew)}`;
-                    timerEl.style.fontSize = '48px';
-                    timerEl.style.fontWeight = '900';
-                    timerEl.style.color = '#ffd700';
-                    DOM.crashStartBtn.textContent = `⏳ ${Math.ceil(timeToNew)} СЕК`;
-                    DOM.crashStartBtn.onclick = null;
-                    DOM.crashStartBtn.disabled = true;
-                    DOM.crashStatus.textContent = `⏳ Новая игра через ${Math.ceil(timeToNew)} сек...`;
-                } else {
-                    timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
-                    timerEl.style.fontSize = '16px';
-                    timerEl.style.fontWeight = '600';
-                    timerEl.style.color = '#4caf50';
-                    DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
-                    DOM.crashStartBtn.onclick = startCrashGame;
-                    DOM.crashStartBtn.disabled = false;
-                    DOM.crashStatus.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
+                const backBtn = document.querySelector('.btn-back');
+                if (backBtn) backBtn.style.display = 'block';
+                
+                if (!window._crashAnimationDone) {
+                    window._crashAnimationDone = true;
+                    
+                    const chart = document.getElementById('crashChart');
+                    if (chart) {
+                        chart.style.transition = 'box-shadow 0.3s ease';
+                        chart.style.boxShadow = '0 0 60px rgba(255,0,0,0.4), inset 0 0 60px rgba(255,0,0,0.1)';
+                        setTimeout(() => {
+                            chart.style.boxShadow = 'none';
+                        }, 1500);
+                    }
+                    
+                    DOM.crashMultiplier.style.transition = 'transform 0.1s ease';
+                    let pulseCount = 0;
+                    const pulseInterval = setInterval(() => {
+                        if (pulseCount >= 8) {
+                            clearInterval(pulseInterval);
+                            DOM.crashMultiplier.style.transform = 'scale(1)';
+                            return;
+                        }
+                        DOM.crashMultiplier.style.transform = pulseCount % 2 === 0 ? 'scale(1.2)' : 'scale(1)';
+                        pulseCount++;
+                    }, 150);
+                    
+                    setTimeout(() => {
+                        resetCrashChart();
+                        
+                        if (timeToNew > 0) {
+                            timerEl.textContent = `${Math.ceil(timeToNew)}`;
+                            timerEl.style.fontSize = '48px';
+                            timerEl.style.fontWeight = '900';
+                            timerEl.style.color = '#ffd700';
+                            DOM.crashStartBtn.style.display = 'inline-block';
+                            DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
+                            DOM.crashStartBtn.onclick = placeCrashBet;
+                            DOM.crashStartBtn.disabled = false;
+                            DOM.crashStatus.textContent = `⏳ Новая игра через ${Math.ceil(timeToNew)} сек...`;
+                        } else {
+                            timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
+                            timerEl.style.fontSize = '16px';
+                            timerEl.style.fontWeight = '600';
+                            timerEl.style.color = '#4caf50';
+                            DOM.crashStartBtn.style.display = 'inline-block';
+                            DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
+                            DOM.crashStartBtn.onclick = placeCrashBet;
+                            DOM.crashStartBtn.disabled = false;
+                            DOM.crashStatus.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
+                        }
+                        
+                        state.crashBetPlaced = false;
+                        state.crashWaitingForStart = false;
+                        state.crashGameStarted = false;
+                        state.crashRunning = false;
+                        window._crashAnimationDone = false;
+                        
+                        const backBtn2 = document.querySelector('.btn-back');
+                        if (backBtn2) backBtn2.style.display = 'block';
+                        
+                        if (!state._resultShown) {
+                            state._resultShown = true;
+                            if (state.crashGameId) {
+                                showCrashResult('lose', 0, crashPoint);
+                            }
+                            loadBalance();
+                            loadCrashStats();
+                        }
+                    }, 1500);
                 }
             }
             
@@ -2849,28 +2937,43 @@ function startCrashPolling() {
                 timerEl.style.fontSize = '16px';
                 timerEl.style.fontWeight = '600';
                 timerEl.style.color = '#4caf50';
-                DOM.crashStatus.textContent = '🚀 Нажми «ИГРАТЬ», чтобы начать!';
+                DOM.crashStatus.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
+                DOM.crashStartBtn.style.display = 'inline-block';
                 DOM.crashStartBtn.disabled = false;
                 DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
-                DOM.crashStartBtn.onclick = startCrashGame;
+                DOM.crashStartBtn.onclick = placeCrashBet;
                 DOM.crashMultiplier.textContent = 'x1.00';
                 DOM.crashMultiplier.style.color = '#b388ff';
                 DOM.crashMultiplier.className = '';
                 DOM.crashCashoutBtn.style.display = 'none';
                 DOM.crashCashoutBtn.disabled = false;
+                
+                const backBtn = document.querySelector('.btn-back');
+                if (backBtn) backBtn.style.display = 'block';
+                
+                state.crashBetPlaced = false;
+                state.crashWaitingForStart = false;
+                state.crashGameStarted = false;
+                state.crashRunning = false;
+                state._resultShown = false;
             }
         });
     }, 100);
 }
 
-function startCrashGame() {
+function placeCrashBet() {
     if (DOM.crashStartBtn.disabled) {
         showCustomAlert('⏳ Подождите окончания отсчёта!');
         return;
     }
     
-    if (state.crashRunning) {
+    if (state.crashRunning || state.crashGameStarted) {
         showCustomAlert('⏳ Игра уже идёт!');
+        return;
+    }
+    
+    if (state.crashBetPlaced) {
+        showCustomAlert('⏳ Ставка уже сделана!');
         return;
     }
     
@@ -2889,21 +2992,17 @@ function startCrashGame() {
             }
             
             state.crashGameId = gameData.game_id;
-            state.crashRunning = true;
-            state._crashStartTime = Date.now();
+            state.crashBetPlaced = true;
+            state.crashWaitingForStart = true;
+            state.crashGameStarted = false;
+            state.crashRunning = false;
+            state._resultShown = false;
             
-            resetCrashChart();
-            
-            DOM.crashStartBtn.disabled = true;
-            DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
-            DOM.crashStartBtn.onclick = null;
-            DOM.crashCashoutBtn.style.display = 'inline-block';
-            DOM.crashCashoutBtn.disabled = false;
-            DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
-            DOM.crashCashoutBtn.onclick = cashoutCrash;
             DOM.crashBetDisplay.textContent = bet;
-            DOM.crashStatus.textContent = '📈 Множитель растёт...';
-            DOM.crashMultiplier.className = '';
+            DOM.crashStartBtn.disabled = true;
+            DOM.crashStartBtn.textContent = '⏳ ОЖИДАНИЕ СТАРТА...';
+            DOM.crashStartBtn.onclick = null;
+            DOM.crashStatus.textContent = '⏳ Ожидание начала игры...';
             
             if (state.crashInterval) clearInterval(state.crashInterval);
             state.crashInterval = setInterval(() => {
@@ -2915,26 +3014,66 @@ function startCrashGame() {
                         return;
                     }
                     
-                    updateCrashChart(status.multiplier);
-                    DOM.crashMultiplierDisplay.textContent = `x${status.multiplier}`;
-                    
-                    if (status.crashed) {
-                        clearInterval(state.crashInterval);
-                        state.crashRunning = false;
-                        DOM.crashMultiplier.className = 'crashed';
-                        const crashPoint = status.crash_multiplier_at_crash || status.multiplier;
-                        DOM.crashMultiplier.textContent = `x${crashPoint.toFixed(2)}`;
-                        DOM.crashMultiplier.style.color = '#f44336';
-                        DOM.crashStatus.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
-                        DOM.crashCashoutBtn.style.display = 'none';
-                        DOM.crashCashoutBtn.disabled = false;
-                        DOM.crashStartBtn.disabled = true;
-                        DOM.crashStartBtn.textContent = '⏳ ОЖИДАНИЕ...';
-                        DOM.crashStartBtn.onclick = null;
+                    if (status.round_phase === 'active' && state.crashWaitingForStart) {
+                        state.crashWaitingForStart = false;
+                        state.crashRunning = true;
+                        state.crashGameStarted = true;
+                        state._crashStartTime = Date.now();
+                        window._crashAnimationDone = false;
                         
-                        showCrashResult('lose', 0, crashPoint);
-                        loadBalance();
-                        loadCrashStats();
+                        resetCrashChart();
+                        
+                        DOM.crashStartBtn.style.display = 'none';
+                        DOM.crashStartBtn.disabled = true;
+                        DOM.crashCashoutBtn.style.display = 'block';
+                        DOM.crashCashoutBtn.style.width = '100%';
+                        DOM.crashCashoutBtn.style.padding = '18px';
+                        DOM.crashCashoutBtn.style.fontSize = '20px';
+                        DOM.crashCashoutBtn.disabled = false;
+                        DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
+                        DOM.crashCashoutBtn.onclick = cashoutCrash;
+                        DOM.crashStatus.textContent = '';
+                        DOM.crashMultiplier.className = '';
+                        
+                        const backBtn = document.querySelector('.btn-back');
+                        if (backBtn) backBtn.style.display = 'none';
+                        
+                        const timerEl = document.getElementById('crashTimer');
+                        if (timerEl) {
+                            timerEl.textContent = '';
+                            timerEl.style.fontSize = '0px';
+                        }
+                        
+                        clearInterval(state.crashInterval);
+                        state.crashInterval = setInterval(() => {
+                            apiRequest('/crash_status', {}).then(status2 => {
+                                if (status2.error) {
+                                    clearInterval(state.crashInterval);
+                                    state.crashRunning = false;
+                                    DOM.crashStatus.textContent = '❌ ' + status2.error;
+                                    return;
+                                }
+                                
+                                updateCrashChart(status2.multiplier);
+                                DOM.crashMultiplierDisplay.textContent = `x${status2.multiplier}`;
+                                
+                                if (status2.crashed) {
+                                    clearInterval(state.crashInterval);
+                                    state.crashRunning = false;
+                                    state.crashGameStarted = false;
+                                    state._resultShown = false;
+                                    
+                                    DOM.crashMultiplier.className = 'crashed';
+                                    const crashPoint = status2.crash_multiplier_at_crash || status2.multiplier;
+                                    DOM.crashMultiplier.textContent = `x${crashPoint.toFixed(2)}`;
+                                    DOM.crashMultiplier.style.color = '#f44336';
+                                    DOM.crashStatus.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
+                                    DOM.crashCashoutBtn.style.display = 'none';
+                                    DOM.crashCashoutBtn.disabled = false;
+                                    DOM.crashStartBtn.style.display = 'none';
+                                }
+                            });
+                        }, 100);
                     }
                 });
             }, 100);
@@ -2960,6 +3099,11 @@ function cashoutCrash() {
         }
         
         state.crashRunning = false;
+        state.crashBetPlaced = false;
+        state.crashWaitingForStart = false;
+        state.crashGameStarted = false;
+        state._resultShown = true;
+        
         if (state.crashInterval) {
             clearInterval(state.crashInterval);
             state.crashInterval = null;
@@ -2970,9 +3114,13 @@ function cashoutCrash() {
         DOM.crashCashoutBtn.style.display = 'none';
         DOM.crashCashoutBtn.disabled = false;
         DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
+        DOM.crashStartBtn.style.display = 'inline-block';
         DOM.crashStartBtn.disabled = true;
         DOM.crashStartBtn.textContent = '⏳ ОЖИДАНИЕ...';
         DOM.crashStartBtn.onclick = null;
+        
+        const backBtn = document.querySelector('.btn-back');
+        if (backBtn) backBtn.style.display = 'block';
         
         showCrashResult('win', data.winnings, data.multiplier);
         loadBalance();
@@ -2985,6 +3133,10 @@ function cashoutCrash() {
 }
 
 function showCrashResult(result, winnings, multiplier) {
+    if (document.getElementById('crashResultOverlay')) {
+        return;
+    }
+    
     const overlay = document.createElement('div');
     overlay.id = 'crashResultOverlay';
     Object.assign(overlay.style, {
@@ -3008,7 +3160,7 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="font-size:28px; font-weight:700; color:#ffd700;">${winnings}⭐</div>
             <div style="color:#aaa; font-size:16px; margin-top:4px;">Множитель: x${multiplier}</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="closeAllOverlays(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); resetCrashUI(); showCrash();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔄 ИГРАТЬ СНОВА
                 </button>
                 <button onclick="closeAllOverlays(); showCrash();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
@@ -3023,7 +3175,7 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="color:#aaa; font-size:16px;">Множитель: x${multiplier}</div>
             <div style="color:#888; font-size:14px; margin-top:4px;">Ты потерял ставку</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="closeAllOverlays(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #ff6b6b, #ee5a24); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); resetCrashUI(); showCrash();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #ff6b6b, #ee5a24); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔄 ИГРАТЬ СНОВА
                 </button>
                 <button onclick="closeAllOverlays(); showCrash();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
