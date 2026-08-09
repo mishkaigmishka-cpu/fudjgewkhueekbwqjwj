@@ -32,13 +32,13 @@ const CONFIG = {
         'free': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(46,204,113,0.7)', titleColor:'#2ecc71', itemColor:'#6bcbff', highlightColor:'#ffd700', glowColor:'rgba(46,204,113,0.3)', shadowColor:'rgba(46,204,113,0.5)', icon:'🎁', bgGradient:'radial-gradient(circle at 50% 50%, rgba(46,204,113,0.08), transparent 70%)' },
         'mud': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(142,68,173,0.7)', titleColor:'#8e44ad', itemColor:'#c39bd3', highlightColor:'#ff6b6b', glowColor:'rgba(142,68,173,0.3)', shadowColor:'rgba(142,68,173,0.5)', icon:'🟫', bgGradient:'radial-gradient(circle at 50% 50%, rgba(142,68,173,0.08), transparent 70%)' },
         'wood': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(211,84,0,0.7)', titleColor:'#d35400', itemColor:'#f39c12', highlightColor:'#ffd700', glowColor:'rgba(211,84,0,0.3)', shadowColor:'rgba(211,84,0,0.5)', icon:'🌳', bgGradient:'radial-gradient(circle at 50% 50%, rgba(211,84,0,0.08), transparent 70%)' },
-        'stone': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(127,140,141,0.7)', titleColor:'#7f8c8d', itemColor:'#bdc3c7', highlightColor:'#ffd700', glowColor:'rgba(127,140,141,0.3)', shadowColor:'rgba(127,140,141,0.5)', icon:'🪨', bgGradient:'radial-gradient(circle at 50% 50%, rgba(127,140,141,0.08), transparent 70%)' },
+        'stone': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(127,140,141,0.7)', titleColor:'#7f8c8d', itemColor:'#bdc3c7', highlightColor:'#ffd700', glowColor:'rgba(127,140,141,0.3)', shadowColor:'rgba(127,140,141,0.5)', icon:'🗿', bgGradient:'radial-gradient(circle at 50% 50%, rgba(127,140,141,0.08), transparent 70%)' },
         'bronze': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(205,127,50,0.7)', titleColor:'#cd7f32', itemColor:'#f0c27f', highlightColor:'#ffd700', glowColor:'rgba(205,127,50,0.3)', shadowColor:'rgba(205,127,50,0.5)', icon:'🥉', bgGradient:'radial-gradient(circle at 50% 50%, rgba(205,127,50,0.08), transparent 70%)' },
         'silver': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(189,195,199,0.7)', titleColor:'#bdc3c7', itemColor:'#ecf0f1', highlightColor:'#ffd700', glowColor:'rgba(189,195,199,0.3)', shadowColor:'rgba(189,195,199,0.5)', icon:'🔘', bgGradient:'radial-gradient(circle at 50% 50%, rgba(189,195,199,0.08), transparent 70%)' },
         'gold': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(241,196,15,0.7)', titleColor:'#f1c40f', itemColor:'#f9e79f', highlightColor:'#ffd700', glowColor:'rgba(241,196,15,0.4)', shadowColor:'rgba(241,196,15,0.6)', icon:'👑', bgGradient:'radial-gradient(circle at 50% 50%, rgba(241,196,15,0.1), transparent 70%)' },
         'diamond': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(52,152,219,0.7)', titleColor:'#3498db', itemColor:'#85c1e9', highlightColor:'#00d4ff', glowColor:'rgba(52,152,219,0.3)', shadowColor:'rgba(52,152,219,0.5)', icon:'💎', bgGradient:'radial-gradient(circle at 50% 50%, rgba(52,152,219,0.08), transparent 70%)' },
         'netherite': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(44,62,80,0.7)', titleColor:'#e74c3c', itemColor:'#f1948a', highlightColor:'#ff6b35', glowColor:'rgba(231,76,60,0.3)', shadowColor:'rgba(231,76,60,0.5)', icon:'🔥', bgGradient:'radial-gradient(circle at 50% 50%, rgba(231,76,60,0.08), transparent 70%)' },
-        'obsidian': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(139,139,158,0.7)', titleColor:'#8b8b9e', itemColor:'#c8c8d4', highlightColor:'#ffd700', glowColor:'rgba(139,139,158,0.4)', shadowColor:'rgba(139,139,158,0.6)', icon:'🪨', bgGradient:'radial-gradient(circle at 50% 50%, rgba(139,139,158,0.08), transparent 70%)' },
+        'obsidian': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(139,139,158,0.7)', titleColor:'#8b8b9e', itemColor:'#c8c8d4', highlightColor:'#ffd700', glowColor:'rgba(139,139,158,0.4)', shadowColor:'rgba(139,139,158,0.6)', icon:'🔮', bgGradient:'radial-gradient(circle at 50% 50%, rgba(139,139,158,0.08), transparent 70%)' },
         'bedrock': { bg:'rgba(0,0,0,0.95)', border:'3px solid rgba(20,20,30,0.9)', titleColor:'#8b8b9e', itemColor:'#c8c8d4', highlightColor:'#ff6b6b', glowColor:'rgba(139,139,158,0.4)', shadowColor:'rgba(139,139,158,0.6)', icon:'⛏️', bgGradient:'radial-gradient(circle at 50% 50%, rgba(20,20,30,0.15), transparent 70%)' }
     },
     MINES_MULTIPLIERS: {
@@ -359,112 +359,143 @@ function startUpgradeAnimation(chance, bet, target) {
     const ctx = canvas.getContext('2d');
     const centerX = 200;
     const centerY = 200;
-    const radius = 180;
+    const radius = 175;
     const successChance = chance / 100;
     let angle = 0;
-    let speed = 0.15;
+    let speed = 0.18;
     let spinning = true;
     let startTime = Date.now();
-    const maxDuration = 8000; // 8 секунд максимум
+    let finished = false;
 
     function drawWheel(angle) {
         ctx.clearRect(0, 0, 400, 400);
 
-        // Зелёная зона
+        // === ЗЕЛЁНАЯ ЗОНА (ГРАДИЕНТ) ===
+        const gradGreen = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+        gradGreen.addColorStop(0, '#66bb6a');
+        gradGreen.addColorStop(0.5, '#4caf50');
+        gradGreen.addColorStop(1, '#2e7d32');
+        
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2 * successChance);
         ctx.closePath();
-        ctx.fillStyle = '#4caf50';
-        ctx.shadowColor = 'rgba(76, 175, 80, 0.3)';
-        ctx.shadowBlur = 20;
+        ctx.fillStyle = gradGreen;
+        ctx.shadowColor = 'rgba(76, 175, 80, 0.4)';
+        ctx.shadowBlur = 30;
         ctx.fill();
 
-        // Красная зона
+        // === КРАСНАЯ ЗОНА (ГРАДИЕНТ) ===
+        const gradRed = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+        gradRed.addColorStop(0, '#ef5350');
+        gradRed.addColorStop(0.5, '#f44336');
+        gradRed.addColorStop(1, '#c62828');
+        
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
         ctx.arc(centerX, centerY, radius, Math.PI * 2 * successChance, Math.PI * 2);
         ctx.closePath();
-        ctx.fillStyle = '#f44336';
-        ctx.shadowColor = 'rgba(244, 67, 54, 0.3)';
-        ctx.shadowBlur = 20;
+        ctx.fillStyle = gradRed;
+        ctx.shadowColor = 'rgba(244, 67, 54, 0.4)';
+        ctx.shadowBlur = 30;
         ctx.fill();
-
         ctx.shadowBlur = 0;
 
-        // === НАДПИСИ НА ЦИФЕРБЛАТЕ ===
-        ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        // УСПЕХ (в центре зелёной зоны)
-        const midAngle = Math.PI * successChance;
-        ctx.fillStyle = '#4caf50';
-        ctx.shadowColor = 'rgba(76, 175, 80, 0.5)';
-        ctx.shadowBlur = 15;
-        ctx.fillText('✅ УСПЕХ', centerX + radius * 0.6 * Math.cos(midAngle / 2), centerY + radius * 0.6 * Math.sin(midAngle / 2));
-        
-        // ПРОВАЛ (в центре красной зоны)
-        const midAngle2 = Math.PI * (1 + successChance);
-        ctx.fillStyle = '#f44336';
-        ctx.shadowColor = 'rgba(244, 67, 54, 0.5)';
-        ctx.shadowBlur = 15;
-        ctx.fillText('❌ ПРОВАЛ', centerX + radius * 0.6 * Math.cos(midAngle2), centerY + radius * 0.6 * Math.sin(midAngle2));
-        
-        ctx.shadowBlur = 0;
-
-        // Границы
-        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.lineTo(centerX + radius * Math.cos(0), centerY + radius * Math.sin(0));
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.lineTo(centerX + radius * Math.cos(Math.PI * 2 * successChance), centerY + radius * Math.sin(Math.PI * 2 * successChance));
-        ctx.stroke();
-
-        // Контур
+        // === КОНТУР КОЛЕСА ===
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 4;
         ctx.stroke();
 
-        // Стрелка
+        // === ТЕКСТ НА КОЛЕСЕ ===
+        ctx.shadowBlur = 0;
+        ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // УСПЕХ
+        const midAngle = Math.PI * successChance;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(255,255,255,0.3)';
+        ctx.shadowBlur = 10;
+        ctx.fillText('УСПЕХ', centerX + radius * 0.6 * Math.cos(midAngle / 2), centerY + radius * 0.6 * Math.sin(midAngle / 2));
+        
+        // ПРОВАЛ
+        const midAngle2 = Math.PI * (1 + successChance);
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(255,255,255,0.3)';
+        ctx.shadowBlur = 10;
+        ctx.fillText('ПРОВАЛ', centerX + radius * 0.6 * Math.cos(midAngle2), centerY + radius * 0.6 * Math.sin(midAngle2));
+        ctx.shadowBlur = 0;
+
+        // === ДЕЛЕНИЯ ===
+        for (let i = 0; i < 20; i++) {
+            const a = (i / 20) * Math.PI * 2;
+            const len = i % 5 === 0 ? 12 : 6;
+            ctx.beginPath();
+            ctx.moveTo(centerX + (radius - 4) * Math.cos(a), centerY + (radius - 4) * Math.sin(a));
+            ctx.lineTo(centerX + (radius - 4 - len) * Math.cos(a), centerY + (radius - 4 - len) * Math.sin(a));
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // === СТРЕЛКА ===
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(angle);
         ctx.beginPath();
-        ctx.moveTo(0, -radius + 12);
-        ctx.lineTo(-14, -radius + 38);
-        ctx.lineTo(14, -radius + 38);
+        ctx.moveTo(0, -radius + 10);
+        ctx.lineTo(-16, -radius + 44);
+        ctx.lineTo(16, -radius + 44);
         ctx.closePath();
         ctx.fillStyle = '#ffd700';
         ctx.shadowColor = '#ffd700';
-        ctx.shadowBlur = 25;
+        ctx.shadowBlur = 30;
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.restore();
 
-        // Центр
+        // === ЦЕНТР С ЛОГОТИПОМ ===
+        const gradCenter = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 24);
+        gradCenter.addColorStop(0, '#7c4dff');
+        gradCenter.addColorStop(1, '#b388ff');
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 16, 0, Math.PI * 2);
-        ctx.fillStyle = '#fff';
-        ctx.shadowColor = 'rgba(255,255,255,0.2)';
-        ctx.shadowBlur = 15;
+        ctx.arc(centerX, centerY, 24, 0, Math.PI * 2);
+        ctx.fillStyle = gradCenter;
+        ctx.shadowColor = 'rgba(179, 136, 255, 0.5)';
+        ctx.shadowBlur = 25;
         ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.font = '28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⚡', centerX, centerY + 1);
+
+        // === НЕОНОВОЕ СВЕЧЕНИЕ ===
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.shadowColor = 'rgba(179, 136, 255, 0.15)';
+        ctx.shadowBlur = 50;
+        ctx.strokeStyle = 'rgba(179, 136, 255, 0.05)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
         ctx.shadowBlur = 0;
     }
 
     function spin() {
-        if (!spinning) return;
+        if (!spinning || finished) return;
         
-        const elapsed = Date.now() - startTime;
-        if (elapsed > maxDuration) {
+        // Естественное замедление
+        speed *= 0.9975;
+        
+        // Остановка когда скорость очень мала
+        if (speed < 0.0003) {
             spinning = false;
+            finished = true;
             const normalizedAngle = angle % (Math.PI * 2);
             const isWin = normalizedAngle < Math.PI * 2 * successChance;
 
@@ -490,18 +521,14 @@ function startUpgradeAnimation(chance, bet, target) {
             ctx.beginPath();
             ctx.arc(0, 0, radius, 0, Math.PI * 2);
             ctx.strokeStyle = isWin ? '#4caf50' : '#f44336';
-            ctx.lineWidth = 4;
-            ctx.shadowColor = isWin ? 'rgba(76,175,80,0.6)' : 'rgba(244,67,54,0.6)';
-            ctx.shadowBlur = 30;
+            ctx.lineWidth = 5;
+            ctx.shadowColor = isWin ? 'rgba(76,175,80,0.7)' : 'rgba(244,67,54,0.7)';
+            ctx.shadowBlur = 40;
             ctx.stroke();
             ctx.restore();
             return;
         }
 
-        speed *= 0.995;
-        if (speed < 0.0004) {
-            speed = 0.0004;
-        }
         angle += speed;
         drawWheel(angle);
         requestAnimationFrame(spin);
@@ -510,10 +537,9 @@ function startUpgradeAnimation(chance, bet, target) {
     drawWheel(0);
     setTimeout(() => {
         spinning = true;
-        speed = 0.15;
-        startTime = Date.now();
+        speed = 0.18;
         spin();
-    }, 500);
+    }, 400);
 }
 
 function resetUpgrade() {
@@ -1748,8 +1774,14 @@ function startBotBattleAnimation(case_type) {
                 track2.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
                 track2.style.transform = `translateX(-${shift2}px)`;
                 
-                // === ФИКС: сразу проставляем правильные числа ===
-                setTimeout(() => {
+                // === ПОДСВЕТКА ТОЛЬКО ПОСЛЕ ЗАВЕРШЕНИЯ АНИМАЦИИ ===
+                let finished = false;
+                const onFinish = () => {
+                    if (finished) return;
+                    finished = true;
+                    track1.removeEventListener('transitionend', onFinish);
+                    track2.removeEventListener('transitionend', onFinish);
+                    
                     const cards1 = track1.querySelectorAll('.roulette-card');
                     const cards2 = track2.querySelectorAll('.roulette-card');
                     if (cards1[winPos1]) {
@@ -1760,21 +1792,42 @@ function startBotBattleAnimation(case_type) {
                         cards2[winPos2].textContent = `${data.bot_prize}⭐`;
                         cards2[winPos2].classList.add('win');
                     }
-                }, 100);
+                    
+                    overlay._data = data;
+                    setTimeout(() => {
+                        overlay.remove();
+                        showBotBattleResult(overlay._data || data);
+                    }, 800);
+                };
                 
-                overlay._data = data;
+                track1.addEventListener('transitionend', onFinish);
+                track2.addEventListener('transitionend', onFinish);
+                
+                // Фолбэк на случай, если событие не сработает
+                setTimeout(() => {
+                    if (!finished) {
+                        finished = true;
+                        track1.removeEventListener('transitionend', onFinish);
+                        track2.removeEventListener('transitionend', onFinish);
+                        const cards1 = track1.querySelectorAll('.roulette-card');
+                        const cards2 = track2.querySelectorAll('.roulette-card');
+                        if (cards1[winPos1]) {
+                            cards1[winPos1].textContent = `${data.player_prize}⭐`;
+                            cards1[winPos1].classList.add('win');
+                        }
+                        if (cards2[winPos2]) {
+                            cards2[winPos2].textContent = `${data.bot_prize}⭐`;
+                            cards2[winPos2].classList.add('win');
+                        }
+                        overlay._data = data;
+                        setTimeout(() => {
+                            overlay.remove();
+                            showBotBattleResult(overlay._data || data);
+                        }, 800);
+                    }
+                }, 9000);
             }
         }, 500);
-        
-        setTimeout(() => {
-            const overlay = document.getElementById('botRouletteOverlay');
-            if (overlay) {
-                overlay.remove();
-                showBotBattleResult(overlay._data || data);
-            } else {
-                showBotBattleResult(data);
-            }
-        }, 8500);
     });
 }
 
@@ -1885,8 +1938,14 @@ function startPvpBattle(room_id) {
                             track2.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
                             track2.style.transform = `translateX(-${shift2}px)`;
                             
-                            // === ФИКС: сразу проставляем правильные числа ===
-                            setTimeout(() => {
+                            // === ПОДСВЕТКА ТОЛЬКО ПОСЛЕ ЗАВЕРШЕНИЯ АНИМАЦИИ ===
+                            let finished = false;
+                            const onFinish = () => {
+                                if (finished) return;
+                                finished = true;
+                                track1.removeEventListener('transitionend', onFinish);
+                                track2.removeEventListener('transitionend', onFinish);
+                                
                                 const cards1 = track1.querySelectorAll('.roulette-card');
                                 const cards2 = track2.querySelectorAll('.roulette-card');
                                 if (cards1[winPos1]) {
@@ -1897,13 +1956,39 @@ function startPvpBattle(room_id) {
                                     cards2[winPos2].textContent = `${res.player2_prize}⭐`;
                                     cards2[winPos2].classList.add('win');
                                 }
-                            }, 100);
+                                
+                                setTimeout(() => {
+                                    overlay.remove();
+                                    showBattleResult(res);
+                                }, 800);
+                            };
+                            
+                            track1.addEventListener('transitionend', onFinish);
+                            track2.addEventListener('transitionend', onFinish);
+                            
+                            // Фолбэк
+                            setTimeout(() => {
+                                if (!finished) {
+                                    finished = true;
+                                    track1.removeEventListener('transitionend', onFinish);
+                                    track2.removeEventListener('transitionend', onFinish);
+                                    const cards1 = track1.querySelectorAll('.roulette-card');
+                                    const cards2 = track2.querySelectorAll('.roulette-card');
+                                    if (cards1[winPos1]) {
+                                        cards1[winPos1].textContent = `${res.player1_prize}⭐`;
+                                        cards1[winPos1].classList.add('win');
+                                    }
+                                    if (cards2[winPos2]) {
+                                        cards2[winPos2].textContent = `${res.player2_prize}⭐`;
+                                        cards2[winPos2].classList.add('win');
+                                    }
+                                    setTimeout(() => {
+                                        overlay.remove();
+                                        showBattleResult(res);
+                                    }, 800);
+                                }
+                            }, 9000);
                         }
-                        
-                        setTimeout(() => {
-                            overlay.remove();
-                            showBattleResult(res);
-                        }, 8500);
                     } else {
                         showBattleResult(res);
                     }
@@ -2554,14 +2639,14 @@ function resetCrashChart() {
 function resetCrashUI() {
     DOM.crashMultiplier.textContent = 'x1.00';
     DOM.crashMultiplier.className = '';
-    DOM.crashStatus.textContent = 'Нажми «СТАРТ», чтобы начать';
+    DOM.crashStatus.textContent = '⏳ Ожидание...';
     DOM.crashTimer.textContent = '⏱ 0.0 сек';
     DOM.crashBetDisplay.textContent = '0';
     DOM.crashMultiplierDisplay.textContent = 'x1.00';
     DOM.crashStartBtn.style.display = 'inline-block';
     DOM.crashCashoutBtn.style.display = 'none';
-    DOM.crashStartBtn.disabled = false;
-    DOM.crashStartBtn.textContent = '🚀 СТАРТ';
+    DOM.crashStartBtn.disabled = true;
+    DOM.crashStartBtn.textContent = '⏳ ОЖИДАНИЕ...';
     state.crashRunning = false;
     state.crashGameId = null;
     if (state.crashInterval) {
@@ -2597,8 +2682,7 @@ function startCrashPolling() {
             }
             
             const multiplier = status.multiplier || 1.00;
-            DOM.crashMultiplier.textContent = `x${multiplier}`;
-            DOM.crashMultiplierDisplay.textContent = `x${multiplier}`;
+            const crashPoint = status.crash_multiplier_at_crash || 1.00;
             
             updateCrashChart(multiplier);
             
@@ -2611,39 +2695,54 @@ function startCrashPolling() {
             }
             
             const timerEl = document.getElementById('crashTimer');
-            if (timerEl) {
-                if (status.round_phase === 'crashed' && status.time_to_new_round > 0) {
-                    timerEl.textContent = `⏳ НОВАЯ ИГРА ЧЕРЕЗ ${status.time_to_new_round} СЕК`;
+            
+            // === ФАЗА: КРАШ ===
+            if (status.round_phase === 'crashed') {
+                const timeToNew = status.time_to_new_round || 0;
+                DOM.crashMultiplier.textContent = `x${crashPoint.toFixed(2)}`;
+                DOM.crashMultiplier.style.color = '#f44336';
+                DOM.crashMultiplier.className = 'crashed';
+                
+                if (timeToNew > 0) {
+                    timerEl.textContent = `⏳ НОВАЯ ИГРА ЧЕРЕЗ ${timeToNew} СЕК`;
                     timerEl.style.color = '#ffd700';
-                    DOM.crashStatus.textContent = `⏳ Новый раунд через ${status.time_to_new_round} сек...`;
+                    DOM.crashStatus.textContent = `⏳ Новый раунд через ${timeToNew} сек...`;
                     DOM.crashStartBtn.disabled = false;
                     DOM.crashStartBtn.textContent = '🚀 СТАРТ';
                     DOM.crashStartBtn.style.display = 'inline-block';
-                    // Показываем точку краша
-                    const crashPoint = status.crash_multiplier_at_crash || multiplier;
-                    DOM.crashMultiplier.textContent = `x${crashPoint.toFixed(2)}`;
-                    DOM.crashMultiplier.style.color = '#f44336';
-                } else if (status.round_phase === 'waiting') {
+                } else {
                     timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
                     timerEl.style.color = '#4caf50';
                     DOM.crashStatus.textContent = '🚀 Нажми «СТАРТ», чтобы начать!';
                     DOM.crashStartBtn.disabled = false;
                     DOM.crashStartBtn.textContent = '🚀 СТАРТ';
                     DOM.crashStartBtn.style.display = 'inline-block';
-                    // Сбрасываем цвет множителя
-                    DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
-                    DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
-                } else if (status.round_phase === 'active') {
-                    const elapsed = Math.floor((Date.now() - (state._crashStartTime || Date.now())) / 1000);
-                    timerEl.textContent = `⏱ ${elapsed} сек`;
-                    timerEl.style.color = '#666';
-                    DOM.crashStatus.textContent = '📈 Множитель растёт...';
-                    DOM.crashStartBtn.disabled = true;
-                    DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
-                    DOM.crashStartBtn.style.display = 'inline-block';
-                    DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
-                    DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
                 }
+            }
+            // === ФАЗА: ОЖИДАНИЕ ===
+            else if (status.round_phase === 'waiting') {
+                timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
+                timerEl.style.color = '#4caf50';
+                DOM.crashStatus.textContent = '🚀 Нажми «СТАРТ», чтобы начать!';
+                DOM.crashStartBtn.disabled = false;
+                DOM.crashStartBtn.textContent = '🚀 СТАРТ';
+                DOM.crashStartBtn.style.display = 'inline-block';
+                DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
+                DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
+                DOM.crashMultiplier.className = '';
+            }
+            // === ФАЗА: ИГРА АКТИВНА ===
+            else if (status.round_phase === 'active') {
+                const elapsed = Math.floor((Date.now() - (state._crashStartTime || Date.now())) / 1000);
+                timerEl.textContent = `⏱ ${elapsed} сек`;
+                timerEl.style.color = '#666';
+                DOM.crashStatus.textContent = '📈 Множитель растёт...';
+                DOM.crashStartBtn.disabled = true;
+                DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
+                DOM.crashStartBtn.style.display = 'inline-block';
+                DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
+                DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
+                DOM.crashMultiplier.className = '';
             }
         });
     }, 100);
@@ -2703,7 +2802,6 @@ function startCrashGame() {
                         DOM.crashCashoutBtn.style.display = 'none';
                         DOM.crashStartBtn.disabled = false;
                         DOM.crashStartBtn.textContent = '🔄 ИГРАТЬ СНОВА';
-                        // Показываем точку краша
                         const crashPoint = status.crash_multiplier_at_crash || status.multiplier;
                         DOM.crashMultiplier.textContent = `x${crashPoint.toFixed(2)}`;
                         DOM.crashMultiplier.style.color = '#f44336';
