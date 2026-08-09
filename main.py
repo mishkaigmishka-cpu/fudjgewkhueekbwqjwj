@@ -237,15 +237,16 @@ crash_lock = threading.Lock()
 
 # ===== КРАШ =====
 crash_data = {
-    'active': True,
+    'active': False,
     'multiplier': 1.00,
     'crashed': False,
-    'start_time': time.time(),
+    'start_time': 0,
     'crash_point': 1.00,
     'bets': {},
     'crash_time': 0,
-    'round_phase': 'active',
-    'crash_multiplier_at_crash': 1.00
+    'round_phase': 'waiting',
+    'crash_multiplier_at_crash': 1.00,
+    'game_count': 0
 }
 
 def generate_crash_point():
@@ -360,23 +361,25 @@ def crash_timer():
     global crash_data
     while True:
         with crash_lock:
-            if crash_data['active']:
+            if crash_data['active'] and not crash_data['crashed']:
                 elapsed = time.time() - crash_data['start_time']
                 crash_data['multiplier'] = get_crash_multiplier(elapsed)
                 
-                if elapsed >= 25 and not crash_data['crashed']:
+                if crash_data['multiplier'] >= 12.00 or elapsed >= 25:
                     crash_data['crashed'] = True
                     crash_data['round_phase'] = 'crashed'
                     crash_data['crash_time'] = time.time()
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
-                elif crash_data['multiplier'] >= crash_data['crash_point'] and not crash_data['crashed']:
+                    crash_data['game_count'] += 1
+                elif crash_data['multiplier'] >= crash_data['crash_point']:
                     crash_data['crashed'] = True
                     crash_data['round_phase'] = 'crashed'
                     crash_data['crash_time'] = time.time()
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
+                    crash_data['game_count'] += 1
             
             elif crash_data['crashed']:
-                elapsed_since_crash = time.time() - crash_data.get('crash_time', 0)
+                elapsed_since_crash = time.time() - crash_data['crash_time']
                 if elapsed_since_crash >= 5:
                     crash_data['crashed'] = False
                     crash_data['active'] = True
@@ -1374,7 +1377,7 @@ def start_crash():
         return jsonify({'error': 'Недостаточно звёзд'}), 400
     
     with crash_lock:
-        if crash_data['round_phase'] != 'waiting':
+        if crash_data['round_phase'] != 'crashed':
             return jsonify({'error': 'Ставки принимаются только в окне 5 секунд после краша!'}), 400
         
         if uid in crash_data['bets']:
@@ -1393,7 +1396,7 @@ def crash_status():
     with crash_lock:
         time_to_new_round = 0
         if crash_data['round_phase'] == 'crashed':
-            elapsed_since_crash = time.time() - crash_data.get('crash_time', 0)
+            elapsed_since_crash = time.time() - crash_data['crash_time']
             time_to_new_round = max(0, 5 - elapsed_since_crash)
         
         return jsonify({
@@ -1402,7 +1405,8 @@ def crash_status():
             'active': crash_data['active'],
             'round_phase': crash_data['round_phase'],
             'time_to_new_round': round(time_to_new_round, 1),
-            'crash_multiplier_at_crash': crash_data.get('crash_multiplier_at_crash', 1.00)
+            'crash_multiplier_at_crash': crash_data['crash_multiplier_at_crash'],
+            'game_count': crash_data['game_count']
         })
 
 @app.route('/cashout_crash', methods=['POST'])
@@ -1412,10 +1416,8 @@ def cashout_crash():
     uid = data.get('user_id')
     
     with crash_lock:
-        if not crash_data['active']:
-            return jsonify({'error': 'Игра не активна'}), 400
-        if crash_data['crashed']:
-            return jsonify({'error': 'Краш уже произошёл'}), 400
+        if not crash_data['active'] or crash_data['crashed']:
+            return jsonify({'error': 'Игра не активна или уже произошёл краш'}), 400
         if uid not in crash_data['bets']:
             return jsonify({'error': 'Ты не сделал ставку'}), 400
         
