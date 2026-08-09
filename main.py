@@ -237,52 +237,40 @@ crash_lock = threading.Lock()
 
 # ===== КРАШ =====
 crash_data = {
-    'active': False,
+    'active': True,
     'multiplier': 1.00,
     'crashed': False,
-    'start_time': 0,
+    'start_time': time.time(),
     'crash_point': 1.00,
     'bets': {},
     'crash_time': 0,
-    'crash_start_time': 0,
-    'round_phase': 'waiting',
+    'round_phase': 'active',
     'crash_multiplier_at_crash': 1.00
 }
 
 def generate_crash_point():
     rnd = random.random()
     if rnd < 0.35:
-        crash_point = 1.05 + rnd * 0.50
+        return round(1.05 + rnd * 0.50, 2)
     elif rnd < 0.70:
-        crash_point = 1.50 + (rnd - 0.35) * 4.00
+        return round(1.50 + (rnd - 0.35) * 4.00, 2)
     elif rnd < 0.90:
-        crash_point = 3.00 + (rnd - 0.70) * 10.00
+        return round(3.00 + (rnd - 0.70) * 10.00, 2)
     elif rnd < 0.98:
-        crash_point = 6.00 + (rnd - 0.90) * 25.00
+        return round(6.00 + (rnd - 0.90) * 25.00, 2)
     else:
-        crash_point = 10.00 + (rnd - 0.98) * 60.00
-    return round(min(crash_point, 12.00), 2)
+        return round(10.00 + (rnd - 0.98) * 60.00, 2)
 
 def get_crash_multiplier(elapsed):
-    if elapsed < 0.3:
-        multiplier = 1.00 + elapsed * 0.30
-    elif elapsed < 0.8:
-        multiplier = 1.09 + (elapsed - 0.3) * 0.25
-    elif elapsed < 1.5:
-        multiplier = 1.22 + (elapsed - 0.8) * 0.20
-    elif elapsed < 2.5:
-        multiplier = 1.36 + (elapsed - 1.5) * 0.35
-    elif elapsed < 4.0:
-        multiplier = 1.71 + (elapsed - 2.5) * 0.60
-    elif elapsed < 6.0:
-        multiplier = 2.61 + (elapsed - 4.0) * 0.80
-    elif elapsed < 9.0:
-        multiplier = 4.21 + (elapsed - 6.0) * 1.20
-    elif elapsed < 13.0:
-        multiplier = 7.81 + (elapsed - 9.0) * 1.80
-    else:
-        multiplier = 12.00
-    return round(min(multiplier, 12.00), 2)
+    if elapsed < 0.3: return round(1.00 + elapsed * 0.30, 2)
+    elif elapsed < 0.8: return round(1.09 + (elapsed - 0.3) * 0.25, 2)
+    elif elapsed < 1.5: return round(1.22 + (elapsed - 0.8) * 0.20, 2)
+    elif elapsed < 2.5: return round(1.36 + (elapsed - 1.5) * 0.35, 2)
+    elif elapsed < 4.0: return round(1.71 + (elapsed - 2.5) * 0.60, 2)
+    elif elapsed < 6.0: return round(2.61 + (elapsed - 4.0) * 0.80, 2)
+    elif elapsed < 9.0: return round(4.21 + (elapsed - 6.0) * 1.20, 2)
+    elif elapsed < 13.0: return round(7.81 + (elapsed - 9.0) * 1.80, 2)
+    else: return 12.00
 
 def get_mines_multiplier(opened, mines):
     multipliers = {
@@ -372,7 +360,6 @@ def crash_timer():
     global crash_data
     while True:
         with crash_lock:
-            # === ФАЗА 1: ИГРА АКТИВНА ===
             if crash_data['active']:
                 elapsed = time.time() - crash_data['start_time']
                 crash_data['multiplier'] = get_crash_multiplier(elapsed)
@@ -388,7 +375,6 @@ def crash_timer():
                     crash_data['crash_time'] = time.time()
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
             
-            # === ФАЗА 2: ПОСЛЕ КРАША (ОТСЧЁТ 5 СЕКУНД) ===
             elif crash_data['crashed']:
                 elapsed_since_crash = time.time() - crash_data.get('crash_time', 0)
                 if elapsed_since_crash >= 5:
@@ -401,7 +387,6 @@ def crash_timer():
                     crash_data['bets'] = {}
                     crash_data['crash_multiplier_at_crash'] = 1.00
             
-            # === ФАЗА 3: ОЖИДАНИЕ (МОЖНО СТАВИТЬ) ===
             else:
                 crash_data['round_phase'] = 'waiting'
         
@@ -1395,30 +1380,16 @@ def start_crash():
         if uid in crash_data['bets']:
             return jsonify({'error': 'Ты уже сделал ставку в этом раунде'}), 400
         
-        if not crash_data['bets']:
-            crash_data['active'] = True
-            crash_data['start_time'] = time.time()
-            crash_data['round_phase'] = 'active'
-            crash_data['multiplier'] = 1.00
-            crash_data['crashed'] = False
-        
         crash_data['bets'][uid] = bet
         update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
         if user[9] == 1 and user[10]:
             track_spend(uid, user[10], bet)
     
-    return jsonify({
-        'success': True,
-        'game_id': int(time.time()),
-        'crash_point': crash_data['crash_point']
-    })
+    return jsonify({'success': True, 'game_id': int(time.time())})
 
 @app.route('/crash_status', methods=['POST'])
 def crash_status():
     global crash_data
-    data = request.get_json()
-    uid = data.get('user_id')
-    
     with crash_lock:
         time_to_new_round = 0
         if crash_data['round_phase'] == 'crashed':
