@@ -536,7 +536,7 @@ function startUpgradeAnimation(chance, bet, target) {
     function spin() {
         if (!spinning || finished) return;
         
-        speed *= 0.9975;
+        speed *= 0.99;  // Ускоренное замедление (6-8 секунд)
         
         if (speed < 0.0003) {
             finishUpgrade();
@@ -1850,9 +1850,9 @@ function startBotBattleAnimation(case_type) {
         void track2.offsetHeight;
         
         setTimeout(() => {
-            track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+            track1.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
             track1.style.transform = `translateX(-${finalShift1}px)`;
-            track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
+            track2.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
             track2.style.transform = `translateX(-${finalShift2}px)`;
         }, 100);
         
@@ -1866,13 +1866,14 @@ function startBotBattleAnimation(case_type) {
             const cards1 = track1.querySelectorAll('.roulette-card');
             const cards2 = track2.querySelectorAll('.roulette-card');
             
+            // === ТОЛЬКО ПОДСВЕТКА, БЕЗ ПОДСТАНОВКИ ЧИСЕЛ ===
             if (cards1[winPos1]) {
                 cards1[winPos1].classList.add('win');
-                cards1[winPos1].textContent = `${data.player_prize}⭐`;
+                // НЕ СТАВИМ textContent — число уже есть
             }
             if (cards2[winPos2]) {
                 cards2[winPos2].classList.add('win');
-                cards2[winPos2].textContent = `${data.bot_prize}⭐`;
+                // НЕ СТАВИМ textContent — число уже есть
             }
             
             setTimeout(() => {
@@ -1895,11 +1896,9 @@ function startBotBattleAnimation(case_type) {
                 
                 if (cards1[winPos1]) {
                     cards1[winPos1].classList.add('win');
-                    cards1[winPos1].textContent = `${data.player_prize}⭐`;
                 }
                 if (cards2[winPos2]) {
                     cards2[winPos2].classList.add('win');
-                    cards2[winPos2].textContent = `${data.bot_prize}⭐`;
                 }
                 
                 setTimeout(() => {
@@ -1907,7 +1906,7 @@ function startBotBattleAnimation(case_type) {
                     showBotBattleResult(data);
                 }, 600);
             }
-        }, 7000);
+        }, 9000);
     });
 }
 
@@ -2038,11 +2037,9 @@ function startPvpBattle(room_id) {
                                 const cards2 = track2.querySelectorAll('.roulette-card');
                                 if (cards1[winPos1]) {
                                     cards1[winPos1].classList.add('win');
-                                    cards1[winPos1].textContent = `${res.player1_prize}⭐`;
                                 }
                                 if (cards2[winPos2]) {
                                     cards2[winPos2].classList.add('win');
-                                    cards2[winPos2].textContent = `${res.player2_prize}⭐`;
                                 }
                                 
                                 setTimeout(() => {
@@ -2064,11 +2061,9 @@ function startPvpBattle(room_id) {
                                     const cards2 = track2.querySelectorAll('.roulette-card');
                                     if (cards1[winPos1]) {
                                         cards1[winPos1].classList.add('win');
-                                        cards1[winPos1].textContent = `${res.player1_prize}⭐`;
                                     }
                                     if (cards2[winPos2]) {
                                         cards2[winPos2].classList.add('win');
-                                        cards2[winPos2].textContent = `${res.player2_prize}⭐`;
                                     }
                                     
                                     setTimeout(() => {
