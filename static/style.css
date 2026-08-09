@@ -841,3 +841,42 @@ nav {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.25);
 }
+
+/* === ДОПОЛНИТЕЛЬНЫЕ СТИЛИ ДЛЯ КОЛЕСА АПГРЕЙДА === */
+#upgradeWheel {
+    border-radius: 50%;
+    box-shadow: 0 0 60px rgba(179, 136, 255, 0.15), inset 0 0 60px rgba(179, 136, 255, 0.05);
+    transition: box-shadow 0.3s ease;
+}
+
+#upgradeWheel:hover {
+    box-shadow: 0 0 80px rgba(179, 136, 255, 0.25), inset 0 0 80px rgba(179, 136, 255, 0.08);
+}
+
+#upgradeResult {
+    font-size: 22px;
+    font-weight: 800;
+    margin-top: 12px;
+    min-height: 30px;
+    text-shadow: 0 0 30px rgba(255,255,255,0.1);
+}
+
+#upgradeResult.win {
+    color: #4caf50;
+    animation: winGlow 0.8s ease;
+}
+
+#upgradeResult.lose {
+    color: #f44336;
+    animation: loseGlow 0.8s ease;
+}
+
+@keyframes winGlow {
+    0%, 100% { text-shadow: 0 0 20px rgba(76, 175, 80, 0.3); }
+    50% { text-shadow: 0 0 60px rgba(76, 175, 80, 0.7); }
+}
+
+@keyframes loseGlow {
+    0%, 100% { text-shadow: 0 0 20px rgba(244, 67, 54, 0.3); }
+    50% { text-shadow: 0 0 60px rgba(244, 67, 54, 0.7); }
+}
