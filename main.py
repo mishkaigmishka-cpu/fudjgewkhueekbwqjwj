@@ -361,6 +361,17 @@ def crash_timer():
     global crash_data
     while True:
         with crash_lock:
+            # === АВТОЗАПУСК ИГРЫ ===
+            if not crash_data['active'] and not crash_data['crashed']:
+                crash_data['active'] = True
+                crash_data['start_time'] = time.time()
+                crash_data['multiplier'] = 1.00
+                crash_data['crash_point'] = generate_crash_point()
+                crash_data['round_phase'] = 'active'
+                crash_data['bets'] = {}
+                crash_data['crash_multiplier_at_crash'] = 1.00
+            
+            # === ИГРА АКТИВНА ===
             if crash_data['active'] and not crash_data['crashed']:
                 elapsed = time.time() - crash_data['start_time']
                 crash_data['multiplier'] = get_crash_multiplier(elapsed)
@@ -378,20 +389,14 @@ def crash_timer():
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
                     crash_data['game_count'] += 1
             
+            # === ПОСЛЕ КРАША ===
             elif crash_data['crashed']:
                 elapsed_since_crash = time.time() - crash_data['crash_time']
                 if elapsed_since_crash >= 5:
                     crash_data['crashed'] = False
-                    crash_data['active'] = True
-                    crash_data['round_phase'] = 'active'
-                    crash_data['start_time'] = time.time()
-                    crash_data['multiplier'] = 1.00
-                    crash_data['crash_point'] = generate_crash_point()
+                    crash_data['active'] = False
+                    crash_data['round_phase'] = 'waiting'
                     crash_data['bets'] = {}
-                    crash_data['crash_multiplier_at_crash'] = 1.00
-            
-            else:
-                crash_data['round_phase'] = 'waiting'
         
         time.sleep(0.05)
 
@@ -1387,6 +1392,15 @@ def start_crash():
         update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
         if user[9] == 1 and user[10]:
             track_spend(uid, user[10], bet)
+        
+        # === ЗАПУСКАЕМ НОВУЮ ИГРУ СРАЗУ ===
+        crash_data['crashed'] = False
+        crash_data['active'] = True
+        crash_data['start_time'] = time.time()
+        crash_data['multiplier'] = 1.00
+        crash_data['crash_point'] = generate_crash_point()
+        crash_data['round_phase'] = 'active'
+        crash_data['crash_multiplier_at_crash'] = 1.00
     
     return jsonify({'success': True, 'game_id': int(time.time())})
 
