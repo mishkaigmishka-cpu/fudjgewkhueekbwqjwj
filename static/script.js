@@ -367,7 +367,6 @@ function startUpgradeAnimation(chance, bet, target) {
     let finished = false;
     let animationId = null;
 
-    // === КНОПКА ПРОПУСКА ===
     const skipBtn = document.createElement('button');
     skipBtn.textContent = '⏭ ПРОПУСТИТЬ';
     Object.assign(skipBtn.style, {
@@ -560,7 +559,6 @@ function startUpgradeAnimation(chance, bet, target) {
         spin();
     }, 400);
 
-    // Убираем кнопку при закрытии
     const originalClose = closeAllOverlays;
     closeAllOverlays = function() {
         if (animationId) {
@@ -1832,8 +1830,11 @@ function startBotBattleAnimation(case_type) {
         
         if (!track1 || !track2 || !overlay) return;
         
-        const pos1 = prizes.indexOf(data.player_prize);
-        const pos2 = prizes.indexOf(data.bot_prize);
+        const playerPrize = data.player_prize;
+        const botPrize = data.bot_prize;
+        
+        const pos1 = prizes.indexOf(playerPrize);
+        const pos2 = prizes.indexOf(botPrize);
         const winPos1 = pos1 !== -1 ? pos1 : 15;
         const winPos2 = pos2 !== -1 ? pos2 : 15;
         
@@ -1850,6 +1851,16 @@ function startBotBattleAnimation(case_type) {
         const noise2 = Math.floor(Math.random() * 40) - 20;
         const finalShift1 = shift1 + noise1;
         const finalShift2 = shift2 + noise2;
+        
+        const cards1 = track1.querySelectorAll('.roulette-card');
+        const cards2 = track2.querySelectorAll('.roulette-card');
+        
+        if (cards1 && cards1.length > 0 && cards1[winPos1]) {
+            cards1[winPos1].textContent = playerPrize + '⭐';
+        }
+        if (cards2 && cards2.length > 0 && cards2[winPos2]) {
+            cards2[winPos2].textContent = botPrize + '⭐';
+        }
         
         track1.style.transition = 'none';
         track1.style.transform = 'translateX(0px)';
@@ -1872,17 +1883,11 @@ function startBotBattleAnimation(case_type) {
             track1.removeEventListener('transitionend', onFinish);
             track2.removeEventListener('transitionend', onFinish);
             
-            const cards1 = track1.querySelectorAll('.roulette-card');
-            const cards2 = track2.querySelectorAll('.roulette-card');
-            
-            // === ТОЛЬКО ПОДСВЕТКА, БЕЗ ПОДСТАНОВКИ ЧИСЕЛ ===
-            if (cards1[winPos1]) {
+            if (cards1 && cards1.length > 0 && cards1[winPos1]) {
                 cards1[winPos1].classList.add('win');
-                // НЕ СТАВИМ textContent — число уже есть
             }
-            if (cards2[winPos2]) {
+            if (cards2 && cards2.length > 0 && cards2[winPos2]) {
                 cards2[winPos2].classList.add('win');
-                // НЕ СТАВИМ textContent — число уже есть
             }
             
             setTimeout(() => {
@@ -1900,13 +1905,10 @@ function startBotBattleAnimation(case_type) {
                 track1.removeEventListener('transitionend', onFinish);
                 track2.removeEventListener('transitionend', onFinish);
                 
-                const cards1 = track1.querySelectorAll('.roulette-card');
-                const cards2 = track2.querySelectorAll('.roulette-card');
-                
-                if (cards1[winPos1]) {
+                if (cards1 && cards1.length > 0 && cards1[winPos1]) {
                     cards1[winPos1].classList.add('win');
                 }
-                if (cards2[winPos2]) {
+                if (cards2 && cards2.length > 0 && cards2[winPos2]) {
                     cards2[winPos2].classList.add('win');
                 }
                 
@@ -2734,12 +2736,15 @@ function resetCrashUI() {
     DOM.crashMultiplier.className = '';
     DOM.crashStatus.textContent = '⏳ Ожидание...';
     DOM.crashTimer.textContent = '⏱ 0 сек';
+    DOM.crashTimer.style.fontSize = '16px';
+    DOM.crashTimer.style.fontWeight = '600';
     DOM.crashBetDisplay.textContent = '0';
     DOM.crashMultiplierDisplay.textContent = 'x1.00';
     DOM.crashStartBtn.style.display = 'inline-block';
+    DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
+    DOM.crashStartBtn.onclick = startCrashGame;
+    DOM.crashStartBtn.disabled = false;
     DOM.crashCashoutBtn.style.display = 'none';
-    DOM.crashStartBtn.disabled = true;
-    DOM.crashStartBtn.textContent = '⏳ ОЖИДАНИЕ...';
     state.crashRunning = false;
     state.crashGameId = null;
     if (state.crashInterval) {
@@ -2785,10 +2790,13 @@ function startCrashPolling() {
                 DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
                 DOM.crashMultiplier.className = '';
                 DOM.crashStatus.textContent = '📈 Множитель растёт...';
-                timerEl.textContent = `⏱ ${Math.floor((Date.now() - (state._crashStartTime || Date.now())) / 1000)} сек`;
-                timerEl.style.color = '#666';
+                timerEl.textContent = '📈 ИГРА ИДЁТ...';
+                timerEl.style.fontSize = '16px';
+                timerEl.style.fontWeight = '600';
+                timerEl.style.color = '#4caf50';
                 DOM.crashStartBtn.disabled = true;
                 DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
+                DOM.crashStartBtn.onclick = null;
                 DOM.crashCashoutBtn.style.display = 'inline-block';
             }
             
@@ -2802,17 +2810,22 @@ function startCrashPolling() {
                 DOM.crashStartBtn.disabled = false;
                 
                 if (timeToNew > 0) {
-                    // === ОЧИЩАЕМ ГРАФИК ДЛЯ ОТСЧЁТА ===
                     resetCrashChart();
-                    timerEl.textContent = `⏳ ${Math.ceil(timeToNew)} СЕК`;
+                    timerEl.textContent = `${Math.ceil(timeToNew)}`;
+                    timerEl.style.fontSize = '48px';
+                    timerEl.style.fontWeight = '900';
                     timerEl.style.color = '#ffd700';
-                    DOM.crashStartBtn.textContent = `⏳ ${Math.ceil(timeToNew)} СЕК`;
+                    DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
+                    DOM.crashStartBtn.onclick = startCrashGame;
                     DOM.crashStatus.textContent = `⏳ Новая игра через ${Math.ceil(timeToNew)} сек...`;
                 } else {
                     timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
+                    timerEl.style.fontSize = '16px';
+                    timerEl.style.fontWeight = '600';
                     timerEl.style.color = '#4caf50';
-                    DOM.crashStartBtn.textContent = '🚀 СТАРТ';
-                    DOM.crashStatus.textContent = '🚀 Нажми «СТАРТ», чтобы сделать ставку!';
+                    DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
+                    DOM.crashStartBtn.onclick = startCrashGame;
+                    DOM.crashStatus.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
                 }
             }
             
@@ -2820,10 +2833,13 @@ function startCrashPolling() {
             else if (status.round_phase === 'waiting') {
                 resetCrashChart();
                 timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
+                timerEl.style.fontSize = '16px';
+                timerEl.style.fontWeight = '600';
                 timerEl.style.color = '#4caf50';
-                DOM.crashStatus.textContent = '🚀 Нажми «СТАРТ», чтобы начать!';
+                DOM.crashStatus.textContent = '🚀 Нажми «ИГРАТЬ», чтобы начать!';
                 DOM.crashStartBtn.disabled = false;
-                DOM.crashStartBtn.textContent = '🚀 СТАРТ';
+                DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
+                DOM.crashStartBtn.onclick = startCrashGame;
                 DOM.crashMultiplier.textContent = 'x1.00';
                 DOM.crashMultiplier.style.color = '#b388ff';
                 DOM.crashMultiplier.className = '';
@@ -2854,11 +2870,11 @@ function startCrashGame() {
             state.crashRunning = true;
             state._crashStartTime = Date.now();
             
-            // === ПОЛНАЯ ОЧИСТКА ГРАФИКА ===
             resetCrashChart();
             
             DOM.crashStartBtn.disabled = true;
             DOM.crashStartBtn.textContent = '⏳ ИГРА ИДЁТ...';
+            DOM.crashStartBtn.onclick = null;
             DOM.crashCashoutBtn.style.display = 'inline-block';
             DOM.crashBetDisplay.textContent = bet;
             DOM.crashStatus.textContent = '📈 Множитель растёт...';
@@ -2877,7 +2893,6 @@ function startCrashGame() {
                     const elapsed = (Date.now() - state._crashStartTime) / 1000;
                     DOM.crashTimer.textContent = `⏱ ${elapsed.toFixed(1)} сек`;
                     
-                    // === РИСУЕМ НОВУЮ ЛИНИЮ ===
                     updateCrashChart(status.multiplier);
                     DOM.crashMultiplierDisplay.textContent = `x${status.multiplier}`;
                     
@@ -2892,6 +2907,7 @@ function startCrashGame() {
                         DOM.crashCashoutBtn.style.display = 'none';
                         DOM.crashStartBtn.disabled = false;
                         DOM.crashStartBtn.textContent = '🔄 ИГРАТЬ СНОВА';
+                        DOM.crashStartBtn.onclick = startCrashGame;
                         
                         showCrashResult('lose', 0, crashPoint);
                         loadBalance();
@@ -2923,6 +2939,7 @@ function cashoutCrash() {
         DOM.crashCashoutBtn.style.display = 'none';
         DOM.crashStartBtn.disabled = false;
         DOM.crashStartBtn.textContent = '🔄 ИГРАТЬ СНОВА';
+        DOM.crashStartBtn.onclick = startCrashGame;
         
         showCrashResult('win', data.winnings, data.multiplier);
         loadBalance();
@@ -2957,7 +2974,7 @@ function showCrashResult(result, winnings, multiplier) {
                 <button onclick="closeAllOverlays(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔄 ИГРАТЬ СНОВА
                 </button>
-                <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); showCrash();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔙 НАЗАД
                 </button>
             </div>
@@ -2972,7 +2989,7 @@ function showCrashResult(result, winnings, multiplier) {
                 <button onclick="closeAllOverlays(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #ff6b6b, #ee5a24); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔄 ИГРАТЬ СНОВА
                 </button>
-                <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); showCrash();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔙 НАЗАД
                 </button>
             </div>
