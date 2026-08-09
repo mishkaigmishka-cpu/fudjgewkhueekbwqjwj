@@ -436,11 +436,8 @@ def start(msg):
         except:
             pass
     update_user(uid, username=username)
-    kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(
-        InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")),
-        InlineKeyboardButton("⚡ Апгрейд", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app/upgrade"))
-    )
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
     kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
     bot.send_message(msg.chat.id, "Добро пожаловать в RANDEVU!", reply_markup=kb)
 
@@ -487,11 +484,8 @@ def process_topup_amount(message, msg_id):
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_topup")
 def cancel_topup(call):
     bot.answer_callback_query(call.id)
-    kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(
-        InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")),
-        InlineKeyboardButton("⚡ Апгрейд", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app/upgrade"))
-    )
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
     kb.add(InlineKeyboardButton("💳 Пополнить звёзды", callback_data="topup"))
     bot.edit_message_text(
         "Добро пожаловать в RANDEVU!",
@@ -511,11 +505,8 @@ def handle_payment(message):
     user = get_user(uid)
     if user:
         update_user(uid, balance=user[1] + amount)
-        kb = InlineKeyboardMarkup(row_width=2)
-        kb.add(
-            InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")),
-            InlineKeyboardButton("⚡ Апгрейд", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app/upgrade"))
-        )
+        kb = InlineKeyboardMarkup(row_width=1)
+        kb.add(InlineKeyboardButton("🎮 Открыть кейсы", web_app=WebAppInfo("https://randevu-bot-production.up.railway.app")))
         kb.add(InlineKeyboardButton("🔙 Назад", callback_data="cancel_topup"))
         bot.send_message(
             uid,
@@ -794,86 +785,6 @@ def crash_stats_cmd(msg):
     bot.reply_to(msg, text)
 
 # ===================== ЭНДПОИНТЫ =====================
-
-@app.route('/upgrade', methods=['GET'])
-def upgrade_page():
-    return send_from_directory('static', 'upgrade.html')
-
-@app.route('/upgrade_calculate', methods=['POST'])
-def upgrade_calculate():
-    data = request.get_json()
-    uid = data.get('user_id')
-    bet = data.get('bet')
-    target = data.get('target')
-    
-    user = get_user(uid)
-    if not user:
-        return jsonify({'error': 'Пользователь не найден'}), 404
-    
-    if bet < 1 or bet > 1000:
-        return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
-    
-    if target < bet + 1 or target > 2000:
-        return jsonify({'error': 'Цель должна быть от {} до 2000⭐'.format(bet + 1)}), 400
-    
-    if user[1] < bet:
-        return jsonify({'error': 'Недостаточно звёзд'}), 400
-    
-    raw_chance = (bet / target) * 100
-    chance = min(max(raw_chance, 1.0), 70.0)
-    
-    return jsonify({
-        'chance': round(chance, 2),
-        'bet': bet,
-        'target': target,
-        'balance': user[1]
-    })
-
-@app.route('/upgrade_execute', methods=['POST'])
-def upgrade_execute():
-    data = request.get_json()
-    uid = data.get('user_id')
-    bet = data.get('bet')
-    target = data.get('target')
-    
-    user = get_user(uid)
-    if not user:
-        return jsonify({'error': 'Пользователь не найден'}), 404
-    
-    if bet < 1 or bet > 1000:
-        return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
-    
-    if target < bet + 1 or target > 2000:
-        return jsonify({'error': 'Цель должна быть от {} до 2000⭐'.format(bet + 1)}), 400
-    
-    if user[1] < bet:
-        return jsonify({'error': 'Недостаточно звёзд'}), 400
-    
-    raw_chance = (bet / target) * 100
-    chance = min(max(raw_chance, 1.0), 70.0)
-    
-    rand = random.random() * 100
-    success = rand <= chance
-    
-    if success:
-        new_balance = user[1] + (target - bet)
-        update_user(uid, balance=new_balance)
-        result = 'win'
-        message = f'✅ УСПЕХ! Ты получил {target}⭐ (+{target - bet}⭐)'
-    else:
-        new_balance = user[1] - bet
-        update_user(uid, balance=new_balance)
-        result = 'lose'
-        message = f'❌ ПРОВАЛ! Ты потерял {bet}⭐'
-    
-    return jsonify({
-        'result': result,
-        'chance': round(chance, 2),
-        'bet': bet,
-        'target': target,
-        'new_balance': new_balance,
-        'message': message
-    })
 
 @app.route('/create_battle_room', methods=['POST'])
 def create_battle_room():
@@ -1581,6 +1492,78 @@ def webhook():
         bot.process_new_updates([update])
         return ''
     return '', 400
+
+@app.route('/upgrade_calculate', methods=['POST'])
+def upgrade_calculate():
+    data = request.get_json()
+    uid = data.get('user_id')
+    bet = data.get('bet')
+    target = data.get('target')
+    
+    user = get_user(uid)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    
+    if bet < 1 or bet > 1000:
+        return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
+    if target < bet + 1 or target > 2000:
+        return jsonify({'error': 'Цель должна быть от {} до 2000⭐'.format(bet + 1)}), 400
+    if user[1] < bet:
+        return jsonify({'error': 'Недостаточно звёзд'}), 400
+    
+    raw_chance = (bet / target) * 100
+    chance = min(max(raw_chance, 1.0), 70.0)
+    
+    return jsonify({
+        'chance': round(chance, 2),
+        'bet': bet,
+        'target': target,
+        'balance': user[1]
+    })
+
+@app.route('/upgrade_execute', methods=['POST'])
+def upgrade_execute():
+    data = request.get_json()
+    uid = data.get('user_id')
+    bet = data.get('bet')
+    target = data.get('target')
+    
+    user = get_user(uid)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    
+    if bet < 1 or bet > 1000:
+        return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
+    if target < bet + 1 or target > 2000:
+        return jsonify({'error': 'Цель должна быть от {} до 2000⭐'.format(bet + 1)}), 400
+    if user[1] < bet:
+        return jsonify({'error': 'Недостаточно звёзд'}), 400
+    
+    raw_chance = (bet / target) * 100
+    chance = min(max(raw_chance, 1.0), 70.0)
+    
+    rand = random.random() * 100
+    success = rand <= chance
+    
+    if success:
+        new_balance = user[1] + (target - bet)
+        update_user(uid, balance=new_balance)
+        result = 'win'
+        message = f'✅ УСПЕХ! Ты получил {target}⭐ (+{target - bet}⭐)'
+    else:
+        new_balance = user[1] - bet
+        update_user(uid, balance=new_balance)
+        result = 'lose'
+        message = f'❌ ПРОВАЛ! Ты потерял {bet}⭐'
+    
+    return jsonify({
+        'result': result,
+        'chance': round(chance, 2),
+        'bet': bet,
+        'target': target,
+        'new_balance': new_balance,
+        'message': message
+    })
 
 @app.route('/get_prize', methods=['POST'])
 def get_prize_endpoint():
