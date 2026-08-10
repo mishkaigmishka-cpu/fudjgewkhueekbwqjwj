@@ -23,7 +23,7 @@
                 <span class="balance-label">💰 Баланс</span>
                 <span class="balance-value" id="balanceValue">0 ⭐</span>
             </div>
-            <div class="cases-list">
+            <div class="cases-list" id="casesList">
                 <div class="case-card" data-case="free" onclick="previewCase('free')">
                     <div class="case-icon">🎁</div>
                     <div class="case-info">
@@ -117,22 +117,21 @@
 
         <!-- ===== УРОВНИ ===== -->
         <div id="levelsScreen" class="screen">
-            <div class="section-title">🎯 УРОВНИ</div>
+            <div class="section-title">УРОВНИ</div>
             <div style="color:#888; font-size:14px; text-align:center; margin-bottom:16px;">
-                Открой 10 кейсов одного типа → получи звезду и сражайся с ботом<br>
-                Победи бота 3 раза → открой новый уровень
+                📦 Открой 10 кейсов одного типа → получи звёзду и сражайся с ботом<br>
+                ⚔️ Победи бота 3 раза → открой новый уровень
             </div>
             <div id="levelsList" style="display:flex; flex-direction:column; gap:12px;"></div>
-            <button onclick="goBack()" class="btn-back" style="margin-top:16px;">🔙 Назад</button>
+            <button onclick="goBack()" class="btn-back">🔙 Назад</button>
         </div>
 
         <!-- ===== МИНИ-ИГРЫ ===== -->
         <div id="gamesScreen" class="screen">
-            <div class="section-title">🎮 МИНИ-ИГРЫ</div>
-            <div id="gamesMenu" style="display:flex; flex-direction:column; gap:12px;">
-                <button onclick="showCrashGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 20px rgba(179,136,255,0.2);">💥 КРАШ</button>
-                <button onclick="showMinesGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 20px rgba(255,107,107,0.2);">💣 МИНЁР</button>
-                <button onclick="showUpgradeGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 20px rgba(255,215,0,0.2);">⚡ АПГРЕЙД</button>
+            <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+                <button onclick="showCrashGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-size:20px; font-weight:700; cursor:pointer;">💥 КРАШ</button>
+                <button onclick="showMinesGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; font-size:20px; font-weight:700; cursor:pointer;">💣 МИНЁР</button>
+                <button onclick="showUpgradeGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-size:20px; font-weight:700; cursor:pointer;">⚡ АПГРЕЙД</button>
                 <button onclick="goBack()" class="btn-back" style="margin-top:8px;">🔙 Назад</button>
             </div>
             <div id="crashGameContainer" style="display:none;"></div>
@@ -144,10 +143,10 @@
         <div id="questsScreen" class="screen">
             <div class="section-title">📋 ЗАДАНИЯ</div>
             <div style="display:flex; gap:8px; margin-bottom:16px; overflow-x:auto; padding-bottom:4px;">
-                <button class="quest-tab active" data-tab="status" onclick="switchQuestTab('status')">Статусы</button>
-                <button class="quest-tab" data-tab="levels" onclick="switchQuestTab('levels')">Уровни</button>
-                <button class="quest-tab" data-tab="friends" onclick="switchQuestTab('friends')">Друзья</button>
-                <button class="quest-tab" data-tab="deposits" onclick="switchQuestTab('deposits')">Пополнения</button>
+                <button class="quest-tab active" data-tab="status" onclick="switchQuestTab('status')">👑 Статусы</button>
+                <button class="quest-tab" data-tab="levels" onclick="switchQuestTab('levels')">🎯 Уровни</button>
+                <button class="quest-tab" data-tab="friends" onclick="switchQuestTab('friends')">👥 Друзья</button>
+                <button class="quest-tab" data-tab="deposits" onclick="switchQuestTab('deposits')">💰 Пополнения</button>
             </div>
             <div id="questTabStatus" class="quest-tab-content active"></div>
             <div id="questTabLevels" class="quest-tab-content"></div>
@@ -203,7 +202,7 @@
             <div id="prizeValue" style="font-size:44px;font-weight:800;color:#ffd700;"></div>
             <div id="adBlock" style="display:none;margin-top:12px;color:#aaa;">📢 <span id="adText"></span></div>
             <div class="result-buttons" style="display:flex;gap:16px;margin-top:20px;flex-wrap:wrap;justify-content:center;">
-                <button onclick="closeResult()" class="btn-close" style="padding:16px 34px;border:none;border-radius:18px;font-size:18px;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.08);color:#fff;">🔙 Закрыть</button>
+                <button onclick="closeResult()" style="padding:16px 34px;border:none;border-radius:18px;font-size:18px;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.08);color:#fff;">🔙 Закрыть</button>
                 <button id="againBtn" onclick="openAgain()" style="display:none;padding:16px 34px;border:none;border-radius:18px;font-size:18px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#b388ff,#7c4dff);color:#fff;">🎲 Открыть ещё</button>
             </div>
         </div>
