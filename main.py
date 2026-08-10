@@ -848,6 +848,20 @@ def add_ad(msg):
 
 # ===================== ЭНДПОИНТЫ =====================
 
+@app.route('/check_level_star', methods=['POST'])
+def check_level_star():
+    data = request.get_json()
+    uid = data.get('user_id')
+    case_type = data.get('case_type')
+    
+    cursor.execute("SELECT earned FROM level_stars WHERE user_id=? AND level_id=?", (uid, case_type))
+    star = cursor.fetchone()
+    
+    if not star or star[0] < 1:
+        return jsonify({'has_star': False, 'error': 'Нет звезды для этого уровня!'})
+    
+    return jsonify({'has_star': True, 'count': star[0]})
+
 @app.route('/start_bot_battle', methods=['POST'])
 def start_bot_battle():
     data = request.get_json()
@@ -860,13 +874,17 @@ def start_bot_battle():
         return jsonify({'error': 'Пользователь не найден'}), 404
     
     if use_star:
-        # ТОЛЬКО ПРОВЕРКА — НЕ СПИСЫВАЕМ
         cursor.execute("SELECT earned FROM level_stars WHERE user_id=? AND level_id=?", (uid, case_type))
         star = cursor.fetchone()
         if not star or star[0] < 1:
             return jsonify({'error': 'Нет звезды для этого уровня!'}), 400
         
-        # НЕ СПИСЫВАЕМ ЗВЕЗДУ
+        cursor.execute("UPDATE level_stars SET earned = earned - 1 WHERE user_id=? AND level_id=?", (uid, case_type))
+        conn.commit()
+        
+        cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (uid, case_type))
+        conn.commit()
+        
         price = 0
     else:
         prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
@@ -924,7 +942,10 @@ def start_bot_battle():
         level_unlocked = True
         cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (uid, case_type + '_completed'))
         conn.commit()
-        # УБРАНО УВЕДОМЛЕНИЕ
+        try:
+            bot.send_message(uid, f"🎉 Ты прошёл уровень {case_type.upper()}! Открыт новый уровень!")
+        except:
+            pass
     
     return jsonify({
         'result': result,
@@ -1350,7 +1371,11 @@ def open_case():
                 conn.commit()
                 cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
                 conn.commit()
-                # УБРАНО УВЕДОМЛЕНИЕ
+                try:
+                    stars_count = get_star_count(user_id, case_type)
+                    bot.send_message(user_id, f"⭐ Ты заработал звезду уровня {case_type.upper()}! (всего {stars_count})")
+                except:
+                    pass
         
         if case_type == "free":
             update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
@@ -1546,7 +1571,11 @@ def open_10_cases():
                 conn.commit()
                 cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
                 conn.commit()
-                # УБРАНО УВЕДОМЛЕНИЕ
+                try:
+                    stars_count = get_star_count(user_id, case_type)
+                    bot.send_message(user_id, f"⭐ Ты заработал звезду уровня {case_type.upper()}! (всего {stars_count})")
+                except:
+                    pass
     
     new_bal = user[1] - total_price + total_prize
     new_total = user[2] + 10
