@@ -266,8 +266,6 @@ header {
     padding: 14px 18px;
     border: 1px solid rgba(255, 255, 255, 0.05);
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
 }
 
 .level-card.locked {
@@ -277,12 +275,10 @@ header {
 
 .level-card.unlocked {
     border-color: rgba(76, 175, 80, 0.3);
-    cursor: pointer;
 }
 
 .level-card.completed {
     border-color: rgba(255, 215, 0, 0.4);
-    cursor: pointer;
 }
 
 .level-card .level-icon {
@@ -327,17 +323,9 @@ header {
     font-weight: 700;
 }
 
-.level-card .level-status.locked {
-    color: #888;
-}
-
-.level-card .level-status.unlocked {
-    color: #4caf50;
-}
-
-.level-card .level-status.completed {
-    color: #ffd700;
-}
+.level-card .level-status.locked { color: #888; }
+.level-card .level-status.unlocked { color: #4caf50; }
+.level-card .level-status.completed { color: #ffd700; }
 
 .level-card .level-play-btn {
     padding: 8px 20px;
@@ -577,6 +565,98 @@ header {
     background: rgba(255, 255, 255, 0.08);
 }
 
+/* ===== МОДАЛЬНОЕ ОКНО ===== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeSlide 0.3s ease;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal {
+    background: rgba(26, 26, 46, 0.95);
+    backdrop-filter: blur(20px);
+    padding: 30px;
+    border-radius: 24px;
+    max-width: 400px;
+    width: 90%;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 16px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modal h2 {
+    color: #fff;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 22px;
+}
+
+.modal input {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    font-size: 18px;
+    text-align: center;
+    transition: border-color 0.3s ease;
+}
+
+.modal input:focus {
+    outline: none;
+    border-color: rgba(179, 136, 255, 0.3);
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.modal-buttons button {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 15px;
+    transition: all 0.3s ease;
+}
+
+.modal-buttons button:first-child {
+    background: linear-gradient(135deg, #4caf50, #2e7d32);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(76, 175, 80, 0.15);
+}
+
+.modal-buttons button:first-child:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 30px rgba(76, 175, 80, 0.25);
+}
+
+.modal-buttons button:last-child {
+    background: rgba(255, 0, 0, 0.15);
+    color: #ff6b6b;
+}
+
+.modal-buttons button:last-child:hover {
+    background: rgba(255, 0, 0, 0.25);
+}
+
 /* ===== НАВИГАЦИЯ ===== */
 nav {
     position: fixed;
@@ -649,17 +729,6 @@ nav {
     background: rgba(179, 136, 255, 0.5);
 }
 
-/* ===== КРАШ ===== */
-#crashStartBtn {
-    transition: none !important;
-    animation: none !important;
-}
-
-#crashStartBtn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
 button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -667,6 +736,16 @@ button:disabled {
 }
 
 input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#crashStartBtn, #gc_start_btn {
+    transition: none !important;
+    animation: none !important;
+}
+
+#crashStartBtn:disabled, #gc_start_btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
