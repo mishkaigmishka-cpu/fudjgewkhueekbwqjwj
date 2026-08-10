@@ -1,5 +1,5 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v10.0
+// RANDEVU — FINAL SCRIPT v11.0
 // ВСЕ ИСПРАВЛЕНИЯ ВНЕСЕНЫ
 // ===============================
 
@@ -7,7 +7,7 @@ const tg = window.Telegram.WebApp;
 const user_id = tg.initDataUnsafe?.user?.id || 0;
 
 if (!user_id) {
-    showCustomAlert('Ошибка: не удалось получить ID пользователя.');
+    showCustomAlert('❌ Ошибка: не удалось получить ID пользователя.');
 }
 
 // ===== КОНФИГУРАЦИЯ =====
@@ -115,9 +115,10 @@ function showCustomAlert(message, isSuccess = false) {
     });
     
     const color = isSuccess ? '#4caf50' : '#ff6b6b';
+    const icon = isSuccess ? '✅' : '❌';
     
     overlay.innerHTML = `
-        <div style="font-size:48px; margin-bottom:10px;">${isSuccess ? '✓' : '✕'}</div>
+        <div style="font-size:48px; margin-bottom:10px;">${icon}</div>
         <div style="font-size:20px; font-weight:600; color:${color}; text-align:center; max-width:350px; word-wrap:break-word;">${message}</div>
         <button onclick="this.closest('#customAlertOverlay').remove()" style="margin-top:20px; padding:12px 40px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-size:16px; font-weight:600; cursor:pointer; transition:all 0.2s;">
             OK
@@ -221,6 +222,12 @@ function showGames() {
     document.getElementById('crashGameContainer').style.display = 'none';
     document.getElementById('minesGameContainer').style.display = 'none';
     document.getElementById('upgradeGameContainer').style.display = 'none';
+    
+    // Сбрасываем краш
+    if (state.crashPollingInterval) {
+        clearInterval(state.crashPollingInterval);
+        state.crashPollingInterval = null;
+    }
 }
 
 function showQuests() {
@@ -287,14 +294,14 @@ function updateAllBalances(newBalance) {
 // ===== КЕЙСЫ =====
 async function checkBalance(type) {
     const data = await apiRequest('/check_balance', { case_type: type });
-    if (data.error) { showCustomAlert('Ошибка: ' + data.error); return false; }
-    if (!data.can_open) { showCustomAlert('Недостаточно звёзд или время не прошло!'); return false; }
+    if (data.error) { showCustomAlert('❌ ' + data.error); return false; }
+    if (!data.can_open) { showCustomAlert('❌ Недостаточно звёзд или время не прошло!'); return false; }
     return true;
 }
 
 async function fetchRealPrize(type) {
     const data = await apiRequest('/get_prize', { case_type: type });
-    if (data.error) { showCustomAlert('Ошибка: ' + data.error); return null; }
+    if (data.error) { showCustomAlert('❌ ' + data.error); return null; }
     return data.prize;
 }
 
@@ -469,7 +476,7 @@ function showTape(type, mode = 'preview') {
 
         if (hasEnough) {
             const openBtn = document.createElement('button');
-            openBtn.textContent = `Открыть (${price}⭐)`;
+            openBtn.textContent = `🎲 Открыть (${price}⭐)`;
             Object.assign(openBtn.style, {
                 background: `linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd)`,
                 color: '#fff',
@@ -488,7 +495,7 @@ function showTape(type, mode = 'preview') {
             btnContainer.appendChild(openBtn);
         } else {
             const lockedBtn = document.createElement('button');
-            lockedBtn.textContent = `Недостаточно (${price}⭐)`;
+            lockedBtn.textContent = `🔒 Недостаточно (${price}⭐)`;
             Object.assign(lockedBtn.style, {
                 background: 'rgba(255,0,0,0.12)',
                 color: '#888',
@@ -505,7 +512,7 @@ function showTape(type, mode = 'preview') {
 
         if (type !== 'free' && hasEnoughFor10) {
             const open10Btn = document.createElement('button');
-            open10Btn.textContent = `Открыть 10 (${totalPrice}⭐)`;
+            open10Btn.textContent = `🎲 Открыть ×10 (${totalPrice}⭐)`;
             Object.assign(open10Btn.style, {
                 background: 'linear-gradient(135deg, #ffd700, #f9a825)',
                 color: '#000',
@@ -526,7 +533,7 @@ function showTape(type, mode = 'preview') {
             btnContainer.appendChild(open10Btn);
         } else if (type !== 'free' && !hasEnoughFor10) {
             const locked10Btn = document.createElement('button');
-            locked10Btn.textContent = `10 (${totalPrice}⭐)`;
+            locked10Btn.textContent = `🔒 ×10 (${totalPrice}⭐)`;
             Object.assign(locked10Btn.style, {
                 background: 'rgba(255,0,0,0.08)',
                 color: '#666',
@@ -542,7 +549,7 @@ function showTape(type, mode = 'preview') {
         }
 
         const closeBtn = document.createElement('button');
-        closeBtn.textContent = 'Назад';
+        closeBtn.textContent = '🔙 Назад';
         Object.assign(closeBtn.style, {
             background: 'rgba(255,255,255,0.06)',
             color: '#fff',
@@ -561,7 +568,7 @@ function showTape(type, mode = 'preview') {
         bottomSection.appendChild(btnContainer);
 
         const previewLabel = document.createElement('div');
-        previewLabel.textContent = 'Предпросмотр наград';
+        previewLabel.textContent = '👀 Предпросмотр наград';
         Object.assign(previewLabel.style, {
             color: style.titleColor,
             fontSize: '14px',
@@ -574,7 +581,7 @@ function showTape(type, mode = 'preview') {
         bottomSection.appendChild(previewLabel);
     } else {
         const loadingLabel = document.createElement('div');
-        loadingLabel.textContent = 'Открытие...';
+        loadingLabel.textContent = '🎰 Открытие...';
         Object.assign(loadingLabel.style, {
             color: style.titleColor,
             fontSize: '16px',
@@ -623,7 +630,7 @@ function startFinalSpin(type) {
     const track = tapeContainer._track;
     const viewport = tapeContainer._viewport;
     const targetPrize = state.currentPrize;
-    if (targetPrize === null) { tg.showAlert('Ошибка: награда не получена'); closeAllOverlays(); return; }
+    if (targetPrize === null) { tg.showAlert('❌ Ошибка: награда не получена'); closeAllOverlays(); return; }
 
     const cardWidth = 130;
     const cardGap = 8;
@@ -751,7 +758,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
 
         const price = getPrice(type);
         const againBtn = document.createElement('button');
-        againBtn.textContent = `Открыть ещё (${price}⭐)`;
+        againBtn.textContent = `🎲 Открыть ещё (${price}⭐)`;
         Object.assign(againBtn.style, {
             background: `linear-gradient(135deg, ${style.titleColor}, ${style.titleColor}dd)`,
             color: '#fff',
@@ -774,7 +781,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         };
 
         const backBtn = document.createElement('button');
-        backBtn.textContent = 'Назад';
+        backBtn.textContent = '🔙 Назад';
         Object.assign(backBtn.style, {
             background: 'rgba(255,255,255,0.08)',
             color: '#fff',
@@ -813,7 +820,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
                 });
                 const data = await res.json();
                 if (data.error) {
-                    showCustomAlert('Ошибка: ' + data.error);
+                    showCustomAlert('❌ ' + data.error);
                 } else {
                     updateAllBalances(data.new_balance);
                     const balanceDisplayEl = resultContainer.querySelector('div[style*="position: absolute"]');
@@ -822,7 +829,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
                     }
                 }
             } catch(e) {
-                showCustomAlert('Ошибка при открытии кейса');
+                showCustomAlert('❌ Ошибка при открытии кейса');
             }
         }, 300);
 
@@ -849,7 +856,7 @@ async function open10Cases(type) {
     
     const data = await apiRequest('/open_10_cases', { case_type: type });
     if (data.error) {
-        showCustomAlert('Ошибка: ' + data.error);
+        showCustomAlert('❌ ' + data.error);
         state.isOpening = false;
         return;
     }
@@ -1024,7 +1031,7 @@ function show10CasesAnimation(type, data) {
         flexShrink: '0',
         marginBottom: '4px'
     });
-    statusText.textContent = 'Открытие...';
+    statusText.textContent = '🎰 Открытие...';
     overlay.appendChild(statusText);
 
     document.body.appendChild(overlay);
@@ -1074,8 +1081,7 @@ function show10CasesAnimation(type, data) {
                         ${data.prizes.map(p => `<span style="background:rgba(255,255,255,0.04); padding:4px 12px; border-radius:8px; border:1px solid rgba(255,215,0,0.1); font-size:14px; font-weight:600; color:${style.itemColor};">${p}⭐</span>`).join('')}
                     </div>
                     <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-                        <button onclick="closeAllOverlays(); openCaseDirect('${type}');" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">ЕЩЁ</button>
-                        <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">НАЗАД</button>
+                        <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
                     </div>
                 `;
                 
@@ -1122,19 +1128,19 @@ async function loadLevels() {
         let statusText, statusClass, playDisabled = true;
         
         if (isCompleted) {
-            statusText = 'Пройден';
+            statusText = '✅ Пройден';
             statusClass = 'completed';
-            playDisabled = true;
+            playDisabled = false;
         } else if (isUnlocked && stars > 0) {
-            statusText = `Доступен (${stars} звёзд)`;
+            statusText = `⭐ Доступен (${stars} звёзд)`;
             statusClass = 'unlocked';
             playDisabled = false;
         } else if (isUnlocked) {
-            statusText = `${opened}/10 кейсов`;
+            statusText = `📦 ${opened}/10 кейсов`;
             statusClass = 'unlocked';
             playDisabled = true;
         } else {
-            statusText = 'Заблокирован';
+            statusText = '🔒 Заблокирован';
             statusClass = 'locked';
             playDisabled = true;
         }
@@ -1153,20 +1159,20 @@ async function loadLevels() {
                             <div class="fill" style="width:${progressPercent}%"></div>
                         </div>
                     ` : `
-                        <div style="color:#ffd700; margin-top:4px;">Уровень пройден</div>
+                        <div style="color:#ffd700; margin-top:4px;">✅ Уровень пройден!</div>
                     `}
-                    ${stars > 0 ? `<div style="color:#b388ff; font-size:12px;">Звёзд: ${stars}</div>` : ''}
+                    ${stars > 0 ? `<div style="color:#b388ff; font-size:12px;">⭐ Звёзд: ${stars}</div>` : ''}
                     ${wins > 0 && !isCompleted ? `<div style="font-size:11px; color:#666;">Побед: ${wins}/3</div>` : ''}
                 </div>
             </div>
             <div class="level-status ${statusClass}">${statusText}</div>
             ${!isCompleted && stars > 0 ? `
                 <button class="level-play-btn" onclick="startLevelWithStar('${level.id}')">
-                    ИГРАТЬ ЗА ЗВЕЗДУ
+                    ⭐ ИГРАТЬ ЗА ЗВЕЗДУ
                 </button>
             ` : `
                 <button class="level-play-btn" ${playDisabled ? 'disabled' : ''} onclick="startLevel('${level.id}')">
-                    ${isCompleted ? '' : 'ИГРАТЬ'}
+                    ${isCompleted ? '🔄 ПРОЙТИ' : '▶️ ИГРАТЬ'}
                 </button>
             `}
         `;
@@ -1175,8 +1181,9 @@ async function loadLevels() {
         
         if (isCompleted) {
             prevCompleted = true;
+        } else {
+            prevCompleted = false;
         }
-        // Если не пройден — prevCompleted остаётся как был
     });
 }
 
@@ -1189,7 +1196,19 @@ function startLevel(levelId) {
 function startLevelWithStar(levelId) {
     const level = LEVELS.find(l => l.id === levelId);
     if (!level) return;
-    showBotBattlePreview(level.caseType, true);
+    
+    // Проверяем есть ли звезда
+    apiRequest('/check_level_star', { case_type: level.caseType }).then(data => {
+        if (data.error) {
+            showCustomAlert('❌ ' + data.error);
+            return;
+        }
+        if (!data.has_star) {
+            showCustomAlert('❌ Нет звезды для этого уровня!');
+            return;
+        }
+        showBotBattlePreview(level.caseType, true);
+    });
 }
 
 // ===== БИТВА С БОТОМ =====
@@ -1234,10 +1253,10 @@ function showBotBattlePreview(case_type, useStar = false) {
             ${useStar ? '⭐ (ЗА ЗВЕЗДУ — БЕСПЛАТНО!)' : `(${price}⭐)`}
         </div>
         <button onclick="this.closest('#botBattlePreviewOverlay').remove(); startBotBattleAnimation('${case_type}', ${useStar});" style="padding:14px 40px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-size:18px; font-weight:700; cursor:pointer; box-shadow:0 4px 20px rgba(179,136,255,0.2);">
-            НАЧАТЬ БИТВУ
+            ⚔️ НАЧАТЬ БИТВУ
         </button>
         <button onclick="this.closest('#botBattlePreviewOverlay').remove()" style="padding:12px 30px; border:none; border-radius:12px; background:rgba(255,255,255,0.06); color:#888; font-size:14px; font-weight:600; cursor:pointer; margin-top:10px;">
-            НАЗАД
+            🔙 НАЗАД
         </button>
     `;
     
@@ -1250,7 +1269,7 @@ function startBotBattleAnimation(case_type, useStar = false) {
     
     apiRequest('/start_bot_battle', { case_type, use_star: useStar }).then(data => {
         if (data.error) {
-            showCustomAlert('Ошибка: ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             return;
         }
         showBotRouletteAnimationWithResult(data, case_type);
@@ -1300,7 +1319,7 @@ function showBotRouletteAnimationWithResult(data, case_type) {
     const cardGap = 8;
     const totalCards = 60;
     
-    // РУЛЕТКА ИГРОКА
+    // === РУЛЕТКА ИГРОКА ===
     const p1Wrapper = document.createElement('div');
     p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(76,175,80,0.3); border-radius:12px; padding:6px; background:rgba(76,175,80,0.05);';
     let cards1 = '';
@@ -1321,13 +1340,13 @@ function showBotRouletteAnimationWithResult(data, case_type) {
     `;
     container.appendChild(p1Wrapper);
     
-    // VS
+    // === VS ===
     const vsDiv = document.createElement('div');
     vsDiv.style.cssText = 'text-align:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:4px 0;';
     vsDiv.textContent = '⚔️ VS';
     container.appendChild(vsDiv);
     
-    // РУЛЕТКА БОТА
+    // === РУЛЕТКА БОТА ===
     const p2Wrapper = document.createElement('div');
     p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(244,67,54,0.3); border-radius:12px; padding:6px; background:rgba(244,67,54,0.05);';
     let cards2 = '';
@@ -1353,7 +1372,7 @@ function showBotRouletteAnimationWithResult(data, case_type) {
     const statusDiv = document.createElement('div');
     statusDiv.id = 'botRouletteStatus';
     statusDiv.style.cssText = `color:${style.titleColor}; font-size:16px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
-    statusDiv.textContent = 'Открытие...';
+    statusDiv.textContent = '🎰 Открытие...';
     overlay.appendChild(statusDiv);
     
     document.body.appendChild(overlay);
@@ -1484,14 +1503,14 @@ function showBotBattleResult(data, case_type) {
     if (data.wins !== undefined) {
         const wins = data.wins;
         const needed = data.needed_wins || 3;
-        const filled = '★'.repeat(Math.min(wins, needed));
+        const filled = '⭐'.repeat(Math.min(wins, needed));
         const empty = '☆'.repeat(Math.max(0, needed - wins));
         progressHTML = `
             <div style="margin-top:10px; margin-bottom:10px; font-size:20px; letter-spacing:4px;">
                 ${filled}${empty}
             </div>
             <div style="color:#888; font-size:13px;">
-                Побед: ${wins}/${needed} ${wins >= needed ? 'УРОВЕНЬ ПРОЙДЕН' : ''}
+                Побед: ${wins}/${needed} ${wins >= needed ? '✅ УРОВЕНЬ ПРОЙДЕН!' : ''}
             </div>
         `;
     }
@@ -1512,20 +1531,20 @@ function showBotBattleResult(data, case_type) {
                 <div style="font-size:28px; font-weight:800; color:#ffd700;">${data.bot_prize}⭐</div>
             </div>
         </div>
-        ${data.use_star ? `<div style="color:#b388ff; font-size:14px; margin-bottom:6px;">Битва за звезду</div>` : ''}
+        ${data.use_star ? `<div style="color:#b388ff; font-size:14px; margin-bottom:6px;">⭐ Битва за звезду!</div>` : ''}
         ${progressHTML}
         <div style="background:rgba(255,255,255,0.05); border-radius:16px; padding:16px 24px; margin-bottom:20px; text-align:center;">
             <div style="color:#aaa; font-size:14px;">${data.result_text}</div>
-            ${data.commission ? `<div style="color:#888; font-size:12px;">Комиссия: ${data.commission}⭐</div>` : ''}
-            ${data.result === 'win' ? `<div style="color:#4caf50; font-size:16px; font-weight:700;">Ты получил: ${data.winnings}⭐</div>` : ''}
-            ${data.level_unlocked ? `<div style="color:#ffd700; font-size:16px; font-weight:700; margin-top:4px;">НОВЫЙ УРОВЕНЬ ОТКРЫТ</div>` : ''}
+            ${data.commission ? `<div style="color:#888; font-size:12px;">💸 Комиссия: ${data.commission}⭐</div>` : ''}
+            ${data.result === 'win' ? `<div style="color:#4caf50; font-size:16px; font-weight:700;">🏆 Ты получил: ${data.winnings}⭐</div>` : ''}
+            ${data.level_unlocked ? `<div style="color:#ffd700; font-size:16px; font-weight:700; margin-top:4px;">🎉 НОВЫЙ УРОВЕНЬ ОТКРЫТ!</div>` : ''}
         </div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
             <button onclick="closeAllOverlays(); showLevels();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
-                УРОВНИ
+                🎯 УРОВНИ
             </button>
             <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
-                НАЗАД
+                🔙 НАЗАД
             </button>
         </div>
     `;
@@ -1557,7 +1576,7 @@ function switchQuestTab(tab) {
 async function loadQuestTab(tab) {
     const data = await apiRequest('/get_quests_data');
     if (data.error) {
-        showCustomAlert('Ошибка: ' + data.error);
+        showCustomAlert('❌ ' + data.error);
         return;
     }
     
@@ -1604,7 +1623,7 @@ function renderStatusQuests(data) {
                 <div style="font-size:12px; color:#666; margin-top:2px;">${totalCases}/${status.target}</div>
             </div>
             <button class="quest-btn ${isClaimed ? 'claimed' : ''}" ${(!isComplete || isClaimed) ? 'disabled' : ''} onclick="claimQuest('${status.id}', ${status.reward})">
-                ${isClaimed ? 'Завершено' : isComplete ? 'ЗАБРАТЬ' : `${totalCases}/${status.target}`}
+                ${isClaimed ? '✅ Завершено' : isComplete ? '🎁 ЗАБРАТЬ' : `${totalCases}/${status.target}`}
             </button>
         `;
         
@@ -1663,7 +1682,7 @@ function renderLevelQuests(data) {
                 `}
             </div>
             <button class="quest-btn ${isClaimed ? 'claimed' : ''}" ${(!isComplete || isClaimed || !isUnlocked) ? 'disabled' : ''} onclick="claimQuest('${quest.id}', ${quest.reward})">
-                ${isClaimed ? 'Завершено' : isComplete ? 'ЗАБРАТЬ' : isUnlocked ? `${wins}/${quest.target}` : '🔒'}
+                ${isClaimed ? '✅ Завершено' : isComplete ? '🎁 ЗАБРАТЬ' : isUnlocked ? `${wins}/${quest.target}` : '🔒'}
             </button>
         `;
         
@@ -1702,7 +1721,7 @@ function renderFriendsQuests(data) {
         
         item.innerHTML = `
             <div class="quest-left">
-                <div class="quest-name">${quest.name}</div>
+                <div class="quest-name">👥 ${quest.name}</div>
                 <div class="quest-desc">${quest.desc}</div>
                 <div class="quest-reward">🎁 ${quest.reward}⭐</div>
                 <div class="quest-progress-bar">
@@ -1711,7 +1730,7 @@ function renderFriendsQuests(data) {
                 <div style="font-size:12px; color:#666; margin-top:2px;">${refs}/${quest.target} друзей</div>
             </div>
             <button class="quest-btn ${isClaimed ? 'claimed' : ''}" ${(!isComplete || isClaimed) ? 'disabled' : ''} onclick="claimQuest('${quest.id}', ${quest.reward})">
-                ${isClaimed ? 'Завершено' : isComplete ? 'ЗАБРАТЬ' : `${refs}/${quest.target}`}
+                ${isClaimed ? '✅ Завершено' : isComplete ? '🎁 ЗАБРАТЬ' : `${refs}/${quest.target}`}
             </button>
         `;
         
@@ -1745,7 +1764,7 @@ function renderDepositQuests(data) {
         
         item.innerHTML = `
             <div class="quest-left">
-                <div class="quest-name">${quest.name}</div>
+                <div class="quest-name">💰 ${quest.name}</div>
                 <div class="quest-desc">${quest.desc}</div>
                 <div class="quest-reward">🎁 ${quest.reward}⭐</div>
                 <div class="quest-progress-bar">
@@ -1754,7 +1773,7 @@ function renderDepositQuests(data) {
                 <div style="font-size:12px; color:#666; margin-top:2px;">${totalDeposited}/${quest.target}⭐</div>
             </div>
             <button class="quest-btn ${isClaimed ? 'claimed' : ''}" ${(!isComplete || isClaimed) ? 'disabled' : ''} onclick="claimQuest('${quest.id}', ${quest.reward})">
-                ${isClaimed ? 'Завершено' : isComplete ? 'ЗАБРАТЬ' : `${totalDeposited}/${quest.target}`}
+                ${isClaimed ? '✅ Завершено' : isComplete ? '🎁 ЗАБРАТЬ' : `${totalDeposited}/${quest.target}`}
             </button>
         `;
         
@@ -1765,11 +1784,11 @@ function renderDepositQuests(data) {
 async function claimQuest(questId, reward) {
     const data = await apiRequest('/claim_quest', { quest_id: questId });
     if (data.error) {
-        showCustomAlert('Ошибка: ' + data.error);
+        showCustomAlert('❌ ' + data.error);
         return;
     }
     if (data.success) {
-        showCustomAlert(`Получено ${reward}⭐!`, true);
+        showCustomAlert(`✅ Получено ${reward}⭐!`, true);
         loadBalance();
         const activeTab = document.querySelector('.quest-tab.active');
         if (activeTab) {
@@ -1794,17 +1813,17 @@ function closePromoModal() {
 async function submitPromo() {
     const code = document.getElementById('promoInput').value.trim().toUpperCase();
     if (!code) {
-        showCustomAlert('Введите промокод!');
+        showCustomAlert('❌ Введите промокод!');
         return;
     }
     
     const data = await apiRequest('/apply_promo', { promo_code: code });
     if (data.error) {
-        showCustomAlert('Ошибка: ' + data.error);
+        showCustomAlert('❌ ' + data.error);
         return;
     }
     if (data.success) {
-        showCustomAlert(`Промокод активирован! Получено ${data.reward}⭐`, true);
+        showCustomAlert(`✅ Промокод активирован! Получено ${data.reward}⭐`, true);
         closePromoModal();
         loadBalance();
     }
@@ -1822,9 +1841,9 @@ function hideInvite() {
 function copyInvite() {
     const link = 'https://t.me/Randevucase_bot?start=' + user_id;
     navigator.clipboard.writeText(link).then(() => {
-        showCustomAlert('Ссылка скопирована!', true);
+        showCustomAlert('✅ Ссылка скопирована!', true);
     }).catch(() => {
-        showCustomAlert('Не удалось скопировать');
+        showCustomAlert('❌ Не удалось скопировать');
     });
 }
 function showWithdraw() {
@@ -1846,12 +1865,12 @@ function showWithdraw() {
     
     overlay.innerHTML = `
         <div style="background:rgba(255,255,255,0.05); border-radius:24px; padding:30px; max-width:380px; width:100%;">
-            <h2 style="color:#fff; text-align:center; font-size:22px; margin-bottom:16px;">ВЫВОД СРЕДСТВ</h2>
+            <h2 style="color:#fff; text-align:center; font-size:22px; margin-bottom:16px;">💸 ВЫВОД СРЕДСТВ</h2>
             <div style="color:#aaa; font-size:14px; text-align:center; margin-bottom:12px;">Минимальная сумма — 1000⭐</div>
             <input id="withdrawAmount" type="number" min="1000" placeholder="Введите сумму" style="width:100%; padding:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.3); color:#fff; font-size:18px; text-align:center;">
             <div style="display:flex; gap:12px; margin-top:16px;">
-                <button onclick="submitWithdraw()" style="flex:1; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">Отправить</button>
-                <button onclick="this.closest('#withdrawOverlay').remove()" style="flex:1; padding:14px; border:none; border-radius:12px; background:rgba(255,0,0,0.15); color:#ff6b6b; font-weight:700; font-size:16px; cursor:pointer;">Отмена</button>
+                <button onclick="submitWithdraw()" style="flex:1; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">✅ Отправить</button>
+                <button onclick="this.closest('#withdrawOverlay').remove()" style="flex:1; padding:14px; border:none; border-radius:12px; background:rgba(255,0,0,0.15); color:#ff6b6b; font-weight:700; font-size:16px; cursor:pointer;">❌ Отмена</button>
             </div>
         </div>
     `;
@@ -1863,7 +1882,7 @@ function submitWithdraw() {
     const input = document.getElementById('withdrawAmount');
     const amount = parseInt(input.value);
     if (isNaN(amount) || amount < 1000) {
-        showCustomAlert('Минимальная сумма — 1000⭐');
+        showCustomAlert('❌ Минимальная сумма — 1000⭐');
         return;
     }
     const overlay = document.getElementById('withdrawOverlay');
@@ -1871,94 +1890,170 @@ function submitWithdraw() {
     
     apiRequest('/withdraw_request', { amount: amount }).then(data => {
         if (data.success) {
-            showCustomAlert('Заявка отправлена! Админ свяжется с вами.', true);
+            showCustomAlert('✅ Заявка отправлена! Админ свяжется с вами.', true);
         } else {
-            showCustomAlert('Ошибка: ' + data.error);
+            showCustomAlert('❌ ' + data.error);
         }
     });
 }
 
-// ===== КРАШ =====
-let crashState = {
-    active: false,
-    running: false,
-    betPlaced: false,
-    waitingForStart: false,
-    gameStarted: false,
+// ===== МИНИ-ИГРЫ (ЗАПУСК) =====
+function showCrashGame() {
+    const menu = document.getElementById('gamesMenu');
+    const container = document.getElementById('crashGameContainer');
+    
+    if (!menu || !container) {
+        showCustomAlert('❌ Ошибка загрузки игры');
+        return;
+    }
+    
+    menu.style.display = 'none';
+    container.style.display = 'block';
+    container.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-size:20px; font-weight:800; color:#b388ff;">💥 КРАШ</div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; background:rgba(255,255,255,0.04); border-radius:16px; padding:14px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.05);">
+            <span style="font-size:14px; color:#888;">Игр: <b id="gc_games" style="color:#fff;">0</b></span>
+            <span style="font-size:14px; color:#888;">Побед: <b id="gc_wins" style="color:#fff;">0</b></span>
+            <span style="font-size:14px; color:#888;">Поражений: <b id="gc_losses" style="color:#fff;">0</b></span>
+            <span style="font-size:14px; color:#888;">Лучший: <b id="gc_best" style="color:#fff;">x1.0</b></span>
+        </div>
+        <div style="text-align:center; padding:16px 0; background:rgba(255,255,255,0.04); border-radius:24px; margin-bottom:16px;">
+            <div id="gc_chart" style="position:relative; width:100%; height:130px; background:rgba(0,0,0,0.3); border-radius:12px; overflow:hidden; margin-bottom:8px; border:1px solid rgba(255,255,255,0.04);">
+                <canvas id="gc_canvas" width="400" height="130" style="width:100%; height:130px; display:block;"></canvas>
+                <div id="gc_multiplier" style="position:absolute; top:6px; right:12px; font-size:32px; font-weight:900; color:#b388ff; text-shadow:0 0 30px rgba(179,136,255,0.5); transition:color 0.3s ease; line-height:1;">x1.00</div>
+                <div style="position:absolute; bottom:0; left:0; right:0; height:3px; background:rgba(255,255,255,0.08);">
+                    <div id="gc_progress" style="height:100%; width:0%; background:linear-gradient(90deg, #4caf50, #ffd700, #f44336); border-radius:0 3px 3px 0; transition:width 0.1s ease;"></div>
+                </div>
+            </div>
+            <div id="gc_status" style="font-size:15px; color:#888; margin-top:2px;">Нажми «ИГРАТЬ», чтобы сделать ставку</div>
+            <div id="gc_timer" style="font-size:13px; color:#666; margin-top:2px;">МОЖНО СТАВИТЬ</div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; background:rgba(255,255,255,0.05); border-radius:16px; padding:14px; margin-bottom:16px;">
+            <div style="color:#aaa; font-size:14px;">Ставка: <b id="gc_bet_display" style="color:#fff;">0</b>⭐</div>
+            <div style="color:#aaa; font-size:14px;">Множитель: <b id="gc_multiplier_display" style="color:#ffd700;">x1.00</b></div>
+            <div style="color:#aaa; font-size:14px;">Выигрыш: <b id="gc_potential" style="color:#4caf50;">0</b>⭐</div>
+        </div>
+        <div style="margin-bottom:12px;">
+            <div style="color:#aaa; font-size:14px; margin-bottom:6px;">Ставка (1-1000⭐):</div>
+            <input type="number" id="gc_bet_input" min="1" max="1000" value="10" style="width:100%; padding:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.3); color:#fff; font-size:18px; font-weight:700; text-align:center;">
+        </div>
+        <div style="display:flex; gap:12px;">
+            <button id="gc_start_btn" style="flex:1; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#4caf50,#2e7d32); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">🎮 ИГРАТЬ</button>
+            <button id="gc_cashout_btn" style="display:none; flex:1; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-weight:800; font-size:18px; cursor:pointer;">💰 ЗАБРАТЬ</button>
+        </div>
+    `;
+    
+    const backBtn = document.createElement('button');
+    backBtn.textContent = '🔙 Назад';
+    backBtn.className = 'btn-back';
+    backBtn.style.marginTop = '12px';
+    backBtn.onclick = function() {
+        container.style.display = 'none';
+        menu.style.display = 'flex';
+        if (window.crashPollInterval) clearInterval(window.crashPollInterval);
+        if (window.crashGameInterval) clearInterval(window.crashGameInterval);
+    };
+    container.appendChild(backBtn);
+    
+    setTimeout(() => {
+        initGameCrash();
+    }, 50);
+}
+
+// ===== КРАШ В МИНИ-ИГРАХ =====
+let crash = {
+    isActive: false,
+    isRunning: false,
+    isBetPlaced: false,
+    isWaitingForStart: false,
+    isGameStarted: false,
+    isCrashed: false,
+    isAnimating: false,
+    isResultShown: false,
     gameId: null,
-    interval: null,
-    pollingInterval: null,
-    resultShown: false,
+    bet: 0,
+    multiplier: 1.00,
+    crashPoint: 1.00,
+    startTime: null,
+    crashTime: null,
+    timeToNew: 0,
+    pollInterval: null,
+    gameInterval: null,
     chartData: [],
     ctx: null,
     canvas: null,
-    animating: false,
     dom: {}
 };
 
-function initCrash() {
-    const canvas = document.getElementById('crashCanvas') || document.getElementById('game_crashCanvas');
-    if (!canvas) return;
-    
-    crashState.canvas = canvas;
-    crashState.ctx = canvas.getContext('2d');
-    crashState.chartData = [];
-    
-    crashState.dom = {
-        multiplier: document.getElementById('crashMultiplier') || document.getElementById('game_crashMultiplier'),
-        status: document.getElementById('crashStatus') || document.getElementById('game_crashStatus'),
-        timer: document.getElementById('crashTimer') || document.getElementById('game_crashTimer'),
-        betDisplay: document.getElementById('crashBetDisplay') || document.getElementById('game_crashBetDisplay'),
-        multiplierDisplay: document.getElementById('crashMultiplierDisplay') || document.getElementById('game_crashMultiplierDisplay'),
-        startBtn: document.getElementById('crashStartBtn') || document.getElementById('game_crashStartBtn'),
-        cashoutBtn: document.getElementById('crashCashoutBtn') || document.getElementById('game_crashCashoutBtn'),
-        betInput: document.getElementById('crashBetInput') || document.getElementById('game_crashBetInput'),
-        progress: document.getElementById('crashProgressBar') || document.getElementById('game_crashProgressBar'),
-        chart: document.getElementById('crashChart') || document.getElementById('game_crashChart'),
-        potential: document.getElementById('crashPotentialWin') || document.getElementById('game_crashPotentialWin')
+function initGameCrash() {
+    const d = {
+        canvas: document.getElementById('gc_canvas'),
+        chart: document.getElementById('gc_chart'),
+        multiplier: document.getElementById('gc_multiplier'),
+        status: document.getElementById('gc_status'),
+        timer: document.getElementById('gc_timer'),
+        betDisplay: document.getElementById('gc_bet_display'),
+        multiplierDisplay: document.getElementById('gc_multiplier_display'),
+        potential: document.getElementById('gc_potential'),
+        startBtn: document.getElementById('gc_start_btn'),
+        cashoutBtn: document.getElementById('gc_cashout_btn'),
+        betInput: document.getElementById('gc_bet_input'),
+        progress: document.getElementById('gc_progress'),
+        games: document.getElementById('gc_games'),
+        wins: document.getElementById('gc_wins'),
+        losses: document.getElementById('gc_losses'),
+        best: document.getElementById('gc_best')
     };
     
-    drawCrashChart();
-    
-    if (crashState.dom.startBtn) {
-        crashState.dom.startBtn.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!crashState.active && !crashState.running) {
-                placeCrashBet();
-            }
-        };
-        crashState.dom.startBtn.style.animation = 'none';
-        crashState.dom.startBtn.style.transition = 'none';
+    crash.dom = d;
+    crash.canvas = d.canvas;
+    if (d.canvas) {
+        crash.ctx = d.canvas.getContext('2d');
+        crash.chartData = [];
+        drawCrashChart();
     }
     
-    if (crashState.dom.cashoutBtn) {
-        crashState.dom.cashoutBtn.onclick = function(e) {
+    loadCrashStats();
+    
+    if (d.startBtn) {
+        d.startBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            placeCrashBet();
+        };
+        d.startBtn.style.animation = 'none';
+        d.startBtn.style.transition = 'none';
+    }
+    
+    if (d.cashoutBtn) {
+        d.cashoutBtn.onclick = function(e) {
             e.preventDefault();
             e.stopPropagation();
             cashoutCrash();
         };
     }
     
-    if (crashState.dom.betInput) {
-        crashState.dom.betInput.onchange = function() {
+    if (d.betInput) {
+        d.betInput.addEventListener('change', function() {
             let val = parseInt(this.value);
             if (isNaN(val) || val < 1) val = 1;
             if (val > 1000) val = 1000;
             this.value = val;
-        };
+        });
     }
     
     startCrashPolling();
 }
 
 function drawCrashChart() {
-    const ctx = crashState.ctx;
-    const canvas = crashState.canvas;
-    const data = crashState.chartData || [];
-    const d = crashState.dom;
+    const ctx = crash.ctx;
+    const canvas = crash.canvas;
+    const data = crash.chartData || [];
+    const d = crash.dom;
     
-    if (!ctx || !canvas || !d) return;
+    if (!ctx || !canvas) return;
     
     const w = canvas.width;
     const h = canvas.height;
@@ -2024,26 +2119,25 @@ function drawCrashChart() {
         const progress = Math.min((currentVal / 12) * 100, 100);
         d.progress.style.width = progress + '%';
     }
-    if (d.potential) {
-        const bet = parseInt((d.betDisplay ? d.betDisplay.textContent : '0') || '0');
-        const potentialWin = Math.floor(bet * currentVal * 0.95);
-        d.potential.textContent = potentialWin + '⭐';
-        d.potential.style.color = potentialWin > bet * 2 ? '#4caf50' : '#ffd700';
+    if (d.potential && crash.bet > 0) {
+        const potential = Math.floor(crash.bet * currentVal * 0.95);
+        d.potential.textContent = potential + '⭐';
+        d.potential.style.color = potential > crash.bet * 2 ? '#4caf50' : '#ffd700';
     }
 }
 
 function updateCrashChart(multiplier) {
-    crashState.chartData.push(multiplier);
-    if (crashState.chartData.length > 200) {
-        crashState.chartData.shift();
+    crash.chartData.push(multiplier);
+    if (crash.chartData.length > 200) {
+        crash.chartData.shift();
     }
     drawCrashChart();
 }
 
 function resetCrashChart() {
-    crashState.chartData = [];
+    crash.chartData = [];
     drawCrashChart();
-    const d = crashState.dom;
+    const d = crash.dom;
     if (d.multiplier) {
         d.multiplier.textContent = 'x1.00';
         d.multiplier.style.color = '#b388ff';
@@ -2053,19 +2147,24 @@ function resetCrashChart() {
 }
 
 function startCrashPolling() {
-    if (crashState.pollingInterval) clearInterval(crashState.pollingInterval);
+    if (crash.pollInterval) clearInterval(crash.pollInterval);
     
-    crashState.pollingInterval = setInterval(() => {
+    crash.pollInterval = setInterval(() => {
         apiRequest('/crash_status', {}).then(status => {
             if (status.error) return;
             
-            const d = crashState.dom;
+            const d = crash.dom;
             const multiplier = status.multiplier || 1.00;
             const crashPoint = status.crash_multiplier_at_crash || 1.00;
             const timeToNew = status.time_to_new_round || 0;
             
+            crash.crashPoint = crashPoint;
+            crash.timeToNew = timeToNew;
+            
             if (status.round_phase === 'active') {
+                crash.multiplier = multiplier;
                 updateCrashChart(multiplier);
+                
                 if (d.multiplierDisplay) d.multiplierDisplay.textContent = `x${multiplier}`;
                 if (d.multiplier) {
                     d.multiplier.textContent = `x${multiplier.toFixed(2)}`;
@@ -2087,119 +2186,132 @@ function startCrashPolling() {
                     d.cashoutBtn.style.padding = '18px';
                     d.cashoutBtn.style.fontSize = '20px';
                     d.cashoutBtn.disabled = false;
-                    d.cashoutBtn.textContent = 'ЗАБРАТЬ';
-                    d.cashoutBtn.onclick = cashoutCrash;
+                    d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
                 }
                 
-                const backBtn = document.querySelector('.btn-back');
-                if (backBtn) backBtn.style.display = 'none';
-                
-                if (crashState.waitingForStart) {
-                    crashState.waitingForStart = false;
-                    crashState.gameStarted = true;
+                if (crash.isWaitingForStart) {
+                    crash.isWaitingForStart = false;
+                    crash.isGameStarted = true;
                 }
-                crashState.betPlaced = false;
-                crashState.animating = false;
+                crash.isBetPlaced = false;
+                crash.isAnimating = false;
             }
             
             else if (status.round_phase === 'crashed') {
+                crash.isCrashed = true;
+                crash.multiplier = crashPoint;
+                
                 if (d.multiplier) {
                     d.multiplier.textContent = `x${crashPoint.toFixed(2)}`;
                     d.multiplier.style.color = '#f44336';
                     d.multiplier.className = 'crashed';
                 }
-                if (d.status) d.status.textContent = `КРАШ! x${crashPoint.toFixed(2)}`;
+                if (d.status) d.status.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
                 if (d.cashoutBtn) d.cashoutBtn.style.display = 'none';
                 if (d.startBtn) d.startBtn.style.display = 'none';
                 
-                const backBtn = document.querySelector('.btn-back');
-                if (backBtn) backBtn.style.display = 'block';
-                
-                // НЕТ АНИМАЦИИ КРАША
-                setTimeout(() => {
-                    resetCrashChart();
-                    crashState.animating = false;
+                if (!crash.isAnimating) {
+                    crash.isAnimating = true;
                     
-                    if (timeToNew > 0) {
-                        if (d.timer) {
-                            d.timer.textContent = `${Math.ceil(timeToNew)}`;
-                            d.timer.style.fontSize = '48px';
-                            d.timer.style.fontWeight = '900';
-                            d.timer.style.color = '#ffd700';
-                        }
-                        if (d.startBtn) {
-                            d.startBtn.style.display = 'inline-block';
-                            d.startBtn.textContent = 'ИГРАТЬ';
-                            d.startBtn.onclick = function(e) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                if (!crashState.active && !crashState.running) {
-                                    placeCrashBet();
-                                }
-                            };
-                            d.startBtn.disabled = false;
-                        }
-                        if (d.status) d.status.textContent = `Новая игра через ${Math.ceil(timeToNew)} сек...`;
-                    } else {
-                        if (d.timer) {
-                            d.timer.textContent = 'МОЖНО СТАВИТЬ';
-                            d.timer.style.fontSize = '16px';
-                            d.timer.style.fontWeight = '600';
-                            d.timer.style.color = '#4caf50';
-                        }
-                        if (d.startBtn) {
-                            d.startBtn.style.display = 'inline-block';
-                            d.startBtn.textContent = 'ИГРАТЬ';
-                            d.startBtn.onclick = function(e) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                if (!crashState.active && !crashState.running) {
-                                    placeCrashBet();
-                                }
-                            };
-                            d.startBtn.disabled = false;
-                        }
-                        if (d.status) d.status.textContent = 'Нажми «ИГРАТЬ», чтобы сделать ставку';
+                    if (d.chart) {
+                        d.chart.style.transition = 'box-shadow 0.3s ease';
+                        d.chart.style.boxShadow = '0 0 60px rgba(255,0,0,0.4)';
+                        setTimeout(() => {
+                            d.chart.style.boxShadow = 'none';
+                        }, 1500);
                     }
                     
-                    crashState.betPlaced = false;
-                    crashState.waitingForStart = false;
-                    crashState.gameStarted = false;
-                    crashState.running = false;
+                    if (d.multiplier) {
+                        d.multiplier.style.transition = 'transform 0.1s ease';
+                        let pulseCount = 0;
+                        const pulseInterval = setInterval(() => {
+                            if (pulseCount >= 8) {
+                                clearInterval(pulseInterval);
+                                if (d.multiplier) d.multiplier.style.transform = 'scale(1)';
+                                return;
+                            }
+                            if (d.multiplier) {
+                                d.multiplier.style.transform = pulseCount % 2 === 0 ? 'scale(1.2)' : 'scale(1)';
+                            }
+                            pulseCount++;
+                        }, 150);
+                    }
                     
-                    if (!crashState.resultShown) {
-                        crashState.resultShown = true;
-                        if (crashState.gameId) {
+                    setTimeout(() => {
+                        resetCrashChart();
+                        crash.isAnimating = false;
+                        
+                        if (timeToNew > 0) {
+                            if (d.timer) {
+                                d.timer.textContent = `${Math.ceil(timeToNew)}`;
+                                d.timer.style.fontSize = '48px';
+                                d.timer.style.fontWeight = '900';
+                                d.timer.style.color = '#ffd700';
+                            }
+                            if (d.startBtn) {
+                                d.startBtn.style.display = 'inline-block';
+                                d.startBtn.textContent = '🎮 ИГРАТЬ';
+                                d.startBtn.onclick = function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    placeCrashBet();
+                                };
+                                d.startBtn.disabled = false;
+                            }
+                            if (d.status) d.status.textContent = `⏳ Новая игра через ${Math.ceil(timeToNew)} сек...`;
+                        } else {
+                            if (d.timer) {
+                                d.timer.textContent = '🚀 МОЖНО СТАВИТЬ!';
+                                d.timer.style.fontSize = '16px';
+                                d.timer.style.fontWeight = '600';
+                                d.timer.style.color = '#4caf50';
+                            }
+                            if (d.startBtn) {
+                                d.startBtn.style.display = 'inline-block';
+                                d.startBtn.textContent = '🎮 ИГРАТЬ';
+                                d.startBtn.onclick = function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    placeCrashBet();
+                                };
+                                d.startBtn.disabled = false;
+                            }
+                            if (d.status) d.status.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
+                        }
+                        
+                        crash.isBetPlaced = false;
+                        crash.isWaitingForStart = false;
+                        crash.isGameStarted = false;
+                        crash.isRunning = false;
+                        
+                        if (!crash.isResultShown && crash.gameId) {
+                            crash.isResultShown = true;
                             showCrashResult('lose', 0, crashPoint);
+                            loadCrashStats();
                         }
-                        loadBalance();
-                    }
-                    
-                    const backBtn2 = document.querySelector('.btn-back');
-                    if (backBtn2) backBtn2.style.display = 'block';
-                    
-                }, 1500);
+                    }, 1500);
+                }
             }
             
             else if (status.round_phase === 'waiting') {
+                crash.isCrashed = false;
                 resetCrashChart();
+                
                 if (d.timer) {
-                    d.timer.textContent = 'МОЖНО СТАВИТЬ';
+                    d.timer.textContent = '🚀 МОЖНО СТАВИТЬ!';
                     d.timer.style.fontSize = '16px';
                     d.timer.style.fontWeight = '600';
                     d.timer.style.color = '#4caf50';
                 }
-                if (d.status) d.status.textContent = 'Нажми «ИГРАТЬ», чтобы сделать ставку';
+                if (d.status) d.status.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
                 if (d.startBtn) {
                     d.startBtn.style.display = 'inline-block';
                     d.startBtn.disabled = false;
-                    d.startBtn.textContent = 'ИГРАТЬ';
+                    d.startBtn.textContent = '🎮 ИГРАТЬ';
                     d.startBtn.onclick = function(e) {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (!crashState.active && !crashState.running) {
-                            placeCrashBet();
-                        }
+                        placeCrashBet();
                     };
                 }
                 if (d.multiplier) {
@@ -2209,34 +2321,33 @@ function startCrashPolling() {
                 }
                 if (d.cashoutBtn) d.cashoutBtn.style.display = 'none';
                 
-                const backBtn = document.querySelector('.btn-back');
-                if (backBtn) backBtn.style.display = 'block';
-                
-                crashState.betPlaced = false;
-                crashState.waitingForStart = false;
-                crashState.gameStarted = false;
-                crashState.running = false;
-                crashState.resultShown = false;
-                crashState.animating = false;
+                crash.isBetPlaced = false;
+                crash.isWaitingForStart = false;
+                crash.isGameStarted = false;
+                crash.isRunning = false;
+                crash.isResultShown = false;
+                crash.isAnimating = false;
+                crash.isCrashed = false;
             }
         });
     }, 100);
 }
 
 function placeCrashBet() {
-    const d = crashState.dom;
+    const d = crash.dom;
+    
     if (!d.startBtn || d.startBtn.disabled) {
-        showCustomAlert('Подождите окончания отсчёта!');
+        showCustomAlert('⏳ Подождите окончания отсчёта!');
         return;
     }
     
-    if (crashState.running || crashState.gameStarted) {
-        showCustomAlert('Игра уже идёт!');
+    if (crash.isRunning || crash.isGameStarted) {
+        showCustomAlert('⏳ Игра уже идёт!');
         return;
     }
     
-    if (crashState.betPlaced) {
-        showCustomAlert('Ставка уже сделана!');
+    if (crash.isBetPlaced) {
+        showCustomAlert('⏳ Ставка уже сделана!');
         return;
     }
     
@@ -2248,51 +2359,52 @@ function placeCrashBet() {
         d.betInput.value = bet;
     }
     
+    crash.bet = bet;
+    
     apiRequest('/check_balance_simple', { amount: bet }).then(data => {
         if (data.error || !data.has_enough) {
-            showCustomAlert('Недостаточно звёзд!');
+            showCustomAlert('❌ Недостаточно звёзд!');
             return;
         }
         
         apiRequest('/start_crash', { bet }).then(gameData => {
             if (gameData.error) {
-                showCustomAlert('Ошибка: ' + gameData.error);
+                showCustomAlert('❌ ' + gameData.error);
                 return;
             }
             
-            crashState.gameId = gameData.game_id;
-            crashState.betPlaced = true;
-            crashState.waitingForStart = true;
-            crashState.gameStarted = false;
-            crashState.running = false;
-            crashState.resultShown = false;
-            crashState.animating = false;
-            crashState.active = true;
+            crash.gameId = gameData.game_id;
+            crash.isBetPlaced = true;
+            crash.isWaitingForStart = true;
+            crash.isGameStarted = false;
+            crash.isRunning = false;
+            crash.isResultShown = false;
+            crash.isAnimating = false;
+            crash.isActive = true;
             
             if (d.betDisplay) d.betDisplay.textContent = bet;
             if (d.startBtn) {
                 d.startBtn.disabled = true;
-                d.startBtn.textContent = 'ОЖИДАНИЕ СТАРТА...';
+                d.startBtn.textContent = '⏳ ОЖИДАНИЕ СТАРТА...';
                 d.startBtn.onclick = null;
             }
-            if (d.status) d.status.textContent = 'Ожидание начала игры...';
+            if (d.status) d.status.textContent = '⏳ Ожидание начала игры...';
             
-            if (crashState.interval) clearInterval(crashState.interval);
-            
-            crashState.interval = setInterval(() => {
+            if (crash.gameInterval) clearInterval(crash.gameInterval);
+            crash.gameInterval = setInterval(() => {
                 apiRequest('/crash_status', {}).then(status => {
                     if (status.error) {
-                        clearInterval(crashState.interval);
-                        crashState.running = false;
-                        if (d.status) d.status.textContent = 'Ошибка: ' + status.error;
+                        clearInterval(crash.gameInterval);
+                        crash.isRunning = false;
+                        if (d.status) d.status.textContent = '❌ ' + status.error;
                         return;
                     }
                     
-                    if (status.round_phase === 'active' && crashState.waitingForStart) {
-                        crashState.waitingForStart = false;
-                        crashState.running = true;
-                        crashState.gameStarted = true;
-                        crashState.active = true;
+                    if (status.round_phase === 'active' && crash.isWaitingForStart) {
+                        crash.isWaitingForStart = false;
+                        crash.isRunning = true;
+                        crash.isGameStarted = true;
+                        crash.isActive = true;
                         
                         resetCrashChart();
                         
@@ -2306,8 +2418,7 @@ function placeCrashBet() {
                             d.cashoutBtn.style.padding = '18px';
                             d.cashoutBtn.style.fontSize = '20px';
                             d.cashoutBtn.disabled = false;
-                            d.cashoutBtn.textContent = 'ЗАБРАТЬ';
-                            d.cashoutBtn.onclick = cashoutCrash;
+                            d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
                         }
                         if (d.status) d.status.textContent = '';
                         if (d.multiplier) d.multiplier.className = '';
@@ -2316,35 +2427,35 @@ function placeCrashBet() {
                             d.timer.style.fontSize = '0px';
                         }
                         
-                        const backBtn = document.querySelector('.btn-back');
-                        if (backBtn) backBtn.style.display = 'none';
-                        
-                        clearInterval(crashState.interval);
-                        crashState.interval = setInterval(() => {
+                        clearInterval(crash.gameInterval);
+                        crash.gameInterval = setInterval(() => {
                             apiRequest('/crash_status', {}).then(status2 => {
                                 if (status2.error) {
-                                    clearInterval(crashState.interval);
-                                    crashState.running = false;
-                                    if (d.status) d.status.textContent = 'Ошибка: ' + status2.error;
+                                    clearInterval(crash.gameInterval);
+                                    crash.isRunning = false;
+                                    if (d.status) d.status.textContent = '❌ ' + status2.error;
                                     return;
                                 }
                                 
+                                crash.multiplier = status2.multiplier;
                                 updateCrashChart(status2.multiplier);
                                 if (d.multiplierDisplay) d.multiplierDisplay.textContent = `x${status2.multiplier}`;
                                 
                                 if (status2.crashed) {
-                                    clearInterval(crashState.interval);
-                                    crashState.running = false;
-                                    crashState.gameStarted = false;
-                                    crashState.resultShown = false;
+                                    clearInterval(crash.gameInterval);
+                                    crash.isRunning = false;
+                                    crash.isGameStarted = false;
+                                    crash.isResultShown = false;
+                                    
+                                    const crashPoint = status2.crash_multiplier_at_crash || status2.multiplier;
+                                    crash.crashPoint = crashPoint;
                                     
                                     if (d.multiplier) {
                                         d.multiplier.className = 'crashed';
-                                        const crashPoint = status2.crash_multiplier_at_crash || status2.multiplier;
                                         d.multiplier.textContent = `x${crashPoint.toFixed(2)}`;
                                         d.multiplier.style.color = '#f44336';
                                     }
-                                    if (d.status) d.status.textContent = `КРАШ! x${crashPoint.toFixed(2)}`;
+                                    if (d.status) d.status.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
                                     if (d.cashoutBtn) d.cashoutBtn.style.display = 'none';
                                     if (d.startBtn) d.startBtn.style.display = 'none';
                                 }
@@ -2358,72 +2469,70 @@ function placeCrashBet() {
 }
 
 function cashoutCrash() {
-    const d = crashState.dom;
-    if (!crashState.running || !crashState.gameId) {
-        showCustomAlert('Нет активной игры!');
+    const d = crash.dom;
+    
+    if (!crash.isRunning || !crash.gameId) {
+        showCustomAlert('❌ Нет активной игры!');
         return;
     }
     
     if (d.cashoutBtn) {
         d.cashoutBtn.disabled = true;
-        d.cashoutBtn.textContent = 'ОБРАБОТКА...';
+        d.cashoutBtn.textContent = '⏳ ОБРАБОТКА...';
     }
     
-    apiRequest('/cashout_crash', { game_id: crashState.gameId }).then(data => {
+    apiRequest('/cashout_crash', { game_id: crash.gameId }).then(data => {
         if (data.error) {
-            showCustomAlert('Ошибка: ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             if (d.cashoutBtn) {
                 d.cashoutBtn.disabled = false;
-                d.cashoutBtn.textContent = 'ЗАБРАТЬ';
+                d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
             }
             return;
         }
         
-        crashState.running = false;
-        crashState.betPlaced = false;
-        crashState.waitingForStart = false;
-        crashState.gameStarted = false;
-        crashState.active = false;
-        crashState.resultShown = true;
+        crash.isRunning = false;
+        crash.isBetPlaced = false;
+        crash.isWaitingForStart = false;
+        crash.isGameStarted = false;
+        crash.isActive = false;
+        crash.isResultShown = true;
         
-        if (crashState.interval) {
-            clearInterval(crashState.interval);
-            crashState.interval = null;
+        if (crash.gameInterval) {
+            clearInterval(crash.gameInterval);
+            crash.gameInterval = null;
         }
         
         if (d.multiplier) d.multiplier.className = 'win';
-        if (d.status) d.status.textContent = `Выигрыш: ${data.winnings}⭐ (x${data.multiplier})`;
+        if (d.status) d.status.textContent = `💰 Выигрыш: ${data.winnings}⭐ (x${data.multiplier})`;
         if (d.cashoutBtn) {
             d.cashoutBtn.style.display = 'none';
             d.cashoutBtn.disabled = false;
-            d.cashoutBtn.textContent = 'ЗАБРАТЬ';
+            d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
         }
         if (d.startBtn) {
             d.startBtn.style.display = 'inline-block';
             d.startBtn.disabled = true;
-            d.startBtn.textContent = 'ОЖИДАНИЕ...';
+            d.startBtn.textContent = '⏳ ОЖИДАНИЕ...';
             d.startBtn.onclick = null;
         }
         
-        const backBtn = document.querySelector('.btn-back');
-        if (backBtn) backBtn.style.display = 'block';
-        
         showCrashResult('win', data.winnings, data.multiplier);
-        loadBalance();
+        loadCrashStats();
     }).catch(() => {
         if (d.cashoutBtn) {
             d.cashoutBtn.disabled = false;
-            d.cashoutBtn.textContent = 'ЗАБРАТЬ';
+            d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
         }
-        showCustomAlert('Ошибка при выводе');
+        showCustomAlert('❌ Ошибка при выводе');
     });
 }
 
 function showCrashResult(result, winnings, multiplier) {
-    if (document.getElementById('crashResultOverlay')) return;
+    if (document.getElementById('gameCrashResultOverlay')) return;
     
     const overlay = document.createElement('div');
-    overlay.id = 'crashResultOverlay';
+    overlay.id = 'gameCrashResultOverlay';
     Object.assign(overlay.style, {
         position: 'fixed',
         top: '0', left: '0', right: '0', bottom: '0',
@@ -2445,8 +2554,8 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="font-size:28px; font-weight:700; color:#ffd700;">${winnings}⭐</div>
             <div style="color:#aaa; font-size:16px; margin-top:4px;">Множитель: x${multiplier}</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="document.getElementById('crashResultOverlay').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">ИГРАТЬ СНОВА</button>
-                <button onclick="document.getElementById('crashResultOverlay').remove(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">НАЗАД</button>
+                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ИГРАТЬ СНОВА</button>
+                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); document.getElementById('crashGameContainer').style.display='none'; document.getElementById('gamesMenu').style.display='flex';" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
             </div>
         `;
     } else {
@@ -2456,8 +2565,8 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="color:#aaa; font-size:16px;">Множитель: x${multiplier}</div>
             <div style="color:#888; font-size:14px; margin-top:4px;">Ты потерял ставку</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="document.getElementById('crashResultOverlay').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">ИГРАТЬ СНОВА</button>
-                <button onclick="document.getElementById('crashResultOverlay').remove(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">НАЗАД</button>
+                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ИГРАТЬ СНОВА</button>
+                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); document.getElementById('crashGameContainer').style.display='none'; document.getElementById('gamesMenu').style.display='flex';" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
             </div>
         `;
     }
@@ -2466,215 +2575,66 @@ function showCrashResult(result, winnings, multiplier) {
 }
 
 function resetCrashUI() {
-    crashState.active = false;
-    crashState.running = false;
-    crashState.betPlaced = false;
-    crashState.waitingForStart = false;
-    crashState.gameStarted = false;
-    crashState.gameId = null;
-    crashState.resultShown = false;
-    crashState.animating = false;
+    crash.isActive = false;
+    crash.isRunning = false;
+    crash.isBetPlaced = false;
+    crash.isWaitingForStart = false;
+    crash.isGameStarted = false;
+    crash.isCrashed = false;
+    crash.isResultShown = false;
+    crash.isAnimating = false;
+    crash.gameId = null;
+    crash.bet = 0;
+    crash.multiplier = 1.00;
+    crash.crashPoint = 1.00;
     
-    if (crashState.interval) {
-        clearInterval(crashState.interval);
-        crashState.interval = null;
+    if (crash.gameInterval) {
+        clearInterval(crash.gameInterval);
+        crash.gameInterval = null;
     }
     
     resetCrashChart();
     
-    const d = crashState.dom;
+    const d = crash.dom;
     if (d.startBtn) {
         d.startBtn.style.display = 'inline-block';
         d.startBtn.disabled = false;
-        d.startBtn.textContent = 'ИГРАТЬ';
+        d.startBtn.textContent = '🎮 ИГРАТЬ';
         d.startBtn.onclick = function(e) {
             e.preventDefault();
             e.stopPropagation();
-            if (!crashState.active && !crashState.running) {
-                placeCrashBet();
-            }
+            placeCrashBet();
         };
-        d.startBtn.style.animation = 'none';
-        d.startBtn.style.transition = 'none';
     }
     if (d.cashoutBtn) {
         d.cashoutBtn.style.display = 'none';
         d.cashoutBtn.disabled = false;
-        d.cashoutBtn.textContent = 'ЗАБРАТЬ';
+        d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
     }
-    if (d.status) d.status.textContent = 'Нажми «ИГРАТЬ», чтобы сделать ставку';
+    if (d.status) d.status.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
     if (d.timer) {
-        d.timer.textContent = 'МОЖНО СТАВИТЬ';
+        d.timer.textContent = '🚀 МОЖНО СТАВИТЬ!';
         d.timer.style.fontSize = '16px';
         d.timer.style.fontWeight = '600';
         d.timer.style.color = '#4caf50';
     }
     if (d.betDisplay) d.betDisplay.textContent = '0';
     if (d.multiplierDisplay) d.multiplierDisplay.textContent = 'x1.00';
-    
-    const backBtn = document.querySelector('.btn-back');
-    if (backBtn) backBtn.style.display = 'block';
-    
     if (d.chart) {
         d.chart.style.boxShadow = 'none';
         d.chart.style.transition = 'none';
     }
 }
 
-// ===== МИНИ-ИГРЫ (ЗАПУСК) =====
-function showCrashGame() {
-    const menu = document.getElementById('gamesMenu');
-    const container = document.getElementById('crashGameContainer');
-    
-    if (!menu || !container) {
-        showCustomAlert('Ошибка загрузки игры');
-        return;
-    }
-    
-    menu.style.display = 'none';
-    container.style.display = 'block';
-    container.innerHTML = `
-        <div class="section-title" style="font-size:18px;">💥 КРАШ</div>
-        <div class="crash-stats" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; background:rgba(255,255,255,0.04); border-radius:16px; padding:14px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.05);">
-            <span style="font-size:14px; color:#888;">🎮 Игр: <b id="gc_games" style="color:#fff;">0</b></span>
-            <span style="font-size:14px; color:#888;">🏆 Побед: <b id="gc_wins" style="color:#fff;">0</b></span>
-            <span style="font-size:14px; color:#888;">💀 Поражений: <b id="gc_losses" style="color:#fff;">0</b></span>
-            <span style="font-size:14px; color:#888;">🔥 Лучший: <b id="gc_best" style="color:#fff;">x1.0</b></span>
-        </div>
-        
-        <div style="text-align:center; padding:16px 0; background:rgba(255,255,255,0.04); border-radius:24px; margin-bottom:16px;">
-            <div id="gc_chart" style="position:relative; width:100%; height:130px; background:rgba(0,0,0,0.3); border-radius:12px; overflow:hidden; margin-bottom:8px; border:1px solid rgba(255,255,255,0.04);">
-                <canvas id="gc_canvas" width="400" height="130" style="width:100%; height:130px; display:block;"></canvas>
-                <div id="gc_multiplier" style="position:absolute; top:6px; right:12px; font-size:32px; font-weight:900; color:#b388ff; text-shadow:0 0 30px rgba(179,136,255,0.5); transition:color 0.3s ease; line-height:1;">x1.00</div>
-                <div style="position:absolute; bottom:0; left:0; right:0; height:3px; background:rgba(255,255,255,0.08);">
-                    <div id="gc_progress" style="height:100%; width:0%; background:linear-gradient(90deg, #4caf50, #ffd700, #f44336); border-radius:0 3px 3px 0; transition:width 0.1s ease;"></div>
-                </div>
-            </div>
-            <div id="gc_status" style="font-size:15px; color:#888; margin-top:2px;">Нажми «ИГРАТЬ», чтобы сделать ставку</div>
-            <div id="gc_timer" style="font-size:13px; color:#666; margin-top:2px;">МОЖНО СТАВИТЬ</div>
-        </div>
-        
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; background:rgba(255,255,255,0.05); border-radius:16px; padding:14px; margin-bottom:16px;">
-            <div style="color:#aaa; font-size:14px;">💰 Ставка: <b id="gc_bet_display" style="color:#fff;">0</b>⭐</div>
-            <div style="color:#aaa; font-size:14px;">🔥 Множитель: <b id="gc_multiplier_display" style="color:#ffd700;">x1.00</b></div>
-            <div style="color:#aaa; font-size:14px;">🏆 Выигрыш: <b id="gc_potential" style="color:#4caf50;">0</b>⭐</div>
-        </div>
-        
-        <div style="margin-bottom:12px;">
-            <div style="color:#aaa; font-size:14px; margin-bottom:6px;">💰 Ставка (1-1000⭐):</div>
-            <input type="number" id="gc_bet_input" min="1" max="1000" value="10" style="width:100%; padding:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.3); color:#fff; font-size:18px; font-weight:700; text-align:center;">
-        </div>
-        
-        <div style="display:flex; gap:12px;">
-            <button id="gc_start_btn" style="flex:1; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#4caf50,#2e7d32); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">ИГРАТЬ</button>
-            <button id="gc_cashout_btn" style="display:none; flex:1; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-weight:800; font-size:18px; cursor:pointer;">ЗАБРАТЬ</button>
-        </div>
-    `;
-    
-    const backBtn = document.createElement('button');
-    backBtn.textContent = 'Назад к играм';
-    backBtn.className = 'btn-back';
-    backBtn.style.marginTop = '12px';
-    backBtn.onclick = function() {
-        container.style.display = 'none';
-        menu.style.display = 'flex';
-        stopGameCrash();
-    };
-    container.appendChild(backBtn);
-    
-    setTimeout(() => {
-        initGameCrash();
-    }, 50);
-}
-
-function initGameCrash() {
-    const d = {
-        canvas: document.getElementById('gc_canvas'),
-        chart: document.getElementById('gc_chart'),
-        multiplier: document.getElementById('gc_multiplier'),
-        status: document.getElementById('gc_status'),
-        timer: document.getElementById('gc_timer'),
-        betDisplay: document.getElementById('gc_bet_display'),
-        multiplierDisplay: document.getElementById('gc_multiplier_display'),
-        potential: document.getElementById('gc_potential'),
-        startBtn: document.getElementById('gc_start_btn'),
-        cashoutBtn: document.getElementById('gc_cashout_btn'),
-        betInput: document.getElementById('gc_bet_input'),
-        progress: document.getElementById('gc_progress'),
-        games: document.getElementById('gc_games'),
-        wins: document.getElementById('gc_wins'),
-        losses: document.getElementById('gc_losses'),
-        best: document.getElementById('gc_best')
-    };
-    
-    crashState.canvas = d.canvas;
-    if (d.canvas) {
-        crashState.ctx = d.canvas.getContext('2d');
-        crashState.chartData = [];
-        drawCrashChart();
-    }
-    
-    crashState.dom = d;
-    
-    loadGameCrashStats();
-    
-    if (d.startBtn) {
-        d.startBtn.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!crashState.active && !crashState.running) {
-                placeCrashBet();
-            }
-        };
-        d.startBtn.style.animation = 'none';
-        d.startBtn.style.transition = 'none';
-    }
-    
-    if (d.cashoutBtn) {
-        d.cashoutBtn.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            cashoutCrash();
-        };
-    }
-    
-    if (d.betInput) {
-        d.betInput.addEventListener('change', function() {
-            let val = parseInt(this.value);
-            if (isNaN(val) || val < 1) val = 1;
-            if (val > 1000) val = 1000;
-            this.value = val;
-        });
-    }
-    
-    startCrashPolling();
-}
-
-function loadGameCrashStats() {
+function loadCrashStats() {
     apiRequest('/get_crash_stats').then(data => {
-        const d = {
-            games: document.getElementById('gc_games'),
-            wins: document.getElementById('gc_wins'),
-            losses: document.getElementById('gc_losses'),
-            best: document.getElementById('gc_best')
-        };
+        const d = crash.dom;
+        if (!d) return;
         if (d.games) d.games.textContent = data.games || 0;
         if (d.wins) d.wins.textContent = data.wins || 0;
         if (d.losses) d.losses.textContent = data.losses || 0;
         if (d.best) d.best.textContent = 'x' + (data.best_multiplier || 1.0);
     });
-}
-
-function stopGameCrash() {
-    if (crashState.pollingInterval) {
-        clearInterval(crashState.pollingInterval);
-        crashState.pollingInterval = null;
-    }
-    if (crashState.interval) {
-        clearInterval(crashState.interval);
-        crashState.interval = null;
-    }
-    crashState.running = false;
 }
 
 // ===== МИНЁР =====
@@ -2686,24 +2646,26 @@ function showMinesGame() {
     const container = document.getElementById('minesGameContainer');
     
     if (!menu || !container) {
-        showCustomAlert('Ошибка загрузки игры');
+        showCustomAlert('❌ Ошибка загрузки игры');
         return;
     }
     
     menu.style.display = 'none';
     container.style.display = 'block';
     container.innerHTML = `
-        <div class="section-title" style="font-size:18px;">💣 МИНЁР</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-size:20px; font-weight:800; color:#ff6b6b;">💣 МИНЁР</div>
+        </div>
         <div style="color:#888; font-size:14px; text-align:center; margin-bottom:12px;">Открывайте клетки, избегайте мин и забирайте выигрыш!</div>
         <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; max-width:400px; margin:0 auto 16px;" id="gm_board"></div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; background:rgba(255,255,255,0.05); border-radius:16px; padding:14px; margin-bottom:16px;">
-            <div style="color:#aaa; font-size:14px;">💰 Ставка: <b id="gm_bet_display" style="color:#fff;">0</b>⭐</div>
-            <div style="color:#aaa; font-size:14px;">💣 X: <b id="gm_count_display" style="color:#fff;">0</b></div>
-            <div style="color:#aaa; font-size:14px;">🔥 Множитель: <b id="gm_multiplier_display" style="color:#ffd700;">x1.0</b></div>
-            <div style="color:#aaa; font-size:14px; grid-column:span 3;">📦 Открыто: <b id="gm_opened_display" style="color:#4caf50;">0</b> / <span id="gm_total_safe">0</span></div>
+            <div style="color:#aaa; font-size:14px;">Ставка: <b id="gm_bet_display" style="color:#fff;">0</b>⭐</div>
+            <div style="color:#aaa; font-size:14px;">X: <b id="gm_count_display" style="color:#fff;">0</b></div>
+            <div style="color:#aaa; font-size:14px;">Множитель: <b id="gm_multiplier_display" style="color:#ffd700;">x1.0</b></div>
+            <div style="color:#aaa; font-size:14px; grid-column:span 3;">Открыто: <b id="gm_opened_display" style="color:#4caf50;">0</b> / <span id="gm_total_safe">0</span></div>
         </div>
         <div style="margin-bottom:12px;">
-            <div style="color:#aaa; font-size:14px; margin-bottom:6px;">💰 Ставка (3-1000⭐):</div>
+            <div style="color:#aaa; font-size:14px; margin-bottom:6px;">Ставка (3-1000⭐):</div>
             <input type="number" id="gm_bet_input" min="3" max="1000" value="100" style="width:100%; padding:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.3); color:#fff; font-size:18px; font-weight:700; text-align:center;">
         </div>
         <div style="margin-bottom:12px; overflow-x:auto; white-space:nowrap; padding:4px 0;">
@@ -2716,12 +2678,12 @@ function showMinesGame() {
                 <button class="gm_btn" data-mines="8">8 (x4.0)</button>
             </div>
         </div>
-        <button id="gm_start_btn" style="width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">НАЧАТЬ ИГРУ</button>
-        <button id="gm_cashout_btn" style="display:none; width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-weight:800; font-size:18px; cursor:pointer; margin-top:10px;">ЗАБРАТЬ ВЫИГРЫШ (<span id="gm_cashout_amount">0</span>⭐)</button>
+        <button id="gm_start_btn" style="width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">🎮 НАЧАТЬ ИГРУ</button>
+        <button id="gm_cashout_btn" style="display:none; width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-weight:800; font-size:18px; cursor:pointer; margin-top:10px;">💰 ЗАБРАТЬ ВЫИГРЫШ (<span id="gm_cashout_amount">0</span>⭐)</button>
     `;
     
     const backBtn = document.createElement('button');
-    backBtn.textContent = 'Назад к играм';
+    backBtn.textContent = '🔙 Назад';
     backBtn.className = 'btn-back';
     backBtn.style.marginTop = '12px';
     backBtn.onclick = function() {
@@ -2749,21 +2711,12 @@ function initGameMines() {
         board.appendChild(cell);
     }
     
-    gameMinesSelected = state.selectedMines || 4;
-    
     document.querySelectorAll('.gm_btn').forEach(btn => {
         btn.onclick = function() {
             document.querySelectorAll('.gm_btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
-            state.selectedMines = parseInt(this.dataset.mines);
-            gameMinesSelected = state.selectedMines;
+            gameMinesSelected = parseInt(this.dataset.mines);
         };
-    });
-    
-    document.querySelectorAll('.gm_btn').forEach(btn => {
-        if (parseInt(btn.dataset.mines) === state.selectedMines) {
-            btn.classList.add('active');
-        }
     });
     
     document.getElementById('gm_start_btn').onclick = startGameMines;
@@ -2782,23 +2735,23 @@ function startGameMines() {
     const mines = gameMinesSelected;
     
     if (bet < 3 || bet > 1000) {
-        showCustomAlert('Ставка должна быть от 3 до 1000⭐');
+        showCustomAlert('❌ Ставка должна быть от 3 до 1000⭐');
         return;
     }
     if (mines < 3 || mines > 8) {
-        showCustomAlert('X должно быть от 3 до 8');
+        showCustomAlert('❌ X должно быть от 3 до 8');
         return;
     }
     
     apiRequest('/check_balance_simple', { amount: bet }).then(data => {
         if (data.error || !data.has_enough) {
-            showCustomAlert('Недостаточно звёзд!');
+            showCustomAlert('❌ Недостаточно звёзд!');
             return;
         }
         
         apiRequest('/start_mines_game', { bet, mines }).then(gameData => {
             if (gameData.error) {
-                showCustomAlert('Ошибка: ' + gameData.error);
+                showCustomAlert('❌ ' + gameData.error);
                 return;
             }
             
@@ -2821,7 +2774,7 @@ function startGameMines() {
             document.getElementById('gm_opened_display').textContent = '0';
             document.getElementById('gm_multiplier_display').textContent = 'x1.0';
             document.getElementById('gm_cashout_btn').style.display = 'inline-block';
-            document.getElementById('gm_start_btn').textContent = 'ИГРАТЬ СНОВА';
+            document.getElementById('gm_start_btn').textContent = '🔄 ИГРАТЬ СНОВА';
             
             renderGameMinesBoard();
             updateGameMinesCashout();
@@ -2869,7 +2822,7 @@ function openGameMinesCell(index) {
         index 
     }).then(data => {
         if (data.error) {
-            showCustomAlert('Ошибка: ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             return;
         }
         
@@ -2886,24 +2839,17 @@ function openGameMinesCell(index) {
             gameMinesData.game_over = true;
             document.getElementById('gm_cashout_btn').style.display = 'none';
             
+            for (let i = 0; i < 25; i++) {
+                if (gameMinesData.board[i] === 1) {
+                    gameMinesData.openedCells[i] = 1;
+                }
+            }
+            renderGameMinesBoard();
+            
             if (data.won) {
-                // ПРИ ВЫИГРЫШЕ НЕ ПОКАЗЫВАЕМ МИНЫ
-                for (let i = 0; i < 25; i++) {
-                    if (gameMinesData.board[i] === 1) {
-                        gameMinesData.openedCells[i] = 0;
-                    }
-                }
-                renderGameMinesBoard();
-                showCustomAlert(`ПОБЕДА! Ты выиграл ${data.winnings}⭐!`, true);
+                showCustomAlert(`🎉 ПОБЕДА! Ты выиграл ${data.winnings}⭐!`, true);
             } else {
-                // ПРИ ПОРАЖЕНИИ ПОКАЗЫВАЕМ ВСЕ МИНЫ
-                for (let i = 0; i < 25; i++) {
-                    if (gameMinesData.board[i] === 1) {
-                        gameMinesData.openedCells[i] = 1;
-                    }
-                }
-                renderGameMinesBoard();
-                showCustomAlert(`ВЗРЫВ! Ты потерял ${data.bet}⭐`);
+                showCustomAlert(`💥 ВЗРЫВ! Ты потерял ${data.bet}⭐`);
             }
             loadBalance();
             return;
@@ -2917,20 +2863,20 @@ function openGameMinesCell(index) {
 function cashoutGameMines() {
     if (!gameMinesData || !gameMinesData.active || gameMinesData.game_over) return;
     if (gameMinesData.opened < 3) {
-        showCustomAlert('Нужно открыть минимум 3 клетки!');
+        showCustomAlert('❌ Нужно открыть минимум 3 клетки!');
         return;
     }
     
     apiRequest('/cashout_mines', { game_id: gameMinesData.game_id }).then(data => {
         if (data.error) {
-            showCustomAlert('Ошибка: ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             return;
         }
         
         gameMinesData.active = false;
         gameMinesData.game_over = true;
         document.getElementById('gm_cashout_btn').style.display = 'none';
-        showCustomAlert(`ВЫИГРЫШ! Ты забрал ${data.winnings}⭐ (x${data.multiplier})`, true);
+        showCustomAlert(`💰 ВЫИГРЫШ! Ты забрал ${data.winnings}⭐ (x${data.multiplier})`, true);
         loadBalance();
     });
 }
@@ -2947,14 +2893,16 @@ function showUpgradeGame() {
     const container = document.getElementById('upgradeGameContainer');
     
     if (!menu || !container) {
-        showCustomAlert('Ошибка загрузки игры');
+        showCustomAlert('❌ Ошибка загрузки игры');
         return;
     }
     
     menu.style.display = 'none';
     container.style.display = 'block';
     container.innerHTML = `
-        <div class="section-title" style="font-size:18px;">⚡ АПГРЕЙД</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-size:20px; font-weight:800; color:#ffd700;">⚡ АПГРЕЙД</div>
+        </div>
         <div class="balance-card" style="margin-bottom:12px; padding:14px 18px;">
             <span class="balance-label">💰 Баланс</span>
             <span class="balance-value" id="gu_balance">0 ⭐</span>
@@ -2972,17 +2920,17 @@ function showUpgradeGame() {
                 <div style="color:#aaa; font-size:14px;">Шанс на успех:</div>
                 <div style="font-size:28px; font-weight:900; color:#b388ff;" id="gu_chance">0%</div>
             </div>
-            <button id="gu_btn" style="width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">АПГРЕЙДНУТЬ</button>
+            <button id="gu_btn" style="width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">⚡ АПГРЕЙДНУТЬ</button>
         </div>
         <div id="gu_animation_section" style="display:none; text-align:center;">
             <canvas id="gu_wheel" width="400" height="400" style="width:100%; max-width:340px; aspect-ratio:1; margin:0 auto 16px; border-radius:50%; box-shadow:0 0 60px rgba(179,136,255,0.15);"></canvas>
             <div id="gu_result" style="font-size:18px; font-weight:700; min-height:30px;"></div>
-            <button onclick="resetGameUpgrade()" style="width:100%; padding:14px; border:none; border-radius:14px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-weight:700; cursor:pointer; margin-top:12px;">ЕЩЁ РАЗ</button>
+            <button onclick="resetGameUpgrade()" style="width:100%; padding:14px; border:none; border-radius:14px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-weight:700; cursor:pointer; margin-top:12px;">🔄 ЕЩЁ РАЗ</button>
         </div>
     `;
     
     const backBtn = document.createElement('button');
-    backBtn.textContent = 'Назад к играм';
+    backBtn.textContent = '🔙 Назад к играм';
     backBtn.className = 'btn-back';
     backBtn.style.marginTop = '12px';
     backBtn.onclick = function() {
@@ -3030,17 +2978,17 @@ function startGameUpgrade() {
     const target = parseInt(document.getElementById('gu_target').value) || bet + 1;
 
     if (bet < 1 || bet > 1000) {
-        showCustomAlert('Ставка от 1 до 1000⭐');
+        showCustomAlert('❌ Ставка от 1 до 1000⭐');
         return;
     }
     if (target < bet + 1 || target > 2000) {
-        showCustomAlert('Цель от ' + (bet + 1) + ' до 2000⭐');
+        showCustomAlert('❌ Цель от ' + (bet + 1) + ' до 2000⭐');
         return;
     }
 
     apiRequest('/upgrade_calculate', { bet, target }).then(data => {
         if (data.error) {
-            showCustomAlert('Ошибка: ' + data.error);
+            showCustomAlert('❌ ' + data.error);
             return;
         }
 
@@ -3066,7 +3014,7 @@ function startGameUpgradeAnimation(chance, bet, target) {
     let animationId = null;
 
     const skipBtn = document.createElement('button');
-    skipBtn.textContent = 'ПРОПУСТИТЬ';
+    skipBtn.textContent = '⏭ ПРОПУСТИТЬ';
     Object.assign(skipBtn.style, {
         position: 'fixed',
         bottom: '120px',
@@ -3208,7 +3156,7 @@ function startGameUpgradeAnimation(chance, bet, target) {
 
         apiRequest('/upgrade_execute', { bet, target }).then(data => {
             if (data.error) {
-                document.getElementById('gu_result').textContent = 'Ошибка: ' + data.error;
+                document.getElementById('gu_result').textContent = '❌ ' + data.error;
                 document.getElementById('gu_result').style.color = '#f44336';
                 return;
             }
@@ -3281,8 +3229,8 @@ function showGameUpgradeResult(result, message, newBalance) {
         <div style="font-size:18px; color:#aaa; text-align:center; margin-bottom:6px;">${message}</div>
         <div style="font-size:16px; color:#888; margin-bottom:20px;">💰 Баланс: ${newBalance} ⭐</div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-            <button onclick="document.getElementById('gameUpgradeResultOverlay').remove(); resetGameUpgrade();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">ЕЩЁ РАЗ</button>
-            <button onclick="document.getElementById('gameUpgradeResultOverlay').remove(); document.getElementById('upgradeGameContainer').style.display='none'; document.getElementById('gamesMenu').style.display='flex';" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">НАЗАД</button>
+            <button onclick="document.getElementById('gameUpgradeResultOverlay').remove(); resetGameUpgrade();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ЕЩЁ РАЗ</button>
+            <button onclick="document.getElementById('gameUpgradeResultOverlay').remove(); document.getElementById('upgradeGameContainer').style.display='none'; document.getElementById('gamesMenu').style.display='flex';" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
         </div>
     `;
     
