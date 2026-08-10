@@ -111,7 +111,7 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS promo_spend (
 )''')
 conn.commit()
 
-# ===== НОВЫЕ ТАБЛИЦЫ ДЛЯ УРОВНЕЙ И ЗАДАНИЙ =====
+# ===== НОВЫЕ ТАБЛИЦЫ =====
 cursor.execute('''CREATE TABLE IF NOT EXISTS level_wins (
     user_id INTEGER,
     case_type TEXT,
@@ -293,7 +293,6 @@ def generate_crash_point():
         return round(10.00 + (rnd - 0.98) * 60.00, 2)
 
 def get_crash_multiplier(elapsed):
-    # ОЧЕНЬ МЕДЛЕННЫЙ РОСТ ДО 2.0x (10 СЕКУНД)
     if elapsed < 1.0:
         multiplier = 1.00 + elapsed * 0.06
     elif elapsed < 2.0:
@@ -398,7 +397,6 @@ def update_battle_stats(user_id, won, stars, case_type=None):
                         (battles_played, battles_won, battles_lost, total_won_stars, total_lost_stars, user_id))
     conn.commit()
     
-    # Сохраняем победу для уровней
     if won and case_type:
         cursor.execute("INSERT INTO level_wins (user_id, case_type, wins) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET wins = wins + 1", (user_id, case_type))
         conn.commit()
@@ -856,15 +854,31 @@ def start_bot_battle():
     data = request.get_json()
     uid = data.get('user_id')
     case_type = data.get('case_type')
+    use_star = data.get('use_star', False)
     
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
     
-    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
-    price = prices.get(case_type, 0)
-    if user[1] < price:
-        return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐'}), 400
+    if use_star:
+        cursor.execute("SELECT earned FROM level_stars WHERE user_id=? AND level_id=?", (uid, case_type))
+        star = cursor.fetchone()
+        if not star or star[0] < 1:
+            return jsonify({'error': 'Нет звезды для этого уровня!'}), 400
+        
+        cursor.execute("UPDATE level_stars SET earned = earned - 1 WHERE user_id=? AND level_id=?", (uid, case_type))
+        conn.commit()
+        
+        cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (uid, case_type))
+        conn.commit()
+        
+        price = 0
+    else:
+        prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
+        price = prices.get(case_type, 0)
+        if user[1] < price:
+            return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐'}), 400
+        update_user(uid, balance=user[1] - price)
     
     player_prize = get_prize(case_type, uid)
     bot_prize = get_prize(case_type, None)
@@ -872,7 +886,9 @@ def start_bot_battle():
     commission = int(total * 0.10)
     winnings = total - commission
     
-    update_user(uid, balance=user[1] - price)
+    result = 'lose'
+    result_text = ''
+    wins_after = 0
     
     if player_prize > bot_prize:
         user = get_user(uid)
@@ -881,11 +897,21 @@ def start_bot_battle():
         update_battle_stats(uid, won=True, stars=winnings, case_type=case_type)
         result = 'win'
         result_text = f'🎉 Ты выиграл! +{winnings}⭐'
+        
+        cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
+        wins_data = cursor.fetchone()
+        wins_after = wins_data[0] if wins_data else 0
+        
     elif bot_prize > player_prize:
         update_user(uid, last_open=int(time.time()))
         update_battle_stats(uid, won=False, stars=player_prize, case_type=case_type)
         result = 'lose'
         result_text = f'😢 Ты проиграл! -{player_prize}⭐'
+        
+        cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
+        wins_data = cursor.fetchone()
+        wins_after = wins_data[0] if wins_data else 0
+        
     else:
         user = get_user(uid)
         update_user(uid, balance=user[1] + player_prize - commission, last_open=int(time.time()))
@@ -893,6 +919,20 @@ def start_bot_battle():
         update_battle_stats(uid, won=False, stars=commission, case_type=case_type)
         result = 'draw'
         result_text = f'🤝 Ничья! Ты получил {player_prize - commission}⭐'
+        
+        cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
+        wins_data = cursor.fetchone()
+        wins_after = wins_data[0] if wins_data else 0
+    
+    level_unlocked = False
+    if wins_after >= 3:
+        level_unlocked = True
+        cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (uid, case_type + '_completed'))
+        conn.commit()
+        try:
+            bot.send_message(uid, f"🎉 Ты прошёл уровень {case_type.upper()}! Открыт новый уровень!")
+        except:
+            pass
     
     return jsonify({
         'result': result,
@@ -900,7 +940,11 @@ def start_bot_battle():
         'player_prize': player_prize,
         'bot_prize': bot_prize,
         'commission': commission,
-        'winnings': winnings if result == 'win' else 0
+        'winnings': winnings if result == 'win' else 0,
+        'use_star': use_star,
+        'wins': wins_after,
+        'level_unlocked': level_unlocked,
+        'needed_wins': 3
     })
 
 @app.route('/start_mines_game', methods=['POST'])
@@ -1303,23 +1347,22 @@ def open_case():
         new_total = user[2] + 1
         new_streak = user[3] + 1
         
-        # === ОБНОВЛЯЕМ СТАТИСТИКУ КЕЙСОВ ===
         if case_type != "free":
             cursor.execute("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + 1", (user_id, case_type))
             conn.commit()
             
-            # Проверяем звезду уровня (10 кейсов)
             cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
             result = cursor.fetchone()
             if result and result[0] >= 10:
-                cursor.execute("SELECT * FROM level_stars WHERE user_id=? AND level_id=?", (user_id, case_type))
-                if not cursor.fetchone():
-                    cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1)", (user_id, case_type))
-                    conn.commit()
-                    try:
-                        bot.send_message(user_id, f"⭐ Ты заработал звезду уровня {case_type.upper()}! Теперь ты можешь пройти этот уровень в разделе «УРОВНИ»!")
-                    except:
-                        pass
+                cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
+                conn.commit()
+                cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
+                conn.commit()
+                try:
+                    stars_count = get_star_count(user_id, case_type)
+                    bot.send_message(user_id, f"⭐ Ты заработал звезду уровня {case_type.upper()}! (всего {stars_count})")
+                except:
+                    pass
         
         if case_type == "free":
             update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
@@ -1368,8 +1411,6 @@ def check_balance_simple():
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'has_enough': user[1] >= amount})
 
-# ===== НОВЫЕ ЭНДПОИНТЫ =====
-
 @app.route('/apply_promo', methods=['POST'])
 def apply_promo():
     data = request.get_json()
@@ -1411,9 +1452,9 @@ def get_levels_data():
     stats = cursor.fetchall()
     case_counts = {s[0]: s[1] for s in stats}
     
-    cursor.execute("SELECT level_id FROM level_stars WHERE user_id=?", (uid,))
-    stars = cursor.fetchall()
-    level_stars = {s[0]: True for s in stars}
+    cursor.execute("SELECT level_id, earned FROM level_stars WHERE user_id=?", (uid,))
+    stars_data = cursor.fetchall()
+    level_stars = {s[0]: s[1] for s in stars_data}
     
     cursor.execute("SELECT case_type, wins FROM level_wins WHERE user_id=?", (uid,))
     wins_data = cursor.fetchall()
@@ -1480,6 +1521,66 @@ def claim_quest():
     conn.commit()
     
     return jsonify({'success': True, 'reward': reward})
+
+@app.route('/open_10_cases', methods=['POST'])
+def open_10_cases():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    case_type = data.get('case_type')
+    
+    user = get_user(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
+    price = prices.get(case_type, 0)
+    total_price = price * 10
+    
+    if user[1] < total_price:
+        return jsonify({'error': f'Недостаточно звёзд! Нужно {total_price}⭐'}), 400
+    
+    total_prize = 0
+    prizes = []
+    
+    for i in range(10):
+        prize = get_prize(case_type, user_id)
+        prizes.append(prize)
+        total_prize += prize
+        
+        if case_type != "free":
+            cursor.execute("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + 1", (user_id, case_type))
+            conn.commit()
+            
+            cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
+            result = cursor.fetchone()
+            if result and result[0] >= 10:
+                cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
+                conn.commit()
+                cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
+                conn.commit()
+                try:
+                    stars_count = get_star_count(user_id, case_type)
+                    bot.send_message(user_id, f"⭐ Ты заработал звезду уровня {case_type.upper()}! (всего {stars_count})")
+                except:
+                    pass
+    
+    new_bal = user[1] - total_price + total_prize
+    new_total = user[2] + 10
+    new_streak = user[3] + 10
+    
+    update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
+    update_status(user_id, new_total)
+    
+    return jsonify({
+        'prizes': prizes,
+        'total_prize': total_prize,
+        'new_balance': new_bal
+    })
+
+def get_star_count(user_id, level_id):
+    cursor.execute("SELECT earned FROM level_stars WHERE user_id=? AND level_id=?", (user_id, level_id))
+    result = cursor.fetchone()
+    return result[0] if result else 0
 
 def get_quest_reward(uid, quest_id):
     user = get_user(uid)
