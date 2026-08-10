@@ -119,7 +119,7 @@
         <div id="levelsScreen" class="screen">
             <div class="section-title">🎯 УРОВНИ</div>
             <div style="color:#888; font-size:14px; text-align:center; margin-bottom:16px;">
-                📦 Открой 10 кейсов одного типа, чтобы получить звезду уровня и пройти его!<br>
+                📦 Открой 10 кейсов одного типа, чтобы получить звезду и сразиться с ботом!<br>
                 ⚔️ Победи бота 3 раза, чтобы завершить уровень!
             </div>
             <div id="levelsList" style="display:flex; flex-direction:column; gap:12px;"></div>
@@ -130,9 +130,9 @@
         <div id="gamesScreen" class="screen">
             <div class="section-title">🎮 МИНИ-ИГРЫ</div>
             <div id="gamesMenu" style="display:flex; flex-direction:column; gap:12px;">
-                <button onclick="showCrashGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-size:20px; font-weight:700; cursor:pointer;">💥 КРАШ</button>
-                <button onclick="showMinesGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; font-size:20px; font-weight:700; cursor:pointer;">💣 МИНЁР</button>
-                <button onclick="showUpgradeGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-size:20px; font-weight:700; cursor:pointer;">⚡ АПГРЕЙД</button>
+                <button onclick="showCrashGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 20px rgba(255,107,107,0.2);">💥 КРАШ</button>
+                <button onclick="showMinesGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd93d,#f9a825); color:#000; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 20px rgba(255,217,61,0.2);">💣 МИНЁР</button>
+                <button onclick="showUpgradeGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#6bcbff,#4a9eff); color:#fff; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 20px rgba(107,203,255,0.2);">⚡ АПГРЕЙД</button>
                 <button onclick="goBack()" class="btn-back" style="margin-top:8px;">🔙 Назад</button>
             </div>
             <div id="crashGameContainer" style="display:none;"></div>
@@ -200,11 +200,11 @@
         <div id="result" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(20px);z-index:100;padding:24px;flex-direction:column;align-items:center;justify-content:center;">
             <div id="prizeDisplay" style="font-size:90px;margin-bottom:10px;"></div>
             <div id="prizeName" style="font-size:28px;font-weight:700;margin-bottom:6px;"></div>
-            <div id="prizeValue" style="font-size:44px;font-weight:800;color:#b388ff;"></div>
+            <div id="prizeValue" style="font-size:44px;font-weight:800;color:#ffd700;"></div>
             <div id="adBlock" style="display:none;margin-top:12px;color:#aaa;">📢 <span id="adText"></span></div>
             <div class="result-buttons" style="display:flex;gap:16px;margin-top:20px;flex-wrap:wrap;justify-content:center;">
                 <button onclick="closeResult()" class="btn-close" style="padding:16px 34px;border:none;border-radius:18px;font-size:18px;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.08);color:#fff;">🔙 Закрыть</button>
-                <button id="againBtn" onclick="openAgain()" style="display:none;padding:16px 34px;border:none;border-radius:18px;font-size:18px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#b388ff,#7c4dff);color:#fff;">🎲 Открыть ещё</button>
+                <button id="againBtn" onclick="openAgain()" style="display:none;padding:16px 34px;border:none;border-radius:18px;font-size:18px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#ff6b6b,#ee5a24);color:#fff;">🎲 Открыть ещё</button>
             </div>
         </div>
 
