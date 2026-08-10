@@ -136,11 +136,20 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS completed_quests (
 )''')
 conn.commit()
 
+cursor.execute('''CREATE TABLE IF NOT EXISTS case_stats (
+    user_id INTEGER,
+    case_type TEXT,
+    opened INTEGER DEFAULT 0,
+    PRIMARY KEY (user_id, case_type)
+)''')
+conn.commit()
+
 cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
 cursor.execute("CREATE INDEX IF NOT EXISTS idx_promo_spend_user ON promo_spend(user_id)")
 cursor.execute("CREATE INDEX IF NOT EXISTS idx_commission_log_time ON commission_log(timestamp)")
 cursor.execute("CREATE INDEX IF NOT EXISTS idx_level_wins_user ON level_wins(user_id)")
 cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_quests_user ON completed_quests(user_id)")
+cursor.execute("CREATE INDEX IF NOT EXISTS idx_case_stats_user ON case_stats(user_id)")
 conn.commit()
 
 # ===================== КЕЙСЫ =====================
@@ -666,6 +675,180 @@ def crash_stats_cmd(msg):
     text = f"💥 **СТАТИСТИКА КРАШ:**\n\n🎮 Всего игр: {stats[1]}\n🏆 Побед: {stats[2]}\n💀 Поражений: {stats[3]}\n🔥 Лучший множитель: x{stats[4]}\n⭐ Выиграно звёзд: {stats[5]}\n💸 Проиграно звёзд: {stats[6]}\n\nПроцент побед: {int(stats[2] / stats[1] * 100) if stats[1] > 0 else 0}%"
     bot.reply_to(msg, text)
 
+@bot.message_handler(commands=['give_me'])
+def give_me(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Укажи сумму: /give_me 500")
+        return
+    try:
+        amount = int(args[1])
+    except:
+        bot.reply_to(msg, "❌ Сумма должна быть числом")
+        return
+    user = get_user(msg.from_user.id)
+    if user:
+        update_user(msg.from_user.id, balance=user[1] + amount)
+        bot.reply_to(msg, f"✅ Ты получил {amount}⭐\n💰 Баланс: {user[1] + amount}⭐")
+
+@bot.message_handler(commands=['give'])
+def give_to_user(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "❌ Формат: /give @username 500")
+        return
+    username = args[1].replace('@', '')
+    try:
+        amount = int(args[2])
+    except:
+        bot.reply_to(msg, "❌ Сумма должна быть числом")
+        return
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        return
+    update_user(user[0], balance=user[1] + amount)
+    bot.reply_to(msg, f"✅ @{username} получил {amount}⭐\n💰 Баланс: {user[1] + amount}⭐")
+    try:
+        bot.send_message(user[0], f"💰 Админ выдал тебе {amount}⭐!\nНовый баланс: {user[1] + amount}⭐")
+    except:
+        pass
+
+@bot.message_handler(commands=['give_id'])
+def give_by_id(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "❌ Формат: /give_id 123456789 500")
+        return
+    try:
+        uid = int(args[1])
+        amount = int(args[2])
+    except:
+        bot.reply_to(msg, "❌ ID и сумма должны быть числами")
+        return
+    user = get_user(uid)
+    if not user:
+        bot.reply_to(msg, f"❌ Пользователь с ID {uid} не найден")
+        return
+    update_user(uid, balance=user[1] + amount)
+    bot.reply_to(msg, f"✅ Пользователю {uid} выдано {amount}⭐\n💰 Баланс: {user[1] + amount}⭐")
+    try:
+        bot.send_message(uid, f"💰 Админ выдал тебе {amount}⭐!\nНовый баланс: {user[1] + amount}⭐")
+    except:
+        pass
+
+@bot.message_handler(commands=['add_treasury'])
+def add_treasury(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Формат: /add_treasury 1000")
+        return
+    try:
+        amount = int(args[1])
+    except:
+        bot.reply_to(msg, "❌ Сумма должна быть числом")
+        return
+    add_commission(amount)
+    bot.reply_to(msg, f"✅ В казну добавлено {amount}⭐")
+
+@bot.message_handler(commands=['set_status'])
+def set_status(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "❌ Формат: /set_status @username Легенда")
+        return
+    username = args[1].replace('@', '')
+    status = ' '.join(args[2:])
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        return
+    update_user(user[0], status=status)
+    bot.reply_to(msg, f"✅ Статус @{username} изменён на {status}")
+
+@bot.message_handler(commands=['boost'])
+def boost_player(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "❌ Формат: /boost @username 2.0")
+        return
+    username = args[1].replace('@', '')
+    try:
+        boost = float(args[2])
+    except:
+        bot.reply_to(msg, "❌ Множитель должен быть числом (например, 2.0)")
+        return
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        return
+    update_user(user[0], luck_boost=boost)
+    bot.reply_to(msg, f"✅ Шансы @{username} увеличены в {boost}x!")
+
+@bot.message_handler(commands=['promo_stats'])
+def promo_stats(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Формат: /promo_stats CODE")
+        return
+    code = args[1].upper()
+    cursor.execute("SELECT reward, max_uses, used_count, created_at FROM promo_codes WHERE code=?", (code,))
+    promo = cursor.fetchone()
+    if not promo:
+        bot.reply_to(msg, "❌ Промокод не найден")
+        return
+    reward, max_uses, used_count, created_at = promo
+    cursor.execute("SELECT user_id, spent FROM promo_spend WHERE promo_code=?", (code,))
+    spend_data = cursor.fetchall()
+    total_spent = sum([s[1] for s in spend_data]) if spend_data else 0
+    text = f"📊 **СТАТИСТИКА ПРОМОКОДА {code}**\n\n"
+    text += f"🎁 Награда: {reward}⭐\n"
+    text += f"📊 Макс. использований: {max_uses}\n"
+    text += f"✅ Использовано: {used_count}\n"
+    text += f"💰 Всего потрачено: {total_spent}⭐\n"
+    text += f"👥 Пользователей: {len(spend_data) if spend_data else 0}\n"
+    bot.reply_to(msg, text)
+
+@bot.message_handler(commands=['list_promo'])
+def list_promo(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    cursor.execute("SELECT code, reward, max_uses, used_count FROM promo_codes ORDER BY created_at DESC")
+    promos = cursor.fetchall()
+    if not promos:
+        bot.reply_to(msg, "❌ Нет созданных промокодов")
+        return
+    text = "📋 **СПИСОК ПРОМОКОДОВ:**\n\n"
+    for code, reward, max_uses, used_count in promos:
+        status = "✅" if max_uses == 0 or used_count < max_uses else "❌"
+        text += f"{status} `{code}` — {reward}⭐ (исп. {used_count}/{max_uses if max_uses > 0 else '∞'})\n"
+    bot.reply_to(msg, text)
+
+@bot.message_handler(commands=['add_ad'])
+def add_ad(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    parts = msg.text.split(maxsplit=1)
+    if len(parts) < 2:
+        bot.reply_to(msg, "Формат: /add_ad текст")
+        return
+    ads.append(parts[1])
+    bot.reply_to(msg, "✅ Реклама добавлена")
+
 # ===================== ЭНДПОИНТЫ =====================
 
 @app.route('/start_bot_battle', methods=['POST'])
@@ -1119,6 +1302,25 @@ def open_case():
         new_bal = user[1] - price + prize
         new_total = user[2] + 1
         new_streak = user[3] + 1
+        
+        # === ОБНОВЛЯЕМ СТАТИСТИКУ КЕЙСОВ ===
+        if case_type != "free":
+            cursor.execute("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + 1", (user_id, case_type))
+            conn.commit()
+            
+            # Проверяем звезду уровня (10 кейсов)
+            cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
+            result = cursor.fetchone()
+            if result and result[0] >= 10:
+                cursor.execute("SELECT * FROM level_stars WHERE user_id=? AND level_id=?", (user_id, case_type))
+                if not cursor.fetchone():
+                    cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1)", (user_id, case_type))
+                    conn.commit()
+                    try:
+                        bot.send_message(user_id, f"⭐ Ты заработал звезду уровня {case_type.upper()}! Теперь ты можешь пройти этот уровень в разделе «УРОВНИ»!")
+                    except:
+                        pass
+        
         if case_type == "free":
             update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
         else:
@@ -1166,7 +1368,35 @@ def check_balance_simple():
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'has_enough': user[1] >= amount})
 
-# ===== НОВЫЕ ЭНДПОИНТЫ ДЛЯ УРОВНЕЙ И ЗАДАНИЙ =====
+# ===== НОВЫЕ ЭНДПОИНТЫ =====
+
+@app.route('/apply_promo', methods=['POST'])
+def apply_promo():
+    data = request.get_json()
+    uid = data.get('user_id')
+    promo_code = data.get('promo_code', '').upper()
+    
+    user = get_user(uid)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    
+    cursor.execute("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=?", (promo_code,))
+    promo = cursor.fetchone()
+    if not promo:
+        return jsonify({'error': 'Неверный промокод!'}), 400
+    
+    reward, max_uses, used_count = promo
+    if max_uses > 0 and used_count >= max_uses:
+        return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
+    
+    if user[9] == 1:
+        return jsonify({'error': 'Ты уже использовал промокод!'}), 400
+    
+    update_user(uid, balance=user[1] + reward, promo_used=1, promo_code=promo_code)
+    cursor.execute("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=?", (promo_code,))
+    conn.commit()
+    
+    return jsonify({'success': True, 'reward': reward})
 
 @app.route('/get_levels_data', methods=['POST'])
 def get_levels_data():
@@ -1177,20 +1407,14 @@ def get_levels_data():
     if not user:
         return jsonify({'error': 'User not found'}), 404
     
-    # Количество открытых кейсов по типам
-    # Пока используем общее количество, в будущем можно хранить отдельно
-    case_counts = {}
-    case_types = ['mud', 'wood', 'stone', 'bronze', 'silver', 'gold', 'diamond', 'netherite', 'obsidian', 'bedrock']
-    for ct in case_types:
-        # Просто заглушка, нужно хранить статистику по типам
-        case_counts[ct] = 0
+    cursor.execute("SELECT case_type, opened FROM case_stats WHERE user_id=?", (uid,))
+    stats = cursor.fetchall()
+    case_counts = {s[0]: s[1] for s in stats}
     
-    # Звёзды уровней
     cursor.execute("SELECT level_id FROM level_stars WHERE user_id=?", (uid,))
     stars = cursor.fetchall()
     level_stars = {s[0]: True for s in stars}
     
-    # Победы в уровнях
     cursor.execute("SELECT case_type, wins FROM level_wins WHERE user_id=?", (uid,))
     wins_data = cursor.fetchall()
     level_wins = {w[0]: w[1] for w in wins_data}
@@ -1214,12 +1438,10 @@ def get_quests_data():
     refs = user[6]
     total_spent = user[11] or 0
     
-    # Победы в уровнях
     cursor.execute("SELECT case_type, wins FROM level_wins WHERE user_id=?", (uid,))
     wins_data = cursor.fetchall()
     level_wins = {w[0]: w[1] for w in wins_data}
     
-    # Выполненные задания
     cursor.execute("SELECT quest_id FROM completed_quests WHERE user_id=?", (uid,))
     completed = cursor.fetchall()
     claimed_quests = [q[0] for q in completed]
