@@ -265,7 +265,6 @@ def track_spend(uid, promo_code, amount):
 active_mines_games = {}
 crash_lock = threading.Lock()
 
-# ===== КРАШ =====
 crash_data = {
     'active': False,
     'multiplier': 1.00,
