@@ -55,7 +55,6 @@ const CONFIG = {
 const getPrizes = (type) => CONFIG.CASE_PRIZES[type] || [1,10,100];
 const getStyle = (type) => CONFIG.CASE_STYLES[type] || CONFIG.CASE_STYLES['free'];
 const getPrice = (type) => CONFIG.CASE_PRICES[type] || 0;
-const getMinesMultiplier = (opened, mines) => CONFIG.MINES_MULTIPLIERS[mines]?.[opened] || 1.00;
 
 const apiRequest = async (endpoint, body = {}) => {
     try {
@@ -97,13 +96,7 @@ const createCardElement = (value, style, width = 90, height = 140) => {
     return div;
 };
 
-const animateTrack = (track, shift, duration = 6000) => {
-    if (!track) return;
-    track.style.transition = `transform ${duration}ms cubic-bezier(0.1, 1, 0.1, 1)`;
-    track.style.transform = `translateX(-${shift}px)`;
-};
-
-// ===== КАСТОМНОЕ ОКНО В ПРИЛОЖЕНИИ =====
+// ===== КАСТОМНОЕ ОКНО =====
 function showCustomAlert(message, isSuccess = false) {
     const overlay = document.createElement('div');
     overlay.id = 'customAlertOverlay';
@@ -143,28 +136,7 @@ const DOM = {
     profileCases: document.getElementById('profileCases'),
     profileStatus: document.getElementById('profileStatus'),
     profileRefs: document.getElementById('profileRefs'),
-    inviteLink: document.getElementById('inviteLink'),
-    minesCashoutBtn: document.getElementById('minesCashoutBtn'),
-    minesStartBtn: document.getElementById('minesStartBtn'),
-    minesBetDisplay: document.getElementById('minesBetDisplay'),
-    minesCountDisplay: document.getElementById('minesCountDisplay'),
-    minesTotalSafe: document.getElementById('minesTotalSafe'),
-    minesOpenedDisplay: document.getElementById('minesOpenedDisplay'),
-    minesMultiplierDisplay: document.getElementById('minesMultiplierDisplay'),
-    minesBoard: document.getElementById('minesBoard'),
-    betInput: document.getElementById('betInput'),
-    crashBetInput: document.getElementById('crashBetInput'),
-    crashMultiplier: document.getElementById('crashMultiplier'),
-    crashStatus: document.getElementById('crashStatus'),
-    crashTimer: document.getElementById('crashTimer'),
-    crashBetDisplay: document.getElementById('crashBetDisplay'),
-    crashMultiplierDisplay: document.getElementById('crashMultiplierDisplay'),
-    crashStartBtn: document.getElementById('crashStartBtn'),
-    crashCashoutBtn: document.getElementById('crashCashoutBtn'),
-    crashGames: document.getElementById('crashGames'),
-    crashWins: document.getElementById('crashWins'),
-    crashLosses: document.getElementById('crashLosses'),
-    crashBestMultiplier: document.getElementById('crashBestMultiplier')
+    inviteLink: document.getElementById('inviteLink')
 };
 
 // ===== СОСТОЯНИЕ =====
@@ -173,11 +145,8 @@ let state = {
     currentPrize: null,
     isOpening: false,
     tapeContainer: null,
-    minesGameData: null,
     selectedMines: 4,
-    selectedBattleCase: 'gold',
     selectedBotCase: 'gold',
-    currentRoomId: null,
     crashGameId: null,
     crashRunning: false,
     crashBetPlaced: false,
@@ -185,20 +154,17 @@ let state = {
     crashGameStarted: false,
     crashInterval: null,
     crashPollingInterval: null,
-    intervals: {},
     _crashStartTime: null,
-    _resultShown: false
+    _resultShown: false,
+    gameContainers: {}
 };
 
-// ===== ЗАКРЫТИЕ ВСЕХ ОВЕРЛЕЕВ =====
+// ===== ЗАКРЫТИЕ ОВЕРЛЕЕВ =====
 function closeAllOverlays() {
     const ids = [
         'tapeContainer',
         'resultContainer',
-        'battlePreviewOverlay',
-        'battleRouletteOverlay',
         'botRouletteOverlay',
-        'battleResultOverlay',
         'botBattleResultOverlay',
         'minesResultOverlay',
         'crashResultOverlay',
@@ -223,12 +189,6 @@ function closeAllOverlays() {
         clearInterval(state.crashPollingInterval);
         state.crashPollingInterval = null;
     }
-    if (window.opponentInterval) clearInterval(window.opponentInterval);
-    if (window.opponentChecker) clearInterval(window.opponentChecker);
-    if (window.battleResultInterval) clearInterval(window.battleResultInterval);
-    
-    const nav = document.querySelector('nav');
-    if (nav) nav.style.display = 'flex';
 }
 
 // ===== НАВИГАЦИЯ =====
@@ -241,48 +201,41 @@ function showMain() {
     loadBalance();
 }
 
-function showBattles() {
+function showLevels() {
     closeAllOverlays();
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
-    document.getElementById('battlesScreen').classList.add('active');
+    document.getElementById('levelsScreen').classList.add('active');
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    document.querySelector('.nav-item[data-tab="battles"]').classList.add('active');
-    loadBattleData();
-    loadBattleRooms();
-    checkActiveRoom();
-    clearInterval(state.intervals.battle);
-    state.intervals.battle = setInterval(loadBattleRooms, 5000);
+    document.querySelector('.nav-item[data-tab="levels"]').classList.add('active');
+    loadLevels();
 }
 
-function showMines() {
+function showGames() {
     closeAllOverlays();
     document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
-    document.getElementById('minesScreen').classList.add('active');
+    document.getElementById('gamesScreen').classList.add('active');
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    document.querySelector('.nav-item[data-tab="mines"]').classList.add('active');
-    loadMinesStats();
-    if (!state.minesGameData || !state.minesGameData.active) {
-        state.minesGameData = null;
-        DOM.minesCashoutBtn.style.display = 'none';
-        DOM.minesStartBtn.textContent = '🎮 НАЧАТЬ ИГРУ';
-        DOM.minesBetDisplay.textContent = '0';
-        DOM.minesCountDisplay.textContent = '0';
-        DOM.minesTotalSafe.textContent = '0';
-        DOM.minesOpenedDisplay.textContent = '0';
-        DOM.minesMultiplierDisplay.textContent = 'x1.0';
-        initMinesBoard();
+    document.querySelector('.nav-item[data-tab="games"]').classList.add('active');
+    
+    document.getElementById('gamesMenu').style.display = 'flex';
+    document.getElementById('crashGameContainer').style.display = 'none';
+    document.getElementById('minesGameContainer').style.display = 'none';
+    document.getElementById('upgradeGameContainer').style.display = 'none';
+}
+
+function showQuests() {
+    closeAllOverlays();
+    document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+    document.getElementById('questsScreen').classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelector('.nav-item[data-tab="quests"]').classList.add('active');
+    
+    const activeTab = document.querySelector('.quest-tab.active');
+    if (activeTab) {
+        loadQuestTab(activeTab.dataset.tab);
+    } else {
+        loadQuestTab('status');
     }
-}
-
-function showCrash() {
-    closeAllOverlays();
-    document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
-    document.getElementById('crashScreen').classList.add('active');
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    document.querySelector('.nav-item[data-tab="crash"]').classList.add('active');
-    loadCrashStats();
-    resetCrashUI();
-    startCrashPolling();
 }
 
 function showProfile() {
@@ -296,340 +249,21 @@ function showProfile() {
 
 function goBack() {
     closeAllOverlays();
-    showMain();
-}
-
-// ===== АПГРЕЙД =====
-function showUpgrade() {
-    closeAllOverlays();
-    document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
-    document.getElementById('upgradeScreen').classList.add('active');
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    document.querySelector('.nav-item[data-tab="upgrade"]').classList.add('active');
-    loadUpgradeBalance();
-    updateUpgradeChance();
-}
-
-async function loadUpgradeBalance() {
-    const data = await apiRequest('/get_balance');
-    if (data.balance !== undefined) {
-        document.getElementById('upgradeBalance').textContent = data.balance + ' ⭐';
-    }
-}
-
-function updateUpgradeChance() {
-    const bet = parseInt(document.getElementById('upgradeBet').value) || 1;
-    const target = parseInt(document.getElementById('upgradeTarget').value) || bet + 1;
-    if (target <= bet) {
-        document.getElementById('upgradeChance').textContent = '0%';
-        return;
-    }
-    const raw = (bet / target) * 100;
-    const chance = Math.min(Math.max(raw, 1), 70);
-    document.getElementById('upgradeChance').textContent = chance.toFixed(2) + '%';
-}
-
-document.getElementById('upgradeBet').addEventListener('input', updateUpgradeChance);
-document.getElementById('upgradeTarget').addEventListener('input', updateUpgradeChance);
-
-async function startUpgrade() {
-    const bet = parseInt(document.getElementById('upgradeBet').value) || 1;
-    const target = parseInt(document.getElementById('upgradeTarget').value) || bet + 1;
-
-    if (bet < 1 || bet > 1000) {
-        showCustomAlert('❌ Ставка от 1 до 1000⭐');
-        return;
-    }
-    if (target < bet + 1 || target > 2000) {
-        showCustomAlert('❌ Цель от ' + (bet + 1) + ' до 2000⭐');
-        return;
-    }
-
-    const data = await apiRequest('/upgrade_calculate', { bet, target });
-    if (data.error) {
-        showCustomAlert('❌ ' + data.error);
-        return;
-    }
-
-    document.getElementById('upgradeInputSection').style.display = 'none';
-    document.getElementById('upgradeAnimationSection').style.display = 'block';
-    document.getElementById('upgradeResult').textContent = '';
-
-    startUpgradeAnimation(data.chance, bet, target);
-}
-
-function startUpgradeAnimation(chance, bet, target) {
-    const canvas = document.getElementById('upgradeWheel');
-    const ctx = canvas.getContext('2d');
-    const centerX = 200;
-    const centerY = 200;
-    const radius = 175;
-    const successChance = chance / 100;
-    let angle = 0;
-    let speed = 0.18;
-    let spinning = true;
-    let finished = false;
-    let animationId = null;
-
-    const skipBtn = document.createElement('button');
-    skipBtn.textContent = '⏭ ПРОПУСТИТЬ';
-    Object.assign(skipBtn.style, {
-        position: 'fixed',
-        bottom: '100px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        padding: '12px 30px',
-        border: 'none',
-        borderRadius: '14px',
-        background: 'rgba(255,255,255,0.08)',
-        color: '#fff',
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        fontSize: '16px',
-        fontWeight: '700',
-        cursor: 'pointer',
-        zIndex: '1001',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        transition: 'all 0.2s'
-    });
-    skipBtn.onmouseover = () => { skipBtn.style.background = 'rgba(255,255,255,0.15)'; };
-    skipBtn.onmouseout = () => { skipBtn.style.background = 'rgba(255,255,255,0.08)'; };
-    document.body.appendChild(skipBtn);
-
-    function drawWheel(angle) {
-        ctx.clearRect(0, 0, 400, 400);
-
-        const gradGreen = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
-        gradGreen.addColorStop(0, '#66bb6a');
-        gradGreen.addColorStop(0.5, '#4caf50');
-        gradGreen.addColorStop(1, '#2e7d32');
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2 * successChance);
-        ctx.closePath();
-        ctx.fillStyle = gradGreen;
-        ctx.shadowColor = 'rgba(76, 175, 80, 0.4)';
-        ctx.shadowBlur = 30;
-        ctx.fill();
-
-        const gradRed = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
-        gradRed.addColorStop(0, '#ef5350');
-        gradRed.addColorStop(0.5, '#f44336');
-        gradRed.addColorStop(1, '#c62828');
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, Math.PI * 2 * successChance, Math.PI * 2);
-        ctx.closePath();
-        ctx.fillStyle = gradRed;
-        ctx.shadowColor = 'rgba(244, 67, 54, 0.4)';
-        ctx.shadowBlur = 30;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-        ctx.lineWidth = 4;
-        ctx.stroke();
-
-        ctx.shadowBlur = 0;
-        ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        const midAngle = Math.PI * successChance;
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = 'rgba(255,255,255,0.3)';
-        ctx.shadowBlur = 10;
-        ctx.fillText('УСПЕХ', centerX + radius * 0.6 * Math.cos(midAngle / 2), centerY + radius * 0.6 * Math.sin(midAngle / 2));
-        
-        const midAngle2 = Math.PI * (1 + successChance);
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = 'rgba(255,255,255,0.3)';
-        ctx.shadowBlur = 10;
-        ctx.fillText('ПРОВАЛ', centerX + radius * 0.6 * Math.cos(midAngle2), centerY + radius * 0.6 * Math.sin(midAngle2));
-        ctx.shadowBlur = 0;
-
-        for (let i = 0; i < 20; i++) {
-            const a = (i / 20) * Math.PI * 2;
-            const len = i % 5 === 0 ? 12 : 6;
-            ctx.beginPath();
-            ctx.moveTo(centerX + (radius - 4) * Math.cos(a), centerY + (radius - 4) * Math.sin(a));
-            ctx.lineTo(centerX + (radius - 4 - len) * Math.cos(a), centerY + (radius - 4 - len) * Math.sin(a));
-            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+    const activeScreen = document.querySelector('.screen.active');
+    if (activeScreen) {
+        const id = activeScreen.id;
+        if (id === 'crashGameContent' || id === 'minesGameContent' || id === 'upgradeGameContent') {
+            showGames();
+        } else if (id === 'levelsScreen' || id === 'questsScreen' || id === 'profileScreen') {
+            showMain();
+        } else if (id === 'gamesScreen') {
+            showGames();
+        } else {
+            showMain();
         }
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(angle);
-        ctx.beginPath();
-        ctx.moveTo(0, -radius + 10);
-        ctx.lineTo(-16, -radius + 44);
-        ctx.lineTo(16, -radius + 44);
-        ctx.closePath();
-        ctx.fillStyle = '#ffd700';
-        ctx.shadowColor = '#ffd700';
-        ctx.shadowBlur = 30;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.restore();
-
-        const gradCenter = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 24);
-        gradCenter.addColorStop(0, '#7c4dff');
-        gradCenter.addColorStop(1, '#b388ff');
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 24, 0, Math.PI * 2);
-        ctx.fillStyle = gradCenter;
-        ctx.shadowColor = 'rgba(179, 136, 255, 0.5)';
-        ctx.shadowBlur = 25;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        ctx.font = '28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('⚡', centerX, centerY + 1);
-
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.shadowColor = 'rgba(179, 136, 255, 0.15)';
-        ctx.shadowBlur = 50;
-        ctx.strokeStyle = 'rgba(179, 136, 255, 0.05)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-    }
-
-    function finishUpgrade() {
-        if (finished) return;
-        finished = true;
-        spinning = false;
-        if (animationId) {
-            cancelAnimationFrame(animationId);
-            animationId = null;
-        }
-        skipBtn.remove();
-
-        const normalizedAngle = angle % (Math.PI * 2);
-        const isWin = normalizedAngle < Math.PI * 2 * successChance;
-
-        apiRequest('/upgrade_execute', { bet, target }).then(data => {
-            if (data.error) {
-                document.getElementById('upgradeResult').textContent = '❌ ' + data.error;
-                document.getElementById('upgradeResult').style.color = '#f44336';
-                return;
-            }
-            document.getElementById('upgradeBalance').textContent = data.new_balance + ' ⭐';
-            showUpgradeResult(data.result, data.message, data.new_balance);
-        });
-
-        drawWheel(angle);
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = isWin ? '#4caf50' : '#f44336';
-        ctx.lineWidth = 5;
-        ctx.shadowColor = isWin ? 'rgba(76,175,80,0.7)' : 'rgba(244,67,54,0.7)';
-        ctx.shadowBlur = 40;
-        ctx.stroke();
-        ctx.restore();
-    }
-
-    skipBtn.onclick = finishUpgrade;
-
-    function spin() {
-        if (!spinning || finished) return;
-        
-        speed *= 0.99;
-        
-        if (speed < 0.0003) {
-            finishUpgrade();
-            return;
-        }
-
-        angle += speed;
-        drawWheel(angle);
-        animationId = requestAnimationFrame(spin);
-    }
-
-    drawWheel(0);
-    setTimeout(() => {
-        spinning = true;
-        speed = 0.18;
-        spin();
-    }, 400);
-
-    const originalClose = closeAllOverlays;
-    closeAllOverlays = function() {
-        if (animationId) {
-            cancelAnimationFrame(animationId);
-            animationId = null;
-        }
-        skipBtn.remove();
-        originalClose();
-    };
-}
-
-function showUpgradeResult(result, message, newBalance) {
-    const overlay = document.createElement('div');
-    overlay.id = 'upgradeResultOverlay';
-    Object.assign(overlay.style, {
-        position: 'fixed',
-        top: '0', left: '0', right: '0', bottom: '0',
-        background: 'rgba(0,0,0,0.92)',
-        backdropFilter: 'blur(20px)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: '1000',
-        padding: '30px',
-        animation: 'fadeIn 0.3s ease'
-    });
-    
-    const icon = result === 'win' ? '🎉' : '💥';
-    const title = result === 'win' ? 'УСПЕХ!' : 'ПРОВАЛ!';
-    const color = result === 'win' ? '#4caf50' : '#f44336';
-    
-    overlay.innerHTML = `
-        <div style="font-size:80px; margin-bottom:10px;">${icon}</div>
-        <div style="font-size:32px; font-weight:800; color:${color}; margin-bottom:10px;">${title}</div>
-        <div style="font-size:18px; color:#aaa; text-align:center; margin-bottom:6px;">${message}</div>
-        <div style="font-size:16px; color:#888; margin-bottom:20px;">💰 Баланс: ${newBalance} ⭐</div>
-        <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-            <button onclick="closeUpgradeResult('again')" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
-                🔄 ЕЩЁ РАЗ
-            </button>
-            <button onclick="closeUpgradeResult('back')" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
-                🔙 НАЗАД
-            </button>
-        </div>
-    `;
-    
-    document.body.appendChild(overlay);
-}
-
-function closeUpgradeResult(action) {
-    const overlay = document.getElementById('upgradeResultOverlay');
-    if (overlay) overlay.remove();
-    
-    if (action === 'again') {
-        resetUpgrade();
     } else {
-        showUpgrade();
+        showMain();
     }
-}
-
-function resetUpgrade() {
-    document.getElementById('upgradeInputSection').style.display = 'block';
-    document.getElementById('upgradeAnimationSection').style.display = 'none';
-    document.getElementById('upgradeResult').textContent = '';
-    loadUpgradeBalance();
-    updateUpgradeChance();
 }
 
 // ===== БАЛАНС =====
@@ -975,7 +609,8 @@ function startFinalSpin(type) {
     const noise = Math.floor(Math.random() * 40) - 20;
     const finalShift = shift + noise;
 
-    animateTrack(track, finalShift);
+    track.style.transition = `transform 6000ms cubic-bezier(0.1, 1, 0.1, 1)`;
+    track.style.transform = `translateX(-${finalShift}px)`;
 
     let finished = false;
     const onFinish = () => {
@@ -1152,10 +787,6 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
     }, 300);
 }
 
-function closeTape() {
-    closeAllOverlays();
-}
-
 function closeResult() {
     closeAllOverlays();
 }
@@ -1169,210 +800,118 @@ function openAgain() {
     }
 }
 
-// ===== БИТВЫ =====
-function loadBattleData() {
-    apiRequest('/get_battle_data').then(data => {
-        document.getElementById('battleWins').textContent = data.wins || 0;
-        document.getElementById('battleLosses').textContent = data.losses || 0;
-        document.getElementById('battleCommission').textContent = data.commission || 0;
-        renderBattleList(data.active_battles || []);
-        renderBattleHistory(data.history || []);
-    });
-}
+// ===== УРОВНИ =====
+const LEVELS = [
+    { id: 'mud', name: 'Грязь', icon: '🟫', caseType: 'mud', starName: 'Грязевая звезда', requiredCases: 10, price: 5 },
+    { id: 'wood', name: 'Дерево', icon: '🌳', caseType: 'wood', starName: 'Древесная звезда', requiredCases: 10, price: 9 },
+    { id: 'stone', name: 'Камень', icon: '🗿', caseType: 'stone', starName: 'Каменная звезда', requiredCases: 10, price: 19 },
+    { id: 'bronze', name: 'Бронза', icon: '🥉', caseType: 'bronze', starName: 'Бронзовая звезда', requiredCases: 10, price: 49 },
+    { id: 'silver', name: 'Серебро', icon: '🔘', caseType: 'silver', starName: 'Серебряная звезда', requiredCases: 10, price: 99 },
+    { id: 'gold', name: 'Золото', icon: '👑', caseType: 'gold', starName: 'Золотая звезда', requiredCases: 10, price: 249 },
+    { id: 'diamond', name: 'Алмаз', icon: '💎', caseType: 'diamond', starName: 'Алмазная звезда', requiredCases: 10, price: 499 },
+    { id: 'netherite', name: 'Незерит', icon: '🔥', caseType: 'netherite', starName: 'Незеритовая звезда', requiredCases: 10, price: 999 },
+    { id: 'obsidian', name: 'Обсидиан', icon: '🔮', caseType: 'obsidian', starName: 'Обсидиановая звезда', requiredCases: 10, price: 2499 },
+    { id: 'bedrock', name: 'Бедрок', icon: '⛏️', caseType: 'bedrock', starName: 'Бедроковая звезда', requiredCases: 10, price: 10000 }
+];
 
-function renderBattleList(battles) {
-    const container = document.getElementById('battleList');
-    if (!battles || battles.length === 0) {
-        container.innerHTML = '<div class="empty-state">⚔️ Нет активных битв</div>';
-        return;
-    }
-    container.innerHTML = battles.map(b => `
-        <div class="battle-card">
-            <div class="battle-info">
-                <span>👤 ${b.player1} vs ${b.player2}</span>
-                <span>📦 ${b.case_type || 'выбор...'}</span>
-                <span class="status ${b.status}">${b.status}</span>
+async function loadLevels() {
+    const data = await apiRequest('/get_levels_data');
+    const caseCounts = data.case_counts || {};
+    const levelStars = data.level_stars || {};
+    const levelWins = data.level_wins || {};
+    
+    const container = document.getElementById('levelsList');
+    container.innerHTML = '';
+    
+    let prevCompleted = true;
+    
+    LEVELS.forEach((level) => {
+        const opened = caseCounts[level.caseType] || 0;
+        const hasStar = levelStars[level.id] || false;
+        const wins = levelWins[level.caseType] || 0;
+        const isCompleted = hasStar;
+        const isUnlocked = prevCompleted || isCompleted;
+        const progress = Math.min(opened, level.requiredCases);
+        const progressPercent = Math.min((opened / level.requiredCases) * 100, 100);
+        
+        let statusText, statusClass, playDisabled = true;
+        if (isCompleted) {
+            statusText = '✅ Пройден';
+            statusClass = 'completed';
+            playDisabled = false;
+        } else if (isUnlocked && opened >= level.requiredCases) {
+            statusText = '⭐ Доступен';
+            statusClass = 'unlocked';
+            playDisabled = false;
+        } else if (isUnlocked) {
+            statusText = `📦 ${opened}/${level.requiredCases}`;
+            statusClass = 'unlocked';
+            playDisabled = true;
+        } else {
+            statusText = '🔒 Заблокирован';
+            statusClass = 'locked';
+            playDisabled = true;
+        }
+        
+        const card = document.createElement('div');
+        card.className = `level-card ${isCompleted ? 'completed' : isUnlocked ? 'unlocked' : 'locked'}`;
+        
+        card.innerHTML = `
+            <div class="level-icon">${level.icon}</div>
+            <div class="level-info">
+                <div class="level-name">${level.name}</div>
+                <div class="level-progress">
+                    ${statusText}
+                    ${!isCompleted ? `
+                        <div class="progress-bar">
+                            <div class="fill" style="width:${progressPercent}%"></div>
+                        </div>
+                    ` : `
+                        <div style="color:#ffd700; margin-top:4px;">⭐ ${level.starName} получена!</div>
+                    `}
+                    ${wins > 0 && !isCompleted ? `<div style="font-size:11px; color:#666;">Побед: ${wins}</div>` : ''}
+                </div>
             </div>
-        </div>
-    `).join('');
-}
-
-function renderBattleHistory(history) {
-    const container = document.getElementById('battleHistory');
-    if (!history || history.length === 0) {
-        container.innerHTML = '<div class="empty-state">📜 Нет истории битв</div>';
-        return;
-    }
-    container.innerHTML = history.map(h => `
-        <div class="history-item ${h.won ? 'win' : 'lose'}">
-            <span>${h.won ? '🏆' : '💀'} ${h.opponent}</span>
-            <span>${h.won ? '+' : '-'}${h.stars}⭐</span>
-        </div>
-    `).join('');
-}
-
-// ===== КОМНАТЫ =====
-function loadBattleRooms() {
-    apiRequest('/get_battle_rooms').then(data => {
-        const list = document.getElementById('battleRoomsList');
-        const rooms = data.rooms || [];
+            <div class="level-status ${statusClass}">${statusText}</div>
+            <button class="level-play-btn" ${playDisabled ? 'disabled' : ''} onclick="startLevel('${level.id}')">
+                ${isCompleted ? '🔄 ПРОЙТИ' : '▶️ ИГРАТЬ'}
+            </button>
+        `;
         
-        let html = '';
-        const myRooms = rooms.filter(r => r.is_my_room);
-        const otherRooms = rooms.filter(r => !r.is_my_room);
+        container.appendChild(card);
         
-        if (myRooms.length > 0) {
-            html += `<div style="color: #ffd700; font-size: 14px; margin-bottom: 8px;">⭐ ТВОИ КОМНАТЫ:</div>`;
-            myRooms.forEach(r => {
-                html += `
-                    <div class="room-item" style="border-color: rgba(255,215,0,0.3);">
-                        <span class="room-creator">👤 ${r.player1} vs ${r.player2}</span>
-                        <span class="room-case">📦 ${r.case_type}</span>
-                        <span class="room-players">👥 ${r.players_count}/2</span>
-                        <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ВЕРНУТЬСЯ</button>
-                    </div>
-                `;
-            });
-        }
-        
-        if (otherRooms.length > 0) {
-            html += `<div style="color: #aaa; font-size: 14px; margin: 8px 0;">📋 ДРУГИЕ КОМНАТЫ:</div>`;
-            otherRooms.forEach(r => {
-                html += `
-                    <div class="room-item">
-                        <span class="room-creator">👤 ${r.player1}</span>
-                        <span class="room-case">📦 ${r.case_type}</span>
-                        <span class="room-players">👥 ${r.players_count}/2</span>
-                        <button class="btn-join" onclick="joinBattleRoom('${r.room_id}')">⚔️ ПРИСОЕДИНИТЬСЯ</button>
-                    </div>
-                `;
-            });
-        }
-        
-        if (!html) {
-            html = '<div class="empty-state">🏠 Нет активных комнат. Создай свою!</div>';
-        }
-        
-        list.innerHTML = html;
-    });
-}
-
-function checkActiveRoom() {
-    apiRequest('/get_user_room').then(data => {
-        if (data.room_id) {
-            const room = data.room;
-            showBattlePreview(data.room_id, room.case_type, room.player1, room.player2, false);
-            startListeningForOpponent(data.room_id);
-            startOpponentChecker(data.room_id);
+        if (isCompleted) {
+            prevCompleted = true;
+        } else {
+            prevCompleted = false;
         }
     });
 }
 
-function showCreateBattle() {
-    document.getElementById('createBattleModal').classList.add('active');
-}
-
-function closeCreateBattle() {
-    document.getElementById('createBattleModal').classList.remove('active');
-}
-
-document.querySelectorAll('.battle-case-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.battle-case-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-        state.selectedBattleCase = this.dataset.case;
-    });
-});
-
-document.querySelectorAll('.bot-case-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.bot-case-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-        state.selectedBotCase = this.dataset.case;
-    });
-});
-
-function createBattleRoom() {
-    const case_type = state.selectedBattleCase;
+function startLevel(levelId) {
+    const level = LEVELS.find(l => l.id === levelId);
+    if (!level) return;
     
-    apiRequest('/create_battle_room', { case_type }).then(data => {
-        if (data.error) {
-            showCustomAlert('❌ ' + data.error);
-            return;
-        }
-        if (!data.room_id) {
-            showCustomAlert('❌ Не удалось создать комнату');
-            return;
-        }
-        state.currentRoomId = data.room_id;
-        closeCreateBattle();
-        showWaitingRoom(data.room_id, data.case_type);
-        startListeningForOpponent(data.room_id);
-        startOpponentChecker(data.room_id);
-    });
-}
-
-function showWaitingRoom(room_id, case_type) {
-    document.getElementById('waitingRoom').style.display = 'block';
-    document.getElementById('waitingRoomRoomId').textContent = room_id;
-    document.getElementById('waitingRoomCase').textContent = case_type.toUpperCase();
-    document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'none';
-    document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'none';
-    document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'none';
-}
-
-function exitWaitingRoom() {
-    if (window.opponentInterval) clearInterval(window.opponentInterval);
-    if (window.opponentChecker) clearInterval(window.opponentChecker);
+    const case_type = level.caseType;
+    const price = level.price;
     
-    if (state.currentRoomId) {
-        apiRequest('/exit_battle_room', { room_id: state.currentRoomId }).then(() => {
-            state.currentRoomId = null;
-            document.getElementById('waitingRoom').style.display = 'none';
-            document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
-            document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
-            document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
-            showBattles();
-        });
-    } else {
-        document.getElementById('waitingRoom').style.display = 'none';
-        document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
-        document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
-        document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
-        showBattles();
-    }
-}
-
-function joinBattleRoom(room_id) {
-    apiRequest('/join_battle_room', { room_id }).then(data => {
-        if (data.error) {
-            if (data.already_in_room) {
-                showCustomAlert('⚠️ Ты уже в этой комнате');
-                return;
-            }
-            if (data.error.includes('пользователь не найден')) {
-                showCustomAlert('❌ Не удалось найти пользователя. Попробуйте перезапустить бота.');
-            } else {
-                showCustomAlert('❌ ' + data.error);
-            }
+    apiRequest('/check_balance_simple', { amount: price }).then(data => {
+        if (data.error || !data.has_enough) {
+            showCustomAlert('❌ Недостаточно звёзд! Нужно ' + price + '⭐');
             return;
         }
-        if (data.success) {
-            state.currentRoomId = data.room_id;
-            showBattlePreview(data.room_id, data.case_type, data.player1, data.player2, false);
-            syncPreviewStart(data.room_id);
-            startOpponentChecker(data.room_id);
-        }
+        showBotBattlePreview(case_type);
     });
 }
 
-// ===== ПРЕДПРОСМОТР БИТВЫ =====
-function showBattlePreview(room_id, case_type, player1, player2, isBot) {
+// ===== БИТВА С БОТОМ (УРОВНИ) =====
+function showBotBattlePreview(case_type) {
     const style = getStyle(case_type);
     const prizes = getPrizes(case_type);
+    const price = getPrice(case_type);
     
     const overlay = document.createElement('div');
-    overlay.id = 'battlePreviewOverlay';
+    overlay.id = 'botBattlePreviewOverlay';
     Object.assign(overlay.style, {
         position: 'fixed',
         top: '0', left: '0', right: '0', bottom: '0',
@@ -1388,544 +927,49 @@ function showBattlePreview(room_id, case_type, player1, player2, isBot) {
         animation: 'fadeIn 0.3s ease'
     });
     
-    const title = document.createElement('div');
-    Object.assign(title.style, {
-        fontSize: '24px',
-        fontWeight: '800',
-        color: style.titleColor,
-        marginBottom: '16px',
-        textTransform: 'uppercase',
-        letterSpacing: '3px',
-        textShadow: `0 0 40px ${style.glowColor}`,
-        textAlign: 'center'
-    });
-    title.textContent = isBot ? '🤖 БИТВА С БОТОМ' : '⚔️ БИТВА КЕЙСОВ';
-    overlay.appendChild(title);
-    
-    const readyIndicator = document.createElement('div');
-    readyIndicator.style.cssText = 'display:flex; justify-content:space-between; width:100%; max-width:700px; margin-bottom:8px;';
-    readyIndicator.innerHTML = `
-        <span id="player1Ready" style="color:#888; font-size:13px;">⏳ ${player1}: ОЖИДАНИЕ...</span>
-        <span id="player2Ready" style="color:#888; font-size:13px;">⏳ ${player2}: ОЖИДАНИЕ...</span>
-    `;
-    overlay.appendChild(readyIndicator);
-    
-    const playersContainer = document.createElement('div');
-    playersContainer.style.cssText = 'display:flex; gap:20px; justify-content:center; align-items:stretch; width:100%; max-width:700px; margin-bottom:16px;';
-    
-    const p1Container = document.createElement('div');
-    p1Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
-    let p1Cards = '';
-    for (let r = 0; r < 4; r++) {
-        prizes.forEach(p => {
-            const isLarge = p > 1000;
-            p1Cards += `<div class="preview-card" style="width:70px; height:100px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${isLarge ? '16px' : '20px'}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
-        });
-    }
-    const totalWidth = prizes.length * 76 * 4;
-    p1Container.innerHTML = `
-        <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 ${player1}</div>
-        <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
-            <div id="previewTrack1" style="display:flex; gap:6px; padding:10px 0; animation:scrollTapeForward ${prizes.length * 2}s linear infinite; will-change:transform; position:relative; width:${totalWidth}px;">
-                ${p1Cards}
-            </div>
-            <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
+    overlay.innerHTML = `
+        <div style="font-size:24px; font-weight:800; color:${style.titleColor}; margin-bottom:16px; text-transform:uppercase; letter-spacing:3px; text-shadow:0 0 40px ${style.glowColor}; text-align:center;">
+            🆚 ${case_type.toUpperCase()}
         </div>
-    `;
-    playersContainer.appendChild(p1Container);
-    
-    const vsDiv = document.createElement('div');
-    vsDiv.style.cssText = 'display:flex; align-items:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0;';
-    vsDiv.textContent = isBot ? '🤖' : '⚔️';
-    playersContainer.appendChild(vsDiv);
-    
-    const p2Container = document.createElement('div');
-    p2Container.style.cssText = 'flex:1; text-align:center; display:flex; flex-direction:column;';
-    let p2Cards = '';
-    for (let r = 0; r < 4; r++) {
-        prizes.forEach(p => {
-            const isLarge = p > 1000;
-            p2Cards += `<div class="preview-card" style="width:70px; height:100px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${isLarge ? '16px' : '20px'}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
-        });
-    }
-    p2Container.innerHTML = `
-        <div style="font-size:14px; color:#aaa; margin-bottom:6px;">👤 ${player2}</div>
-        <div style="position:relative; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); height:120px; flex:1;">
-            <div id="previewTrack2" style="display:flex; gap:6px; padding:10px 0; animation:scrollTapeForward ${prizes.length * 2}s linear infinite; will-change:transform; position:relative; width:${totalWidth}px;">
-                ${p2Cards}
+        <div style="display:flex; gap:40px; align-items:center; margin-bottom:16px;">
+            <div style="text-align:center;">
+                <div style="font-size:40px;">👤</div>
+                <div style="font-weight:700; color:#4caf50;">ТЫ</div>
             </div>
-            <div style="position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 20px ${style.highlightColor}; pointer-events:none; line-height:1;">▼</div>
+            <div style="font-size:36px; font-weight:900; color:#ff6b6b;">VS</div>
+            <div style="text-align:center;">
+                <div style="font-size:40px;">🤖</div>
+                <div style="font-weight:700; color:#f44336;">БОТ</div>
+            </div>
         </div>
+        <div style="color:#aaa; font-size:14px; margin-bottom:16px;">📦 Кейс: ${case_type.toUpperCase()} (${price}⭐)</div>
+        <button onclick="startBotBattle('${case_type}')" style="padding:14px 40px; border:none; border-radius:14px; background:linear-gradient(135deg,#4caf50,#2e7d32); color:#fff; font-size:18px; font-weight:700; cursor:pointer;">
+            ⚔️ НАЧАТЬ БИТВУ
+        </button>
+        <button onclick="this.closest('#botBattlePreviewOverlay').remove()" style="padding:12px 30px; border:none; border-radius:12px; background:rgba(255,255,255,0.06); color:#888; font-size:14px; font-weight:600; cursor:pointer; margin-top:10px;">
+            🔙 НАЗАД
+        </button>
     `;
-    playersContainer.appendChild(p2Container);
-    
-    overlay.appendChild(playersContainer);
-    
-    const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = 'color:#aaa; font-size:14px; text-align:center; margin-bottom:16px;';
-    infoDiv.textContent = `📦 Кейс: ${case_type.toUpperCase()}`;
-    overlay.appendChild(infoDiv);
-    
-    const readyBtn = document.createElement('button');
-    readyBtn.id = 'battleReadyBtn';
-    readyBtn.textContent = '✅ ГОТОВ';
-    readyBtn.style.cssText = 'padding:14px 40px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-size:18px; font-weight:700; cursor:pointer; transition:all 0.2s; margin-bottom:10px;';
-    readyBtn.onmouseover = function() { this.style.transform = 'scale(1.05)'; };
-    readyBtn.onmouseout = function() { this.style.transform = 'scale(1)'; };
-    
-    if (isBot) {
-        readyBtn.onclick = function() {
-            this.textContent = '⏳ ОЖИДАНИЕ...';
-            this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
-            this.disabled = true;
-            const statusEl = document.getElementById('battlePreviewStatus');
-            if (statusEl) statusEl.textContent = '🤖 Бот готов! Битва начинается...';
-            setTimeout(() => {
-                closeAllOverlays();
-                startBotBattleAnimation(state.selectedBotCase);
-            }, 500);
-        };
-        const statusEl = document.getElementById('battlePreviewStatus');
-        if (statusEl) statusEl.textContent = '🤖 Бот готов! Нажми «ГОТОВ», чтобы начать';
-    } else {
-        readyBtn.onclick = function() {
-            this.textContent = '⏳ ОЖИДАНИЕ...';
-            this.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
-            this.disabled = true;
-            const statusEl = document.getElementById('battlePreviewStatus');
-            if (statusEl) statusEl.textContent = '⏳ Ожидание соперника...';
-            sendBattleReady(room_id);
-        };
-    }
-    overlay.appendChild(readyBtn);
-    
-    const statusDiv = document.createElement('div');
-    statusDiv.id = 'battlePreviewStatus';
-    statusDiv.style.cssText = 'color:#666; font-size:14px; text-align:center;';
-    statusDiv.textContent = isBot ? 'Нажми «ГОТОВ», чтобы начать битву с ботом' : 'Нажми «ГОТОВ», чтобы начать битву';
-    overlay.appendChild(statusDiv);
-    
-    const backBtn = document.createElement('button');
-    backBtn.textContent = '🔙 НАЗАД';
-    backBtn.style.cssText = 'padding:12px 30px; border:none; border-radius:12px; background:rgba(255,255,255,0.06); color:#888; font-size:14px; font-weight:600; cursor:pointer; margin-top:6px; transition:all 0.2s;';
-    backBtn.onmouseover = function() { this.style.background = 'rgba(255,255,255,0.12)'; };
-    backBtn.onmouseout = function() { this.style.background = 'rgba(255,255,255,0.06)'; };
-    backBtn.onclick = function() {
-        if (window.opponentInterval) clearInterval(window.opponentInterval);
-        if (window.opponentChecker) clearInterval(window.opponentChecker);
-        
-        if (state.currentRoomId) {
-            apiRequest('/exit_battle_room', { room_id: state.currentRoomId }).then(() => {
-                state.currentRoomId = null;
-                closeAllOverlays();
-                showBattles();
-            });
-        } else {
-            closeAllOverlays();
-            showBattles();
-        }
-    };
-    overlay.appendChild(backBtn);
     
     document.body.appendChild(overlay);
 }
 
-function sendBattleReady(room_id) {
-    apiRequest('/battle_ready', { room_id }).then(data => {
-        if (data.error) {
-            showCustomAlert('❌ ' + data.error);
-            if (data.error.includes('не в этой комнате') || data.error.includes('не найдена')) {
-                showCustomAlert('❌ Соперник вышел из комнаты!');
-                closeAllOverlays();
-                showBattles();
-            }
-            const btn = document.getElementById('battleReadyBtn');
-            if (btn) {
-                btn.textContent = '✅ ГОТОВ';
-                btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
-                btn.disabled = false;
-            }
-            return;
-        }
-        
-        if (data.ready) {
-            const statusEl = document.getElementById('battlePreviewStatus');
-            if (statusEl) statusEl.textContent = '✅ Оба игрока готовы! Битва начинается...';
-            setTimeout(() => {
-                closeAllOverlays();
-                startPvpBattle(room_id);
-            }, 1000);
-        } else {
-            const statusEl = document.getElementById('battlePreviewStatus');
-            if (statusEl) statusEl.textContent = '⏳ Ожидание соперника...';
-        }
-    });
-}
-
-function syncPreviewStart(room_id) {
-    apiRequest('/sync_battle_preview', { room_id }).then(data => {
-        if (data.error) {
-            console.error('Sync error:', data.error);
-            return;
-        }
-        updatePreviewNames(data.me, data.opponent);
-        updateReadyStatus(data.ready_status);
-    });
-}
-
-function updatePreviewNames(me, opponent) {
-    const p1Ready = document.getElementById('player1Ready');
-    const p2Ready = document.getElementById('player2Ready');
-    if (p1Ready) p1Ready.textContent = '⏳ ' + me + ': ОЖИДАНИЕ...';
-    if (p2Ready) p2Ready.textContent = '⏳ ' + opponent + ': ОЖИДАНИЕ...';
-}
-
-function updateReadyStatus(readyStatus) {
-    const p1El = document.getElementById('player1Ready');
-    const p2El = document.getElementById('player2Ready');
-    const btn = document.getElementById('battleReadyBtn');
-    
-    if (!p1El || !p2El) return;
-    
-    const p1Name = p1El.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '').replace(': ГОТОВ', '');
-    const p2Name = p2El.textContent.replace('⏳ ', '').replace(': ОЖИДАНИЕ...', '').replace(': ГОТОВ', '');
-    
-    if (readyStatus && readyStatus[0]) {
-        p1El.textContent = '✅ ' + p1Name + ': ГОТОВ';
-        p1El.style.color = '#4caf50';
-    } else {
-        p1El.textContent = '⏳ ' + p1Name + ': ОЖИДАНИЕ...';
-        p1El.style.color = '#888';
-    }
-    
-    if (readyStatus && readyStatus[1]) {
-        p2El.textContent = '✅ ' + p2Name + ': ГОТОВ';
-        p2El.style.color = '#4caf50';
-    } else {
-        p2El.textContent = '⏳ ' + p2Name + ': ОЖИДАНИЕ...';
-        p2El.style.color = '#888';
-    }
-    
-    if (readyStatus && readyStatus[0] && readyStatus[1]) {
-        if (btn) {
-            btn.textContent = '✅ ОБА ГОТОВЫ';
-            btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
-            btn.disabled = true;
-        }
-        const statusEl = document.getElementById('battlePreviewStatus');
-        if (statusEl) statusEl.textContent = '✅ Оба игрока готовы! Битва начинается...';
-    } else if (readyStatus && (readyStatus[0] || readyStatus[1])) {
-        if (btn) {
-            btn.textContent = '⏳ ОЖИДАНИЕ...';
-            btn.style.background = 'linear-gradient(135deg, #ff9800, #e65100)';
-            btn.disabled = true;
-        }
-        const statusEl = document.getElementById('battlePreviewStatus');
-        if (statusEl) statusEl.textContent = '⏳ Ожидание соперника...';
-    }
-}
-
-function startOpponentChecker(room_id) {
-    if (window.opponentChecker) clearInterval(window.opponentChecker);
-    window.opponentChecker = setInterval(() => {
-        apiRequest('/check_room_status', { room_id }).then(data => {
-            if (data.error || !data.room_exists) {
-                clearInterval(window.opponentChecker);
-                showCustomAlert('❌ Комната была удалена');
-                closeAllOverlays();
-                showBattles();
-                return;
-            }
-            
-            if (data.opponent_left) {
-                clearInterval(window.opponentChecker);
-                showCustomAlert('❌ Ваш соперник вышел из комнаты!');
-                closeAllOverlays();
-                showBattles();
-                return;
-            }
-            
-            if (data.opponent_joined === false && data.players_count === 1) {
-                clearInterval(window.opponentChecker);
-                showCustomAlert('❌ Ваш соперник вышел из комнаты!');
-                closeAllOverlays();
-                showBattles();
-            }
-        });
-    }, 3000);
-}
-
-function startListeningForOpponent(room_id) {
-    if (window.opponentInterval) clearInterval(window.opponentInterval);
-    window.opponentInterval = setInterval(() => {
-        apiRequest('/check_room_status', { room_id }).then(data => {
-            if (data.error) {
-                clearInterval(window.opponentInterval);
-                return;
-            }
-            if (data.opponent_joined) {
-                clearInterval(window.opponentInterval);
-                document.getElementById('waitingRoom').style.display = 'none';
-                document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
-                document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
-                document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
-                
-                showBattlePreview(room_id, data.case_type, 'ТЫ', data.player2, false);
-                const btn = document.getElementById('battleReadyBtn');
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = '✅ ГОТОВ';
-                    btn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
-                }
-                const statusEl = document.getElementById('battlePreviewStatus');
-                if (statusEl) statusEl.textContent = 'Нажми «ГОТОВ», чтобы начать битву';
-                startOpponentChecker(room_id);
-            }
-        });
-    }, 2000);
-}
-
-// ===== БИТВА С БОТОМ =====
-function showBotBattle() {
-    document.getElementById('botBattleModal').classList.add('active');
-}
-
-function closeBotBattle() {
-    document.getElementById('botBattleModal').classList.remove('active');
-}
-
-function startBotBattle() {
-    const case_type = state.selectedBotCase;
-    let price = getPrice(case_type);
-    if (price === 0) price = 5;
-    
-    apiRequest('/check_balance_simple', { amount: price }).then(data => {
-        if (data.error || !data.has_enough) {
-            showCustomAlert('❌ Недостаточно звёзд для открытия кейса!');
-            return;
-        }
-        closeBotBattle();
-        showBattlePreview(null, case_type, 'ТЫ', 'БОТ', true);
-    });
-}
-
-// ===== БИТВА С БОТОМ — РУЛЕТКА =====
-function showBotRouletteAnimation(case_type) {
-    const style = getStyle(case_type);
-    const prizes = getPrizes(case_type);
-    
-    const overlay = document.createElement('div');
-    overlay.id = 'botRouletteOverlay';
-    Object.assign(overlay.style, {
-        position: 'fixed',
-        top: '0', left: '0', right: '0', bottom: '0',
-        background: style.bg,
-        backgroundImage: style.bgGradient,
-        backdropFilter: 'blur(30px)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: '999',
-        padding: '16px 20px',
-        animation: 'fadeIn 0.3s ease'
-    });
-    
-    const title = document.createElement('div');
-    Object.assign(title.style, {
-        fontSize: '22px',
-        fontWeight: '800',
-        color: style.titleColor,
-        marginBottom: '12px',
-        textTransform: 'uppercase',
-        letterSpacing: '3px',
-        textShadow: `0 0 40px ${style.glowColor}`,
-        textAlign: 'center',
-        flexShrink: '0'
-    });
-    title.textContent = `🤖 ${case_type.toUpperCase()} BATTLE`;
-    overlay.appendChild(title);
-    
-    const container = document.createElement('div');
-    container.style.cssText = 'display:flex; flex-direction:column; gap:8px; width:100%; max-width:600px; flex:1; justify-content:center;';
-    
-    const cardWidth = 120;
-    const cardGap = 8;
-    const totalCards = 60;
-    
-    const p1Wrapper = document.createElement('div');
-    p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(76,175,80,0.3); border-radius:12px; padding:6px; background:rgba(76,175,80,0.05);';
-    let cards1 = '';
-    for (let i = 0; i < totalCards; i++) {
-        const p = prizes[Math.floor(Math.random() * prizes.length)];
-        const isLarge = p > 1000;
-        const fontSize = isLarge ? '18px' : '24px';
-        cards1 += `<div class="roulette-card" style="width:${cardWidth}px; height:90px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
-    }
-    p1Wrapper.innerHTML = `
-        <div style="font-size:16px; font-weight:700; color:#4caf50; text-align:center; margin-bottom:4px; flex-shrink:0; background:rgba(76,175,80,0.1); padding:4px 0; border-radius:6px;">👤 ИГРОК</div>
-        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:100px;">
-            <div id="botRouletteTrack1" style="display:flex; gap:${cardGap}px; padding:8px 0; will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
-                ${cards1}
-            </div>
-            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:28px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
-        </div>
-    `;
-    container.appendChild(p1Wrapper);
-    
-    const vsDiv = document.createElement('div');
-    vsDiv.style.cssText = 'text-align:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:4px 0;';
-    vsDiv.textContent = '🤖 VS';
-    container.appendChild(vsDiv);
-    
-    const p2Wrapper = document.createElement('div');
-    p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(244,67,54,0.3); border-radius:12px; padding:6px; background:rgba(244,67,54,0.05);';
-    let cards2 = '';
-    for (let i = 0; i < totalCards; i++) {
-        const p = prizes[Math.floor(Math.random() * prizes.length)];
-        const isLarge = p > 1000;
-        const fontSize = isLarge ? '18px' : '24px';
-        cards2 += `<div class="roulette-card" style="width:${cardWidth}px; height:90px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor};">${p}⭐</div>`;
-    }
-    p2Wrapper.innerHTML = `
-        <div style="font-size:16px; font-weight:700; color:#f44336; text-align:center; margin-bottom:4px; flex-shrink:0; background:rgba(244,67,54,0.1); padding:4px 0; border-radius:6px;">🤖 БОТ</div>
-        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:100px;">
-            <div id="botRouletteTrack2" style="display:flex; gap:${cardGap}px; padding:8px 0; will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
-                ${cards2}
-            </div>
-            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:28px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
-        </div>
-    `;
-    container.appendChild(p2Wrapper);
-    
-    overlay.appendChild(container);
-    
-    const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = 'color:#888; font-size:14px; text-align:center; margin-top:8px; flex-shrink:0;';
-    infoDiv.textContent = `📦 ${case_type.toUpperCase()}`;
-    overlay.appendChild(infoDiv);
-    
-    const statusDiv = document.createElement('div');
-    statusDiv.id = 'botRouletteStatus';
-    statusDiv.style.cssText = `color:${style.titleColor}; font-size:16px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
-    statusDiv.textContent = '🎰 Открытие...';
-    overlay.appendChild(statusDiv);
-    
-    document.body.appendChild(overlay);
-}
-
-function startBotBattleAnimation(case_type) {
-    const style = getStyle(case_type);
-    const prizes = getPrizes(case_type);
-    
-    showBotRouletteAnimation(case_type);
+function startBotBattle(case_type) {
+    const overlay = document.getElementById('botBattlePreviewOverlay');
+    if (overlay) overlay.remove();
     
     apiRequest('/start_bot_battle', { case_type }).then(data => {
         if (data.error) {
             showCustomAlert('❌ ' + data.error);
-            const overlay = document.getElementById('botRouletteOverlay');
-            if (overlay) overlay.remove();
             return;
         }
-        
-        const track1 = document.getElementById('botRouletteTrack1');
-        const track2 = document.getElementById('botRouletteTrack2');
-        const overlay = document.getElementById('botRouletteOverlay');
-        
-        if (!track1 || !track2 || !overlay) return;
-        
-        const playerPrize = data.player_prize;
-        const botPrize = data.bot_prize;
-        
-        const pos1 = prizes.indexOf(playerPrize);
-        const pos2 = prizes.indexOf(botPrize);
-        const winPos1 = pos1 !== -1 ? pos1 : 15;
-        const winPos2 = pos2 !== -1 ? pos2 : 15;
-        
-        const cardWidth = 120;
-        const cardGap = 8;
-        const totalCardWidth = cardWidth + cardGap;
-        const viewportWidth = window.innerWidth * 0.85;
-        const centerOffset = viewportWidth / 2;
-        
-        const shift1 = (winPos1 * totalCardWidth) - centerOffset + (cardWidth / 2);
-        const shift2 = (winPos2 * totalCardWidth) - centerOffset + (cardWidth / 2);
-        
-        const noise1 = Math.floor(Math.random() * 40) - 20;
-        const noise2 = Math.floor(Math.random() * 40) - 20;
-        const finalShift1 = shift1 + noise1;
-        const finalShift2 = shift2 + noise2;
-        
-        const cards1 = track1.querySelectorAll('.roulette-card');
-        const cards2 = track2.querySelectorAll('.roulette-card');
-        
-        if (cards1 && cards1.length > 0 && cards1[winPos1]) {
-            cards1[winPos1].textContent = playerPrize + '⭐';
-        }
-        if (cards2 && cards2.length > 0 && cards2[winPos2]) {
-            cards2[winPos2].textContent = botPrize + '⭐';
-        }
-        
-        track1.style.transition = 'none';
-        track1.style.transform = 'translateX(0px)';
-        track2.style.transition = 'none';
-        track2.style.transform = 'translateX(0px)';
-        void track1.offsetHeight;
-        void track2.offsetHeight;
-        
-        setTimeout(() => {
-            track1.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
-            track1.style.transform = `translateX(-${finalShift1}px)`;
-            track2.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
-            track2.style.transform = `translateX(-${finalShift2}px)`;
-        }, 100);
-        
-        let finished = false;
-        const onFinish = () => {
-            if (finished) return;
-            finished = true;
-            track1.removeEventListener('transitionend', onFinish);
-            track2.removeEventListener('transitionend', onFinish);
-            
-            if (cards1 && cards1.length > 0 && cards1[winPos1]) {
-                cards1[winPos1].classList.add('win');
-            }
-            if (cards2 && cards2.length > 0 && cards2[winPos2]) {
-                cards2[winPos2].classList.add('win');
-            }
-            
-            setTimeout(() => {
-                overlay.remove();
-                showBotBattleResult(data);
-            }, 600);
-        };
-        
-        track1.addEventListener('transitionend', onFinish);
-        track2.addEventListener('transitionend', onFinish);
-        
-        setTimeout(() => {
-            if (!finished) {
-                finished = true;
-                track1.removeEventListener('transitionend', onFinish);
-                track2.removeEventListener('transitionend', onFinish);
-                
-                if (cards1 && cards1.length > 0 && cards1[winPos1]) {
-                    cards1[winPos1].classList.add('win');
-                }
-                if (cards2 && cards2.length > 0 && cards2[winPos2]) {
-                    cards2[winPos2].classList.add('win');
-                }
-                
-                setTimeout(() => {
-                    overlay.remove();
-                    showBotBattleResult(data);
-                }, 600);
-            }
-        }, 9000);
+        showBotBattleResult(data, case_type);
     });
 }
 
-function showBotBattleResult(data) {
+function showBotBattleResult(data, case_type) {
+    const style = getStyle(case_type);
+    
     const overlay = document.createElement('div');
     overlay.id = 'botBattleResultOverlay';
     Object.assign(overlay.style, {
@@ -1955,7 +999,7 @@ function showBotBattleResult(data) {
                 <div style="font-weight:700; color:${data.result === 'win' ? '#4caf50' : '#aaa'};">ТЫ</div>
                 <div style="font-size:28px; font-weight:800; color:#ffd700;">${data.player_prize}⭐</div>
             </div>
-            <div style="display:flex; align-items:center; font-size:36px; color:#ff6b6b;">🤖</div>
+            <div style="display:flex; align-items:center; font-size:36px; color:#ff6b6b;">VS</div>
             <div style="text-align:center;">
                 <div style="font-size:40px;">🤖</div>
                 <div style="font-weight:700; color:${data.result === 'lose' ? '#4caf50' : '#aaa'};">БОТ</div>
@@ -1968,8 +1012,8 @@ function showBotBattleResult(data) {
             ${data.result === 'win' ? `<div style="color:#4caf50; font-size:16px; font-weight:700;">🏆 Ты получил: ${data.winnings}⭐</div>` : ''}
         </div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-            <button onclick="closeAllOverlays(); showBotBattle();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
-                🤖 СНОВА
+            <button onclick="closeAllOverlays(); showLevels();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                🎯 УРОВНИ
             </button>
             <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔙 НАЗАД
@@ -1978,652 +1022,266 @@ function showBotBattleResult(data) {
     `;
     
     document.body.appendChild(overlay);
-    loadBattleData();
+    loadBalance();
+    loadLevels();
 }
 
-// ===== PVP =====
-function startPvpBattle(room_id) {
-    apiRequest('/get_battle_animation_data', { room_id }).then(data => {
-        if (data.error) {
-            if (data.error.includes('не найдена') || data.error.includes('завершена')) {
-                checkBattleResultDirect();
-                return;
-            }
-            showCustomAlert('❌ ' + data.error);
-            return;
-        }
-        
-        showPvpRouletteAnimation(data);
-        
-        if (window.battleResultInterval) clearInterval(window.battleResultInterval);
-        window.battleResultInterval = setInterval(() => {
-            apiRequest('/get_battle_result').then(res => {
-                if (res.pending) return;
-                if (res.result) {
-                    clearInterval(window.battleResultInterval);
-                    
-                    const overlay = document.getElementById('battleRouletteOverlay');
-                    if (overlay) {
-                        const track1 = document.getElementById('rouletteTrack1');
-                        const track2 = document.getElementById('rouletteTrack2');
-                        const prizes = CONFIG.CASE_PRIZES[data.case_type] || [1,10,100];
-                        const pos1 = prizes.indexOf(res.player1_prize);
-                        const pos2 = prizes.indexOf(res.player2_prize);
-                        const winPos1 = pos1 !== -1 ? pos1 : 15;
-                        const winPos2 = pos2 !== -1 ? pos2 : 15;
-                        
-                        if (track1 && track2) {
-                            track1.style.transition = 'none';
-                            track1.style.transform = 'translateX(0px)';
-                            track2.style.transition = 'none';
-                            track2.style.transform = 'translateX(0px)';
-                            void track1.offsetHeight;
-                            void track2.offsetHeight;
-                            
-                            const cardWidth = 110;
-                            const cardGap = 8;
-                            const totalCardWidth = cardWidth + cardGap;
-                            const viewportWidth = window.innerWidth * 0.85;
-                            const centerOffset = viewportWidth / 2;
-                            
-                            const shift1 = (winPos1 * totalCardWidth) - centerOffset + (cardWidth / 2);
-                            const shift2 = (winPos2 * totalCardWidth) - centerOffset + (cardWidth / 2);
-                            
-                            const noise1 = Math.floor(Math.random() * 40) - 20;
-                            const noise2 = Math.floor(Math.random() * 40) - 20;
-                            const finalShift1 = shift1 + noise1;
-                            const finalShift2 = shift2 + noise2;
-                            
-                            setTimeout(() => {
-                                track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
-                                track1.style.transform = `translateX(-${finalShift1}px)`;
-                                track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
-                                track2.style.transform = `translateX(-${finalShift2}px)`;
-                            }, 100);
-                            
-                            let finished = false;
-                            const onFinish = () => {
-                                if (finished) return;
-                                finished = true;
-                                track1.removeEventListener('transitionend', onFinish);
-                                track2.removeEventListener('transitionend', onFinish);
-                                
-                                const cards1 = track1.querySelectorAll('.roulette-card');
-                                const cards2 = track2.querySelectorAll('.roulette-card');
-                                if (cards1[winPos1]) {
-                                    cards1[winPos1].classList.add('win');
-                                }
-                                if (cards2[winPos2]) {
-                                    cards2[winPos2].classList.add('win');
-                                }
-                                
-                                setTimeout(() => {
-                                    overlay.remove();
-                                    showBattleResult(res);
-                                }, 600);
-                            };
-                            
-                            track1.addEventListener('transitionend', onFinish);
-                            track2.addEventListener('transitionend', onFinish);
-                            
-                            setTimeout(() => {
-                                if (!finished) {
-                                    finished = true;
-                                    track1.removeEventListener('transitionend', onFinish);
-                                    track2.removeEventListener('transitionend', onFinish);
-                                    
-                                    const cards1 = track1.querySelectorAll('.roulette-card');
-                                    const cards2 = track2.querySelectorAll('.roulette-card');
-                                    if (cards1[winPos1]) {
-                                        cards1[winPos1].classList.add('win');
-                                    }
-                                    if (cards2[winPos2]) {
-                                        cards2[winPos2].classList.add('win');
-                                    }
-                                    
-                                    setTimeout(() => {
-                                        overlay.remove();
-                                        showBattleResult(res);
-                                    }, 600);
-                                }
-                            }, 7000);
-                        }
-                    } else {
-                        showBattleResult(res);
-                    }
-                }
-            });
-        }, 500);
-    });
-}
-
-function showPvpRouletteAnimation(data) {
-    const style = getStyle(data.case_type);
-    const prizes = getPrizes(data.case_type);
-    
-    const overlay = document.createElement('div');
-    overlay.id = 'battleRouletteOverlay';
-    Object.assign(overlay.style, {
-        position: 'fixed',
-        top: '0', left: '0', right: '0', bottom: '0',
-        background: style.bg,
-        backgroundImage: style.bgGradient,
-        backdropFilter: 'blur(30px)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: '999',
-        padding: '16px 20px',
-        animation: 'fadeIn 0.3s ease'
-    });
-    
-    const title = document.createElement('div');
-    Object.assign(title.style, {
-        fontSize: '20px',
-        fontWeight: '800',
-        color: style.titleColor,
-        marginBottom: '10px',
-        textTransform: 'uppercase',
-        letterSpacing: '2px',
-        textShadow: `0 0 40px ${style.glowColor}`,
-        textAlign: 'center',
-        flexShrink: '0'
-    });
-    title.textContent = `⚔️ ${data.case_type.toUpperCase()} BATTLE`;
-    overlay.appendChild(title);
-    
-    const container = document.createElement('div');
-    container.style.cssText = 'display:flex; flex-direction:column; gap:6px; width:100%; max-width:600px; flex:1; justify-content:center;';
-    
-    const cardWidth = 110;
-    const cardGap = 8;
-    const totalCards = 60;
-    
-    const p1Wrapper = document.createElement('div');
-    p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
-    let cards1 = '';
-    for (let i = 0; i < totalCards; i++) {
-        const p = prizes[Math.floor(Math.random() * prizes.length)];
-        const isLarge = p > 1000;
-        const fontSize = isLarge ? '16px' : '22px';
-        cards1 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:85px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
-    }
-    p1Wrapper.innerHTML = `
-        <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 1</div>
-        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
-            <div id="rouletteTrack1" style="display:flex; gap:${cardGap}px; padding:6px 0; will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
-                ${cards1}
-            </div>
-            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
-        </div>
-    `;
-    container.appendChild(p1Wrapper);
-    
-    const vsDiv = document.createElement('div');
-    vsDiv.style.cssText = 'text-align:center; font-size:24px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:3px 0;';
-    vsDiv.textContent = '⚔️ VS';
-    container.appendChild(vsDiv);
-    
-    const p2Wrapper = document.createElement('div');
-    p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(179,136,255,0.3); border-radius:12px; padding:6px; background:rgba(179,136,255,0.05);';
-    let cards2 = '';
-    for (let i = 0; i < totalCards; i++) {
-        const p = prizes[Math.floor(Math.random() * prizes.length)];
-        const isLarge = p > 1000;
-        const fontSize = isLarge ? '16px' : '22px';
-        cards2 += `<div class="roulette-card" data-index="${i}" style="width:${cardWidth}px; height:85px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06); font-size:${fontSize}; font-weight:700; color:${style.itemColor}; text-shadow:0 0 20px ${style.glowColor}; transition:all 0.2s ease;">${p}⭐</div>`;
-    }
-    p2Wrapper.innerHTML = `
-        <div style="font-size:15px; font-weight:700; color:#b388ff; text-align:center; margin-bottom:3px; flex-shrink:0; background:rgba(179,136,255,0.1); padding:3px 0; border-radius:6px;">👤 ИГРОК 2</div>
-        <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.3); flex:1; min-height:95px;">
-            <div id="rouletteTrack2" style="display:flex; gap:${cardGap}px; padding:6px 0; will-change:transform; position:relative; width:${totalCards * (cardWidth + cardGap)}px; height:100%; align-items:center;">
-                ${cards2}
-            </div>
-            <div style="position:absolute; top:-4px; left:50%; transform:translateX(-50%); font-size:24px; color:${style.highlightColor}; text-shadow:0 0 30px ${style.highlightColor}; pointer-events:none; line-height:1; z-index:5;">▼</div>
-        </div>
-    `;
-    container.appendChild(p2Wrapper);
-    
-    overlay.appendChild(container);
-    
-    const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = 'color:#888; font-size:13px; text-align:center; margin-top:8px; flex-shrink:0;';
-    infoDiv.textContent = `📦 ${data.case_type.toUpperCase()}`;
-    overlay.appendChild(infoDiv);
-    
-    const statusDiv = document.createElement('div');
-    statusDiv.id = 'battleRouletteStatus';
-    statusDiv.style.cssText = `color:${style.titleColor}; font-size:15px; font-weight:600; opacity:0.6; text-align:center; letter-spacing:1px; flex-shrink:0; margin-top:4px;`;
-    statusDiv.textContent = '🎰 Открытие...';
-    overlay.appendChild(statusDiv);
-    
-    document.body.appendChild(overlay);
-}
-
-function checkBattleResultDirect() {
-    apiRequest('/get_battle_result').then(data => {
-        if (data.pending) return;
-        if (data.result) {
-            closeAllOverlays();
-            showBattleResult(data);
+// ===== ЗАДАНИЯ =====
+function switchQuestTab(tab) {
+    document.querySelectorAll('.quest-tab').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tab) {
+            btn.classList.add('active');
         }
     });
+    
+    document.querySelectorAll('.quest-tab-content').forEach(el => {
+        el.classList.remove('active');
+    });
+    document.getElementById('questTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+    
+    loadQuestTab(tab);
 }
 
-function showBattleResult(data) {
-    document.getElementById('waitingRoom').style.display = 'none';
-    document.getElementById('battlesScreen').querySelector('.battle-stats').style.display = 'flex';
-    document.getElementById('battlesScreen').querySelector('.battle-actions').style.display = 'flex';
-    document.getElementById('battlesScreen').querySelector('#battleRoomsList').style.display = 'block';
-    state.currentRoomId = null;
+async function loadQuestTab(tab) {
+    const data = await apiRequest('/get_quests_data');
+    if (data.error) {
+        showCustomAlert('❌ ' + data.error);
+        return;
+    }
     
-    const oldOverlay = document.getElementById('battleResultOverlay');
-    if (oldOverlay) oldOverlay.remove();
+    switch(tab) {
+        case 'status':
+            renderStatusQuests(data);
+            break;
+        case 'levels':
+            renderLevelQuests(data);
+            break;
+        case 'friends':
+            renderFriendsQuests(data);
+            break;
+        case 'deposits':
+            renderDepositQuests(data);
+            break;
+    }
+}
+
+function renderStatusQuests(data) {
+    const container = document.getElementById('questTabStatus');
+    container.innerHTML = '';
     
-    const overlay = document.createElement('div');
-    overlay.id = 'battleResultOverlay';
-    Object.assign(overlay.style, {
-        position: 'fixed',
-        top: '0', left: '0', right: '0', bottom: '0',
-        background: 'rgba(0,0,0,0.92)',
-        backdropFilter: 'blur(20px)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: '1000',
-        padding: '30px',
-        animation: 'fadeIn 0.3s ease'
-    });
+    const statuses = [
+        { id: 'status_hunter', name: 'Кейс-охотник', desc: 'Открой 10 кейсов', target: 10, reward: 10 },
+        { id: 'status_lucky', name: 'Везунчик', desc: 'Открой 100 кейсов', target: 100, reward: 30 },
+        { id: 'status_stalker', name: 'Сталкер халявы', desc: 'Открой 444 кейса', target: 444, reward: 50 },
+        { id: 'status_master', name: 'Мастер фортуны', desc: 'Открой 1000 кейсов', target: 1000, reward: 100 },
+        { id: 'status_legend', name: 'Легенда', desc: 'Открой 2500 кейсов', target: 2500, reward: 200 }
+    ];
     
-    const isWin = data.winner_id == user_id;
-    const isDraw = data.is_draw;
+    const totalCases = data.total_cases || 0;
+    const claimed = data.claimed_statuses || [];
     
-    if (isDraw) {
-        overlay.innerHTML = `
-            <div style="font-size:80px; margin-bottom:10px;">🤝</div>
-            <div style="font-size:32px; font-weight:800; color:#ffd700; margin-bottom:20px;">НИЧЬЯ!</div>
-            <div style="display:flex; gap:40px; margin-bottom:20px;">
-                <div style="text-align:center;">
-                    <div style="font-size:40px;">👤</div>
-                    <div style="font-weight:700; color:#aaa;">Игрок 1</div>
-                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${data.player1_prize}⭐</div>
-                    <div style="font-size:14px; color:#888;">-${data.commission1}⭐ комиссия</div>
+    statuses.forEach(status => {
+        const isComplete = totalCases >= status.target;
+        const isClaimed = claimed.includes(status.id);
+        const progressPercent = Math.min((totalCases / status.target) * 100, 100);
+        
+        const item = document.createElement('div');
+        item.className = `quest-item ${isClaimed ? 'completed' : ''}`;
+        
+        item.innerHTML = `
+            <div class="quest-left">
+                <div class="quest-name">${status.name}</div>
+                <div class="quest-desc">${status.desc}</div>
+                <div class="quest-reward">🎁 ${status.reward}⭐</div>
+                <div class="quest-progress-bar">
+                    <div class="fill ${isComplete ? 'completed' : ''}" style="width:${progressPercent}%"></div>
                 </div>
-                <div style="display:flex; align-items:center; font-size:36px; color:#ff6b6b;">⚔️</div>
-                <div style="text-align:center;">
-                    <div style="font-size:40px;">👤</div>
-                    <div style="font-weight:700; color:#aaa;">Игрок 2</div>
-                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${data.player2_prize}⭐</div>
-                    <div style="font-size:14px; color:#888;">-${data.commission2}⭐ комиссия</div>
-                </div>
+                <div style="font-size:12px; color:#666; margin-top:2px;">${totalCases}/${status.target}</div>
             </div>
-            <div style="background:rgba(255,255,255,0.05); border-radius:16px; padding:16px 24px; margin-bottom:20px; text-align:center; color:#aaa;">
-                ${data.result_text}
-            </div>
-            <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="closeAllOverlays(); showBattles();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
-                    ⚔️ НОВАЯ БИТВА
-                </button>
-                <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
-                    🔙 НАЗАД
-                </button>
-            </div>
+            <button class="quest-btn ${isClaimed ? 'claimed' : ''}" ${(!isComplete || isClaimed) ? 'disabled' : ''} onclick="claimQuest('${status.id}', ${status.reward})">
+                ${isClaimed ? '✅ Завершено' : isComplete ? '🎁 ЗАБРАТЬ' : `${totalCases}/${status.target}`}
+            </button>
         `;
-    } else {
-        const icon = isWin ? '🎉' : '😢';
-        const title = isWin ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ...';
-        const color = isWin ? '#4caf50' : '#f44336';
-        const myPrize = isWin ? data.winner_prize : data.loser_prize;
-        const oppPrize = isWin ? data.loser_prize : data.winner_prize;
         
-        overlay.innerHTML = `
-            <div style="font-size:80px; margin-bottom:10px;">${icon}</div>
-            <div style="font-size:32px; font-weight:800; color:${color}; margin-bottom:20px;">${title}</div>
-            <div style="display:flex; gap:40px; margin-bottom:20px;">
-                <div style="text-align:center;">
-                    <div style="font-size:40px;">👤</div>
-                    <div style="font-weight:700; color:${isWin ? '#4caf50' : '#aaa'};">ТЫ</div>
-                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${myPrize}⭐</div>
-                </div>
-                <div style="display:flex; align-items:center; font-size:36px; color:#ff6b6b;">⚔️</div>
-                <div style="text-align:center;">
-                    <div style="font-size:40px;">👤</div>
-                    <div style="font-weight:700; color:${!isWin ? '#4caf50' : '#aaa'};">СОПЕРНИК</div>
-                    <div style="font-size:28px; font-weight:800; color:#ffd700;">${oppPrize}⭐</div>
-                </div>
-            </div>
-            <div style="background:rgba(255,255,255,0.05); border-radius:16px; padding:16px 24px; margin-bottom:20px; text-align:center;">
-                <div style="color:#aaa; font-size:14px;">${data.result_text}</div>
-                <div style="color:#888; font-size:12px;">💸 Комиссия: ${data.commission}⭐</div>
-                ${isWin ? `<div style="color:#4caf50; font-size:16px; font-weight:700;">🏆 Ты получил: ${data.winner_winnings}⭐</div>` : ''}
-            </div>
-            <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="closeAllOverlays(); showBattles();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
-                    ⚔️ НОВАЯ БИТВА
-                </button>
-                <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
-                    🔙 НАЗАД
-                </button>
-            </div>
-        `;
-    }
-    
-    document.body.appendChild(overlay);
-    loadBattleData();
-}
-
-// ===== МИНЁР =====
-function initMinesBoard() {
-    const board = DOM.minesBoard;
-    board.innerHTML = '';
-    for (let i = 0; i < 25; i++) {
-        const cell = document.createElement('div');
-        cell.className = 'mines-cell';
-        cell.dataset.index = i;
-        cell.textContent = '❓';
-        cell.onclick = () => openMinesCell(i);
-        board.appendChild(cell);
-    }
-}
-
-function getBetFromInput() {
-    const input = DOM.betInput;
-    let val = parseInt(input.value);
-    if (isNaN(val) || val < 3) val = 3;
-    if (val > 1000) val = 1000;
-    input.value = val;
-    return val;
-}
-
-DOM.betInput.addEventListener('change', function() {
-    let val = parseInt(this.value);
-    if (isNaN(val) || val < 3) val = 3;
-    if (val > 1000) val = 1000;
-    this.value = val;
-});
-
-document.querySelectorAll('.mines-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.mines-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-        state.selectedMines = parseInt(this.dataset.mines);
+        container.appendChild(item);
     });
-});
+}
 
-function startMinesGame() {
-    const bet = getBetFromInput();
-    const mines = state.selectedMines;
+function renderLevelQuests(data) {
+    const container = document.getElementById('questTabLevels');
+    container.innerHTML = '';
     
-    if (bet < 3 || bet > 1000) {
-        showCustomAlert('❌ Ставка должна быть от 3 до 1000⭐');
-        return;
-    }
-    if (mines < 3 || mines > 8) {
-        showCustomAlert('❌ X должно быть от 3 до 8');
-        return;
-    }
+    const levelQuests = [
+        { id: 'level_mud', name: 'Грязевой уровень', desc: 'Победи бота 3 раза в Грязи', caseType: 'mud', target: 3, reward: 15 },
+        { id: 'level_wood', name: 'Деревянный уровень', desc: 'Победи бота 3 раза в Дереве', caseType: 'wood', target: 3, reward: 27 },
+        { id: 'level_stone', name: 'Каменный уровень', desc: 'Победи бота 3 раза в Камне', caseType: 'stone', target: 3, reward: 57 },
+        { id: 'level_bronze', name: 'Бронзовый уровень', desc: 'Победи бота 3 раза в Бронзе', caseType: 'bronze', target: 3, reward: 147 },
+        { id: 'level_silver', name: 'Серебряный уровень', desc: 'Победи бота 3 раза в Серебре', caseType: 'silver', target: 3, reward: 297 },
+        { id: 'level_gold', name: 'Золотой уровень', desc: 'Победи бота 3 раза в Золоте', caseType: 'gold', target: 3, reward: 747 },
+        { id: 'level_diamond', name: 'Алмазный уровень', desc: 'Победи бота 3 раза в Алмазе', caseType: 'diamond', target: 3, reward: 1497 },
+        { id: 'level_netherite', name: 'Незеритовый уровень', desc: 'Победи бота 3 раза в Незерите', caseType: 'netherite', target: 3, reward: 2997 },
+        { id: 'level_obsidian', name: 'Обсидиановый уровень', desc: 'Победи бота 3 раза в Обсидиане', caseType: 'obsidian', target: 3, reward: 7497 },
+        { id: 'level_bedrock', name: 'Бедроковый уровень', desc: 'Победи бота 3 раза в Бедроке', caseType: 'bedrock', target: 3, reward: 30000 }
+    ];
     
-    apiRequest('/check_balance_simple', { amount: bet }).then(data => {
-        if (data.error || !data.has_enough) {
-            showCustomAlert('❌ Недостаточно звёзд!');
-            return;
+    const levelWins = data.level_wins || {};
+    const claimed = data.claimed_levels || [];
+    
+    let prevCompleted = true;
+    
+    levelQuests.forEach((quest) => {
+        const wins = levelWins[quest.caseType] || 0;
+        const isUnlocked = prevCompleted;
+        const isComplete = wins >= quest.target;
+        const isClaimed = claimed.includes(quest.id);
+        const progressPercent = Math.min((wins / quest.target) * 100, 100);
+        
+        const item = document.createElement('div');
+        item.className = `quest-item ${isClaimed ? 'completed' : ''}`;
+        if (!isUnlocked) {
+            item.style.opacity = '0.3';
         }
         
-        apiRequest('/start_mines_game', { bet, mines }).then(gameData => {
-            if (gameData.error) {
-                showCustomAlert('❌ ' + gameData.error);
-                return;
-            }
-            
-            state.minesGameData = {
-                game_id: gameData.game_id,
-                bet: gameData.bet,
-                mines: gameData.mines,
-                opened: 0,
-                safe_cells: 25 - gameData.mines,
-                multiplier: 1.0,
-                board: gameData.board,
-                openedCells: gameData.opened,
-                active: true,
-                game_over: false
-            };
-            
-            DOM.minesBetDisplay.textContent = bet;
-            DOM.minesCountDisplay.textContent = mines;
-            DOM.minesTotalSafe.textContent = 25 - mines;
-            DOM.minesOpenedDisplay.textContent = '0';
-            DOM.minesMultiplierDisplay.textContent = 'x1.0';
-            
-            DOM.minesCashoutBtn.style.display = 'inline-block';
-            DOM.minesStartBtn.textContent = '🔄 ИГРАТЬ СНОВА';
-            
-            renderMinesBoard();
-            updateMinesCashoutAmount();
-        });
-    });
-}
-
-function renderMinesBoard() {
-    const board = DOM.minesBoard;
-    const cells = board.querySelectorAll('.mines-cell');
-    
-    if (!state.minesGameData) {
-        cells.forEach(cell => {
-            cell.textContent = '❓';
-            cell.className = 'mines-cell';
-            cell.onclick = () => openMinesCell(parseInt(cell.dataset.index));
-        });
-        return;
-    }
-    
-    const { board: dataBoard, openedCells } = state.minesGameData;
-    
-    cells.forEach((cell, i) => {
-        if (openedCells[i] === 1) {
-            cell.classList.add('opened');
-            if (dataBoard[i] === 1) {
-                cell.textContent = '💣';
-                cell.classList.add('mine');
-                cell.onclick = null;
-            } else {
-                cell.textContent = '💎';
-                cell.classList.add('safe');
-                cell.onclick = null;
-            }
+        item.innerHTML = `
+            <div class="quest-left">
+                <div class="quest-name">${quest.name} ${isUnlocked ? '' : '🔒'}</div>
+                <div class="quest-desc">${quest.desc}</div>
+                <div class="quest-reward">🎁 ${quest.reward}⭐</div>
+                ${isUnlocked ? `
+                    <div class="quest-progress-bar">
+                        <div class="fill ${isComplete ? 'completed' : ''}" style="width:${progressPercent}%"></div>
+                    </div>
+                    <div style="font-size:12px; color:#666; margin-top:2px;">${wins}/${quest.target} побед</div>
+                ` : `
+                    <div style="font-size:12px; color:#888; margin-top:2px;">🔒 Откройте предыдущий уровень</div>
+                `}
+            </div>
+            <button class="quest-btn ${isClaimed ? 'claimed' : ''}" ${(!isComplete || isClaimed || !isUnlocked) ? 'disabled' : ''} onclick="claimQuest('${quest.id}', ${quest.reward})">
+                ${isClaimed ? '✅ Завершено' : isComplete ? '🎁 ЗАБРАТЬ' : isUnlocked ? `${wins}/${quest.target}` : '🔒'}
+            </button>
+        `;
+        
+        container.appendChild(item);
+        
+        if (isComplete || isClaimed) {
+            prevCompleted = true;
         } else {
-            cell.textContent = '❓';
-            cell.className = 'mines-cell';
-            cell.onclick = () => openMinesCell(i);
+            prevCompleted = false;
         }
     });
 }
 
-function openMinesCell(index) {
-    if (!state.minesGameData || !state.minesGameData.active || state.minesGameData.game_over) return;
-    if (state.minesGameData.openedCells[index] === 1) return;
+function renderFriendsQuests(data) {
+    const container = document.getElementById('questTabFriends');
+    container.innerHTML = '';
     
-    apiRequest('/open_mines_cell', { 
-        game_id: state.minesGameData.game_id,
-        index 
-    }).then(data => {
-        if (data.error) {
-            showCustomAlert('❌ ' + data.error);
-            return;
-        }
-        
-        state.minesGameData.board = data.board;
-        state.minesGameData.openedCells = data.opened;
-        state.minesGameData.opened = data.opened_count;
-        state.minesGameData.multiplier = data.multiplier;
-        
-        DOM.minesOpenedDisplay.textContent = state.minesGameData.opened;
-        DOM.minesMultiplierDisplay.textContent = 'x' + state.minesGameData.multiplier;
-        
-        if (data.game_over) {
-            state.minesGameData.active = false;
-            state.minesGameData.game_over = true;
-            DOM.minesCashoutBtn.style.display = 'none';
-            
-            for (let i = 0; i < 25; i++) {
-                if (state.minesGameData.board[i] === 1) {
-                    state.minesGameData.openedCells[i] = 1;
-                }
-            }
-            renderMinesBoard();
-            
-            if (data.won) {
-                showMinesResult('🎉', 'ПОБЕДА!', `Ты выиграл ${data.winnings}⭐!`, '#4caf50');
-            } else {
-                showMinesResult('💥', 'ВЗРЫВ!', `Ты потерял ${data.bet}⭐`, '#f44336');
-            }
-            loadBalance();
-            return;
-        }
-        
-        renderMinesBoard();
-        updateMinesCashoutAmount();
-    });
-}
-
-function showMinesResult(icon, title, text, color) {
-    const board = state.minesGameData ? state.minesGameData.board : null;
-    const openedCells = state.minesGameData ? state.minesGameData.openedCells : null;
+    const friendsQuests = [
+        { id: 'friends_3', name: '3 друга', desc: 'Пригласи 3 друзей', target: 3, reward: 15 },
+        { id: 'friends_5', name: '5 друзей', desc: 'Пригласи 5 друзей', target: 5, reward: 20 },
+        { id: 'friends_10', name: '10 друзей', desc: 'Пригласи 10 друзей', target: 10, reward: 30 },
+        { id: 'friends_100', name: '100 друзей', desc: 'Пригласи 100 друзей', target: 100, reward: 300 }
+    ];
     
-    const overlay = document.createElement('div');
-    overlay.id = 'minesResultOverlay';
-    Object.assign(overlay.style, {
-        position: 'fixed',
-        top: '0', left: '0', right: '0', bottom: '0',
-        background: 'rgba(0,0,0,0.92)',
-        backdropFilter: 'blur(20px)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: '1000',
-        padding: '30px',
-        animation: 'fadeIn 0.3s ease'
-    });
+    const refs = data.refs || 0;
+    const claimed = data.claimed_friends || [];
     
-    let boardHTML = '';
-    if (board) {
-        boardHTML = `
-            <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; max-width:350px; margin:16px auto; width:100%;">
-                ${board.map((cell, i) => {
-                    const isMine = cell === 1;
-                    const isOpened = openedCells && openedCells[i] === 1;
-                    let bgColor = 'rgba(255,255,255,0.04)';
-                    let borderColor = 'rgba(255,255,255,0.06)';
-                    let textColor = '#888';
-                    let symbol = '❓';
-                    
-                    if (isOpened) {
-                        if (isMine) {
-                            bgColor = 'rgba(255,0,0,0.2)';
-                            borderColor = 'rgba(255,0,0,0.3)';
-                            textColor = '#ff4444';
-                            symbol = '💣';
-                        } else {
-                            bgColor = 'rgba(0,255,0,0.08)';
-                            borderColor = 'rgba(0,255,0,0.15)';
-                            textColor = '#4caf50';
-                            symbol = '💎';
-                        }
-                    } else if (isMine) {
-                        bgColor = 'rgba(255,0,0,0.15)';
-                        borderColor = 'rgba(255,0,0,0.2)';
-                        textColor = '#ff4444';
-                        symbol = '💣';
-                    }
-                    
-                    return `
-                        <div style="
-                            aspect-ratio:1;
-                            display:flex;
-                            align-items:center;
-                            justify-content:center;
-                            font-size:36px;
-                            background:${bgColor};
-                            border-radius:10px;
-                            border:2px solid ${borderColor};
-                            color:${textColor};
-                            transition:all 0.2s;
-                            font-weight:700;
-                        ">
-                            ${symbol}
-                        </div>
-                    `;
-                }).join('')}
+    friendsQuests.forEach(quest => {
+        const isComplete = refs >= quest.target;
+        const isClaimed = claimed.includes(quest.id);
+        const progressPercent = Math.min((refs / quest.target) * 100, 100);
+        
+        const item = document.createElement('div');
+        item.className = `quest-item ${isClaimed ? 'completed' : ''}`;
+        
+        item.innerHTML = `
+            <div class="quest-left">
+                <div class="quest-name">👥 ${quest.name}</div>
+                <div class="quest-desc">${quest.desc}</div>
+                <div class="quest-reward">🎁 ${quest.reward}⭐</div>
+                <div class="quest-progress-bar">
+                    <div class="fill ${isComplete ? 'completed' : ''}" style="width:${progressPercent}%"></div>
+                </div>
+                <div style="font-size:12px; color:#666; margin-top:2px;">${refs}/${quest.target} друзей</div>
             </div>
+            <button class="quest-btn ${isClaimed ? 'claimed' : ''}" ${(!isComplete || isClaimed) ? 'disabled' : ''} onclick="claimQuest('${quest.id}', ${quest.reward})">
+                ${isClaimed ? '✅ Завершено' : isComplete ? '🎁 ЗАБРАТЬ' : `${refs}/${quest.target}`}
+            </button>
         `;
-    }
-    
-    overlay.innerHTML = `
-        <div style="font-size:80px; margin-bottom:10px;">${icon}</div>
-        <div style="font-size:32px; font-weight:800; color:${color}; margin-bottom:10px;">${title}</div>
-        <div style="color:#aaa; font-size:18px; margin-bottom:10px; text-align:center;">${text}</div>
-        ${boardHTML}
-        <div style="color:#666; font-size:13px; margin-bottom:16px;">💣 — мины | 💎 — безопасные клетки</div>
-        <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-            <button onclick="closeAllOverlays(); startMinesGame();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
-                🔄 ИГРАТЬ СНОВА
-            </button>
-            <button onclick="closeAllOverlays(); showMines();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
-                🔙 НАЗАД
-            </button>
-        </div>
-    `;
-    
-    document.body.appendChild(overlay);
+        
+        container.appendChild(item);
+    });
 }
 
-function cashoutMinesGame() {
-    if (!state.minesGameData || !state.minesGameData.active || state.minesGameData.game_over) return;
-    if (state.minesGameData.opened < 3) {
-        showCustomAlert('❌ Нужно открыть минимум 3 клетки!');
+function renderDepositQuests(data) {
+    const container = document.getElementById('questTabDeposits');
+    container.innerHTML = '';
+    
+    const depositQuests = [
+        { id: 'deposit_100', name: 'Пополни 100⭐', desc: 'Всего пополнено на 100⭐', target: 100, reward: 10 },
+        { id: 'deposit_250', name: 'Пополни 250⭐', desc: 'Всего пополнено на 250⭐', target: 250, reward: 25 },
+        { id: 'deposit_500', name: 'Пополни 500⭐', desc: 'Всего пополнено на 500⭐', target: 500, reward: 50 },
+        { id: 'deposit_1000', name: 'Пополни 1000⭐', desc: 'Всего пополнено на 1000⭐', target: 1000, reward: 100 },
+        { id: 'deposit_10000', name: 'Пополни 10000⭐', desc: 'Всего пополнено на 10000⭐', target: 10000, reward: 1000 }
+    ];
+    
+    const totalDeposited = data.total_deposited || 0;
+    const claimed = data.claimed_deposits || [];
+    
+    depositQuests.forEach(quest => {
+        const isComplete = totalDeposited >= quest.target;
+        const isClaimed = claimed.includes(quest.id);
+        const progressPercent = Math.min((totalDeposited / quest.target) * 100, 100);
+        
+        const item = document.createElement('div');
+        item.className = `quest-item ${isClaimed ? 'completed' : ''}`;
+        
+        item.innerHTML = `
+            <div class="quest-left">
+                <div class="quest-name">💰 ${quest.name}</div>
+                <div class="quest-desc">${quest.desc}</div>
+                <div class="quest-reward">🎁 ${quest.reward}⭐</div>
+                <div class="quest-progress-bar">
+                    <div class="fill ${isComplete ? 'completed' : ''}" style="width:${progressPercent}%"></div>
+                </div>
+                <div style="font-size:12px; color:#666; margin-top:2px;">${totalDeposited}/${quest.target}⭐</div>
+            </div>
+            <button class="quest-btn ${isClaimed ? 'claimed' : ''}" ${(!isComplete || isClaimed) ? 'disabled' : ''} onclick="claimQuest('${quest.id}', ${quest.reward})">
+                ${isClaimed ? '✅ Завершено' : isComplete ? '🎁 ЗАБРАТЬ' : `${totalDeposited}/${quest.target}`}
+            </button>
+        `;
+        
+        container.appendChild(item);
+    });
+}
+
+async function claimQuest(questId, reward) {
+    const data = await apiRequest('/claim_quest', { quest_id: questId });
+    if (data.error) {
+        showCustomAlert('❌ ' + data.error);
         return;
     }
-    
-    apiRequest('/cashout_mines', { game_id: state.minesGameData.game_id }).then(data => {
-        if (data.error) {
-            showCustomAlert('❌ ' + data.error);
-            return;
-        }
-        
-        state.minesGameData.active = false;
-        state.minesGameData.game_over = true;
-        DOM.minesCashoutBtn.style.display = 'none';
-        
-        showMinesResult('💰', 'ВЫИГРЫШ!', `Ты забрал ${data.winnings}⭐ (x${data.multiplier})`, '#ffd700');
+    if (data.success) {
+        showCustomAlert(`✅ Получено ${reward}⭐!`, true);
         loadBalance();
-        loadMinesStats();
-    });
+        const activeTab = document.querySelector('.quest-tab.active');
+        if (activeTab) {
+            loadQuestTab(activeTab.dataset.tab);
+        }
+        if (document.getElementById('levelsScreen').classList.contains('active')) {
+            loadLevels();
+        }
+    }
 }
 
-function updateMinesCashoutAmount() {
-    if (!state.minesGameData) return;
-    const amount = Math.floor(state.minesGameData.bet * state.minesGameData.multiplier);
-    document.getElementById('minesCashoutAmount').textContent = amount;
-}
-
-function loadMinesStats() {
-    apiRequest('/get_mines_stats').then(data => {
-        document.getElementById('minesGames').textContent = data.games || 0;
-        document.getElementById('minesWins').textContent = data.wins || 0;
-        document.getElementById('minesLosses').textContent = data.losses || 0;
-        document.getElementById('minesBestMultiplier').textContent = 'x' + (data.best_multiplier || 1.0);
-    });
-}
-
-// ===== КРАШ =====
+// ===== КРАШ (С ИСПРАВЛЕНИЯМИ) =====
 let crashChartData = [];
 let crashCanvas = null;
 let crashCtx = null;
+let crashDOM = {};
 
 function initCrashChart() {
-    crashCanvas = document.getElementById('crashCanvas');
+    crashCanvas = document.getElementById('crashCanvas') || document.getElementById('game_crashCanvas');
     if (!crashCanvas) return;
     crashCtx = crashCanvas.getContext('2d');
     crashChartData = [];
@@ -2685,26 +1343,16 @@ function drawCrashChart() {
     crashCtx.fill();
     crashCtx.shadowBlur = 0;
     
-    const multiplierEl = document.getElementById('crashMultiplier');
+    const multiplierEl = document.getElementById('crashMultiplier') || document.getElementById('game_crashMultiplier');
     if (multiplierEl) {
         multiplierEl.textContent = `x${currentVal.toFixed(2)}`;
         multiplierEl.style.color = color;
     }
     
-    const progressEl = document.getElementById('crashProgressBar');
+    const progressEl = document.getElementById('crashProgressBar') || document.getElementById('game_crashProgressBar');
     if (progressEl) {
         const progress = Math.min((currentVal / 12) * 100, 100);
         progressEl.style.width = progress + '%';
-    }
-    
-    const bet = parseInt(DOM.crashBetDisplay.textContent) || 0;
-    const potentialWin = Math.floor(bet * currentVal * 0.95);
-    const winDisplay = document.getElementById('crashPotentialWin');
-    if (winDisplay) {
-        winDisplay.textContent = potentialWin + '⭐';
-        if (potentialWin > 0) {
-            winDisplay.style.color = potentialWin > bet * 2 ? '#4caf50' : '#ffd700';
-        }
     }
 }
 
@@ -2719,54 +1367,66 @@ function updateCrashChart(multiplier) {
 function resetCrashChart() {
     crashChartData = [];
     drawCrashChart();
-    const multiplierEl = document.getElementById('crashMultiplier');
-    if (multiplierEl) {
-        multiplierEl.textContent = 'x1.00';
-        multiplierEl.style.color = '#b388ff';
-    }
-    const progressEl = document.getElementById('crashProgressBar');
-    if (progressEl) {
-        progressEl.style.width = '0%';
-    }
-    const winDisplay = document.getElementById('crashPotentialWin');
-    if (winDisplay) {
-        winDisplay.textContent = '0⭐';
-        winDisplay.style.color = '#4caf50';
-    }
+}
+
+function getCrashDOM(prefix = '') {
+    return {
+        multiplier: document.getElementById(prefix + 'crashMultiplier'),
+        status: document.getElementById(prefix + 'crashStatus'),
+        timer: document.getElementById(prefix + 'crashTimer'),
+        betDisplay: document.getElementById(prefix + 'crashBetDisplay'),
+        multiplierDisplay: document.getElementById(prefix + 'crashMultiplierDisplay'),
+        startBtn: document.getElementById(prefix + 'crashStartBtn'),
+        cashoutBtn: document.getElementById(prefix + 'crashCashoutBtn'),
+        betInput: document.getElementById(prefix + 'crashBetInput'),
+        potentialWin: document.getElementById(prefix + 'crashPotentialWin')
+    };
 }
 
 function resetCrashUI() {
-    DOM.crashMultiplier.textContent = 'x1.00';
-    DOM.crashMultiplier.className = '';
-    DOM.crashMultiplier.style.transform = 'scale(1)';
-    DOM.crashStatus.textContent = '⏳ Ожидание...';
-    DOM.crashTimer.textContent = '🚀 МОЖНО СТАВИТЬ!';
-    DOM.crashTimer.style.fontSize = '16px';
-    DOM.crashTimer.style.fontWeight = '600';
-    DOM.crashBetDisplay.textContent = '0';
-    DOM.crashMultiplierDisplay.textContent = 'x1.00';
-    DOM.crashStartBtn.style.display = 'inline-block';
-    DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
-    DOM.crashStartBtn.onclick = placeCrashBet;
-    DOM.crashStartBtn.disabled = false;
-    DOM.crashCashoutBtn.style.display = 'none';
-    DOM.crashCashoutBtn.disabled = false;
-    DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
-    DOM.crashCashoutBtn._listenerSet = false;
-    DOM.crashCashoutBtn.style.width = '100%';
-    DOM.crashCashoutBtn.style.padding = '18px';
-    DOM.crashCashoutBtn.style.fontSize = '20px';
-    
-    const backBtn = document.querySelector('.btn-back');
-    if (backBtn) {
-        backBtn.style.display = 'block';
-        backBtn.onclick = function() {
-            closeAllOverlays();
-            showCrash();
+    const d = getCrashDOM('');
+    if (d.startBtn) {
+        d.startBtn.style.animation = 'none';
+        d.startBtn.style.transition = 'none';
+        d.startBtn.style.pointerEvents = 'auto';
+        d.startBtn.style.zIndex = '10';
+        d.startBtn.style.position = 'relative';
+        d.startBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            placeCrashBet();
         };
+        d.startBtn.textContent = '🎮 ИГРАТЬ';
+        d.startBtn.disabled = false;
+        d.startBtn.style.display = 'inline-block';
+    }
+    if (d.multiplier) {
+        d.multiplier.textContent = 'x1.00';
+        d.multiplier.className = '';
+        d.multiplier.style.transform = 'scale(1)';
+        d.multiplier.style.color = '#b388ff';
+    }
+    if (d.status) d.status.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
+    if (d.timer) {
+        d.timer.textContent = '🚀 МОЖНО СТАВИТЬ!';
+        d.timer.style.fontSize = '16px';
+        d.timer.style.fontWeight = '600';
+    }
+    if (d.betDisplay) d.betDisplay.textContent = '0';
+    if (d.multiplierDisplay) d.multiplierDisplay.textContent = 'x1.00';
+    if (d.cashoutBtn) {
+        d.cashoutBtn.style.display = 'none';
+        d.cashoutBtn.disabled = false;
+        d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
+    }
+    if (d.betInput) {
+        d.betInput.value = 10;
     }
     
-    const chart = document.getElementById('crashChart');
+    const backBtn = document.querySelector('.btn-back');
+    if (backBtn) backBtn.style.display = 'block';
+    
+    const chart = document.getElementById('crashChart') || document.getElementById('game_crashChart');
     if (chart) {
         chart.style.boxShadow = 'none';
         chart.style.transition = 'none';
@@ -2787,20 +1447,14 @@ function resetCrashUI() {
 }
 
 function getCrashBet() {
-    const input = DOM.crashBetInput;
+    const input = document.getElementById('crashBetInput') || document.getElementById('game_crashBetInput');
+    if (!input) return 10;
     let val = parseInt(input.value);
     if (isNaN(val) || val < 1) val = 1;
     if (val > 1000) val = 1000;
     input.value = val;
     return val;
 }
-
-DOM.crashBetInput.addEventListener('change', function() {
-    let val = parseInt(this.value);
-    if (isNaN(val) || val < 1) val = 1;
-    if (val > 1000) val = 1000;
-    this.value = val;
-});
 
 function startCrashPolling() {
     if (state.crashPollingInterval) clearInterval(state.crashPollingInterval);
@@ -2809,34 +1463,38 @@ function startCrashPolling() {
         apiRequest('/crash_status', {}).then(status => {
             if (status.error) return;
             
+            const d = getCrashDOM('');
             const multiplier = status.multiplier || 1.00;
             const crashPoint = status.crash_multiplier_at_crash || 1.00;
             const timeToNew = status.time_to_new_round || 0;
-            const timerEl = document.getElementById('crashTimer');
             
             // === ИГРА АКТИВНА ===
             if (status.round_phase === 'active') {
                 updateCrashChart(multiplier);
-                DOM.crashMultiplierDisplay.textContent = `x${multiplier}`;
-                DOM.crashMultiplier.textContent = `x${multiplier.toFixed(2)}`;
-                DOM.crashMultiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
-                DOM.crashMultiplier.className = '';
-                DOM.crashStatus.textContent = '';
-                timerEl.textContent = '';
-                timerEl.style.fontSize = '0px';
-                DOM.crashStartBtn.style.display = 'none';
-                DOM.crashStartBtn.disabled = true;
-                
-                if (!DOM.crashCashoutBtn._listenerSet) {
-                    DOM.crashCashoutBtn.onclick = cashoutCrash;
-                    DOM.crashCashoutBtn._listenerSet = true;
+                if (d.multiplierDisplay) d.multiplierDisplay.textContent = `x${multiplier}`;
+                if (d.multiplier) {
+                    d.multiplier.textContent = `x${multiplier.toFixed(2)}`;
+                    d.multiplier.style.color = multiplier < 2 ? '#4caf50' : multiplier < 5 ? '#ffd700' : multiplier < 8 ? '#ff9800' : '#f44336';
+                    d.multiplier.className = '';
                 }
-                DOM.crashCashoutBtn.style.display = 'block';
-                DOM.crashCashoutBtn.style.width = '100%';
-                DOM.crashCashoutBtn.style.padding = '18px';
-                DOM.crashCashoutBtn.style.fontSize = '20px';
-                DOM.crashCashoutBtn.disabled = false;
-                DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
+                if (d.status) d.status.textContent = '';
+                if (d.timer) {
+                    d.timer.textContent = '';
+                    d.timer.style.fontSize = '0px';
+                }
+                if (d.startBtn) {
+                    d.startBtn.style.display = 'none';
+                    d.startBtn.disabled = true;
+                }
+                if (d.cashoutBtn) {
+                    d.cashoutBtn.style.display = 'block';
+                    d.cashoutBtn.style.width = '100%';
+                    d.cashoutBtn.style.padding = '18px';
+                    d.cashoutBtn.style.fontSize = '20px';
+                    d.cashoutBtn.disabled = false;
+                    d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
+                    d.cashoutBtn.onclick = cashoutCrash;
+                }
                 
                 const backBtn = document.querySelector('.btn-back');
                 if (backBtn) backBtn.style.display = 'none';
@@ -2850,12 +1508,14 @@ function startCrashPolling() {
             
             // === КРАШ ===
             else if (status.round_phase === 'crashed') {
-                DOM.crashMultiplier.textContent = `x${crashPoint.toFixed(2)}`;
-                DOM.crashMultiplier.style.color = '#f44336';
-                DOM.crashMultiplier.className = 'crashed';
-                DOM.crashStatus.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
-                DOM.crashCashoutBtn.style.display = 'none';
-                DOM.crashStartBtn.style.display = 'none';
+                if (d.multiplier) {
+                    d.multiplier.textContent = `x${crashPoint.toFixed(2)}`;
+                    d.multiplier.style.color = '#f44336';
+                    d.multiplier.className = 'crashed';
+                }
+                if (d.status) d.status.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
+                if (d.cashoutBtn) d.cashoutBtn.style.display = 'none';
+                if (d.startBtn) d.startBtn.style.display = 'none';
                 
                 const backBtn = document.querySelector('.btn-back');
                 if (backBtn) backBtn.style.display = 'block';
@@ -2863,7 +1523,7 @@ function startCrashPolling() {
                 if (!window._crashAnimationDone) {
                     window._crashAnimationDone = true;
                     
-                    const chart = document.getElementById('crashChart');
+                    const chart = document.getElementById('crashChart') || document.getElementById('game_crashChart');
                     if (chart) {
                         chart.style.transition = 'box-shadow 0.3s ease';
                         chart.style.boxShadow = '0 0 60px rgba(255,0,0,0.4), inset 0 0 60px rgba(255,0,0,0.1)';
@@ -2872,41 +1532,61 @@ function startCrashPolling() {
                         }, 1500);
                     }
                     
-                    DOM.crashMultiplier.style.transition = 'transform 0.1s ease';
-                    let pulseCount = 0;
-                    const pulseInterval = setInterval(() => {
-                        if (pulseCount >= 8) {
-                            clearInterval(pulseInterval);
-                            DOM.crashMultiplier.style.transform = 'scale(1)';
-                            return;
-                        }
-                        DOM.crashMultiplier.style.transform = pulseCount % 2 === 0 ? 'scale(1.2)' : 'scale(1)';
-                        pulseCount++;
-                    }, 150);
+                    if (d.multiplier) {
+                        d.multiplier.style.transition = 'transform 0.1s ease';
+                        let pulseCount = 0;
+                        const pulseInterval = setInterval(() => {
+                            if (pulseCount >= 8) {
+                                clearInterval(pulseInterval);
+                                if (d.multiplier) d.multiplier.style.transform = 'scale(1)';
+                                return;
+                            }
+                            if (d.multiplier) {
+                                d.multiplier.style.transform = pulseCount % 2 === 0 ? 'scale(1.2)' : 'scale(1)';
+                            }
+                            pulseCount++;
+                        }, 150);
+                    }
                     
                     setTimeout(() => {
                         resetCrashChart();
                         
                         if (timeToNew > 0) {
-                            timerEl.textContent = `${Math.ceil(timeToNew)}`;
-                            timerEl.style.fontSize = '48px';
-                            timerEl.style.fontWeight = '900';
-                            timerEl.style.color = '#ffd700';
-                            DOM.crashStartBtn.style.display = 'inline-block';
-                            DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
-                            DOM.crashStartBtn.onclick = placeCrashBet;
-                            DOM.crashStartBtn.disabled = false;
-                            DOM.crashStatus.textContent = `⏳ Новая игра через ${Math.ceil(timeToNew)} сек...`;
+                            if (d.timer) {
+                                d.timer.textContent = `${Math.ceil(timeToNew)}`;
+                                d.timer.style.fontSize = '48px';
+                                d.timer.style.fontWeight = '900';
+                                d.timer.style.color = '#ffd700';
+                            }
+                            if (d.startBtn) {
+                                d.startBtn.style.display = 'inline-block';
+                                d.startBtn.textContent = '🎮 ИГРАТЬ';
+                                d.startBtn.onclick = function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    placeCrashBet();
+                                };
+                                d.startBtn.disabled = false;
+                            }
+                            if (d.status) d.status.textContent = `⏳ Новая игра через ${Math.ceil(timeToNew)} сек...`;
                         } else {
-                            timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
-                            timerEl.style.fontSize = '16px';
-                            timerEl.style.fontWeight = '600';
-                            timerEl.style.color = '#4caf50';
-                            DOM.crashStartBtn.style.display = 'inline-block';
-                            DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
-                            DOM.crashStartBtn.onclick = placeCrashBet;
-                            DOM.crashStartBtn.disabled = false;
-                            DOM.crashStatus.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
+                            if (d.timer) {
+                                d.timer.textContent = '🚀 МОЖНО СТАВИТЬ!';
+                                d.timer.style.fontSize = '16px';
+                                d.timer.style.fontWeight = '600';
+                                d.timer.style.color = '#4caf50';
+                            }
+                            if (d.startBtn) {
+                                d.startBtn.style.display = 'inline-block';
+                                d.startBtn.textContent = '🎮 ИГРАТЬ';
+                                d.startBtn.onclick = function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    placeCrashBet();
+                                };
+                                d.startBtn.disabled = false;
+                            }
+                            if (d.status) d.status.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
                         }
                         
                         state.crashBetPlaced = false;
@@ -2924,7 +1604,6 @@ function startCrashPolling() {
                                 showCrashResult('lose', 0, crashPoint);
                             }
                             loadBalance();
-                            loadCrashStats();
                         }
                     }, 1500);
                 }
@@ -2933,20 +1612,29 @@ function startCrashPolling() {
             // === ОЖИДАНИЕ ===
             else if (status.round_phase === 'waiting') {
                 resetCrashChart();
-                timerEl.textContent = '🚀 МОЖНО СТАВИТЬ!';
-                timerEl.style.fontSize = '16px';
-                timerEl.style.fontWeight = '600';
-                timerEl.style.color = '#4caf50';
-                DOM.crashStatus.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
-                DOM.crashStartBtn.style.display = 'inline-block';
-                DOM.crashStartBtn.disabled = false;
-                DOM.crashStartBtn.textContent = '🎮 ИГРАТЬ';
-                DOM.crashStartBtn.onclick = placeCrashBet;
-                DOM.crashMultiplier.textContent = 'x1.00';
-                DOM.crashMultiplier.style.color = '#b388ff';
-                DOM.crashMultiplier.className = '';
-                DOM.crashCashoutBtn.style.display = 'none';
-                DOM.crashCashoutBtn.disabled = false;
+                if (d.timer) {
+                    d.timer.textContent = '🚀 МОЖНО СТАВИТЬ!';
+                    d.timer.style.fontSize = '16px';
+                    d.timer.style.fontWeight = '600';
+                    d.timer.style.color = '#4caf50';
+                }
+                if (d.status) d.status.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
+                if (d.startBtn) {
+                    d.startBtn.style.display = 'inline-block';
+                    d.startBtn.disabled = false;
+                    d.startBtn.textContent = '🎮 ИГРАТЬ';
+                    d.startBtn.onclick = function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        placeCrashBet();
+                    };
+                }
+                if (d.multiplier) {
+                    d.multiplier.textContent = 'x1.00';
+                    d.multiplier.style.color = '#b388ff';
+                    d.multiplier.className = '';
+                }
+                if (d.cashoutBtn) d.cashoutBtn.style.display = 'none';
                 
                 const backBtn = document.querySelector('.btn-back');
                 if (backBtn) backBtn.style.display = 'block';
@@ -2962,7 +1650,8 @@ function startCrashPolling() {
 }
 
 function placeCrashBet() {
-    if (DOM.crashStartBtn.disabled) {
+    const d = getCrashDOM('');
+    if (!d.startBtn || d.startBtn.disabled) {
         showCustomAlert('⏳ Подождите окончания отсчёта!');
         return;
     }
@@ -2998,11 +1687,13 @@ function placeCrashBet() {
             state.crashRunning = false;
             state._resultShown = false;
             
-            DOM.crashBetDisplay.textContent = bet;
-            DOM.crashStartBtn.disabled = true;
-            DOM.crashStartBtn.textContent = '⏳ ОЖИДАНИЕ СТАРТА...';
-            DOM.crashStartBtn.onclick = null;
-            DOM.crashStatus.textContent = '⏳ Ожидание начала игры...';
+            if (d.betDisplay) d.betDisplay.textContent = bet;
+            if (d.startBtn) {
+                d.startBtn.disabled = true;
+                d.startBtn.textContent = '⏳ ОЖИДАНИЕ СТАРТА...';
+                d.startBtn.onclick = null;
+            }
+            if (d.status) d.status.textContent = '⏳ Ожидание начала игры...';
             
             if (state.crashInterval) clearInterval(state.crashInterval);
             state.crashInterval = setInterval(() => {
@@ -3010,7 +1701,7 @@ function placeCrashBet() {
                     if (status.error) {
                         clearInterval(state.crashInterval);
                         state.crashRunning = false;
-                        DOM.crashStatus.textContent = '❌ ' + status.error;
+                        if (d.status) d.status.textContent = '❌ ' + status.error;
                         return;
                     }
                     
@@ -3023,25 +1714,28 @@ function placeCrashBet() {
                         
                         resetCrashChart();
                         
-                        DOM.crashStartBtn.style.display = 'none';
-                        DOM.crashStartBtn.disabled = true;
-                        DOM.crashCashoutBtn.style.display = 'block';
-                        DOM.crashCashoutBtn.style.width = '100%';
-                        DOM.crashCashoutBtn.style.padding = '18px';
-                        DOM.crashCashoutBtn.style.fontSize = '20px';
-                        DOM.crashCashoutBtn.disabled = false;
-                        DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
-                        DOM.crashCashoutBtn.onclick = cashoutCrash;
-                        DOM.crashStatus.textContent = '';
-                        DOM.crashMultiplier.className = '';
+                        if (d.startBtn) {
+                            d.startBtn.style.display = 'none';
+                            d.startBtn.disabled = true;
+                        }
+                        if (d.cashoutBtn) {
+                            d.cashoutBtn.style.display = 'block';
+                            d.cashoutBtn.style.width = '100%';
+                            d.cashoutBtn.style.padding = '18px';
+                            d.cashoutBtn.style.fontSize = '20px';
+                            d.cashoutBtn.disabled = false;
+                            d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
+                            d.cashoutBtn.onclick = cashoutCrash;
+                        }
+                        if (d.status) d.status.textContent = '';
+                        if (d.multiplier) d.multiplier.className = '';
                         
                         const backBtn = document.querySelector('.btn-back');
                         if (backBtn) backBtn.style.display = 'none';
                         
-                        const timerEl = document.getElementById('crashTimer');
-                        if (timerEl) {
-                            timerEl.textContent = '';
-                            timerEl.style.fontSize = '0px';
+                        if (d.timer) {
+                            d.timer.textContent = '';
+                            d.timer.style.fontSize = '0px';
                         }
                         
                         clearInterval(state.crashInterval);
@@ -3050,12 +1744,12 @@ function placeCrashBet() {
                                 if (status2.error) {
                                     clearInterval(state.crashInterval);
                                     state.crashRunning = false;
-                                    DOM.crashStatus.textContent = '❌ ' + status2.error;
+                                    if (d.status) d.status.textContent = '❌ ' + status2.error;
                                     return;
                                 }
                                 
                                 updateCrashChart(status2.multiplier);
-                                DOM.crashMultiplierDisplay.textContent = `x${status2.multiplier}`;
+                                if (d.multiplierDisplay) d.multiplierDisplay.textContent = `x${status2.multiplier}`;
                                 
                                 if (status2.crashed) {
                                     clearInterval(state.crashInterval);
@@ -3063,14 +1757,15 @@ function placeCrashBet() {
                                     state.crashGameStarted = false;
                                     state._resultShown = false;
                                     
-                                    DOM.crashMultiplier.className = 'crashed';
-                                    const crashPoint = status2.crash_multiplier_at_crash || status2.multiplier;
-                                    DOM.crashMultiplier.textContent = `x${crashPoint.toFixed(2)}`;
-                                    DOM.crashMultiplier.style.color = '#f44336';
-                                    DOM.crashStatus.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
-                                    DOM.crashCashoutBtn.style.display = 'none';
-                                    DOM.crashCashoutBtn.disabled = false;
-                                    DOM.crashStartBtn.style.display = 'none';
+                                    if (d.multiplier) {
+                                        d.multiplier.className = 'crashed';
+                                        const crashPoint = status2.crash_multiplier_at_crash || status2.multiplier;
+                                        d.multiplier.textContent = `x${crashPoint.toFixed(2)}`;
+                                        d.multiplier.style.color = '#f44336';
+                                    }
+                                    if (d.status) d.status.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
+                                    if (d.cashoutBtn) d.cashoutBtn.style.display = 'none';
+                                    if (d.startBtn) d.startBtn.style.display = 'none';
                                 }
                             });
                         }, 100);
@@ -3082,19 +1777,24 @@ function placeCrashBet() {
 }
 
 function cashoutCrash() {
+    const d = getCrashDOM('');
     if (!state.crashRunning || !state.crashGameId) {
         showCustomAlert('❌ Нет активной игры!');
         return;
     }
     
-    DOM.crashCashoutBtn.disabled = true;
-    DOM.crashCashoutBtn.textContent = '⏳ ОБРАБОТКА...';
+    if (d.cashoutBtn) {
+        d.cashoutBtn.disabled = true;
+        d.cashoutBtn.textContent = '⏳ ОБРАБОТКА...';
+    }
     
     apiRequest('/cashout_crash', { game_id: state.crashGameId }).then(data => {
         if (data.error) {
             showCustomAlert('❌ ' + data.error);
-            DOM.crashCashoutBtn.disabled = false;
-            DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
+            if (d.cashoutBtn) {
+                d.cashoutBtn.disabled = false;
+                d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
+            }
             return;
         }
         
@@ -3109,25 +1809,32 @@ function cashoutCrash() {
             state.crashInterval = null;
         }
         
-        DOM.crashMultiplier.className = 'win';
-        DOM.crashStatus.textContent = `💰 Выигрыш: ${data.winnings}⭐ (x${data.multiplier})`;
-        DOM.crashCashoutBtn.style.display = 'none';
-        DOM.crashCashoutBtn.disabled = false;
-        DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
-        DOM.crashStartBtn.style.display = 'inline-block';
-        DOM.crashStartBtn.disabled = true;
-        DOM.crashStartBtn.textContent = '⏳ ОЖИДАНИЕ...';
-        DOM.crashStartBtn.onclick = null;
+        if (d.multiplier) {
+            d.multiplier.className = 'win';
+        }
+        if (d.status) d.status.textContent = `💰 Выигрыш: ${data.winnings}⭐ (x${data.multiplier})`;
+        if (d.cashoutBtn) {
+            d.cashoutBtn.style.display = 'none';
+            d.cashoutBtn.disabled = false;
+            d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
+        }
+        if (d.startBtn) {
+            d.startBtn.style.display = 'inline-block';
+            d.startBtn.disabled = true;
+            d.startBtn.textContent = '⏳ ОЖИДАНИЕ...';
+            d.startBtn.onclick = null;
+        }
         
         const backBtn = document.querySelector('.btn-back');
         if (backBtn) backBtn.style.display = 'block';
         
         showCrashResult('win', data.winnings, data.multiplier);
         loadBalance();
-        loadCrashStats();
     }).catch(() => {
-        DOM.crashCashoutBtn.disabled = false;
-        DOM.crashCashoutBtn.textContent = '💰 ЗАБРАТЬ';
+        if (d.cashoutBtn) {
+            d.cashoutBtn.disabled = false;
+            d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
+        }
         showCustomAlert('❌ Ошибка при выводе');
     });
 }
@@ -3160,10 +1867,10 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="font-size:28px; font-weight:700; color:#ffd700;">${winnings}⭐</div>
             <div style="color:#aaa; font-size:16px; margin-top:4px;">Множитель: x${multiplier}</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="closeAllOverlays(); resetCrashUI(); showCrash();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); resetCrashUI(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #4caf50, #2e7d32); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔄 ИГРАТЬ СНОВА
                 </button>
-                <button onclick="closeAllOverlays(); showCrash();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔙 НАЗАД
                 </button>
             </div>
@@ -3175,10 +1882,10 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="color:#aaa; font-size:16px;">Множитель: x${multiplier}</div>
             <div style="color:#888; font-size:14px; margin-top:4px;">Ты потерял ставку</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="closeAllOverlays(); resetCrashUI(); showCrash();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #ff6b6b, #ee5a24); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); resetCrashUI(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #ff6b6b, #ee5a24); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔄 ИГРАТЬ СНОВА
                 </button>
-                <button onclick="closeAllOverlays(); showCrash();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+                <button onclick="closeAllOverlays(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                     🔙 НАЗАД
                 </button>
             </div>
@@ -3188,13 +1895,133 @@ function showCrashResult(result, winnings, multiplier) {
     document.body.appendChild(overlay);
 }
 
-function loadCrashStats() {
-    apiRequest('/get_crash_stats').then(data => {
-        if (DOM.crashGames) DOM.crashGames.textContent = data.games || 0;
-        if (DOM.crashWins) DOM.crashWins.textContent = data.wins || 0;
-        if (DOM.crashLosses) DOM.crashLosses.textContent = data.losses || 0;
-        if (DOM.crashBestMultiplier) DOM.crashBestMultiplier.textContent = 'x' + (data.best_multiplier || 1.0);
+// ===== МИНИ-ИГРЫ =====
+function showCrashGame() {
+    document.getElementById('gamesMenu').style.display = 'none';
+    const container = document.getElementById('crashGameContainer');
+    container.style.display = 'block';
+    container.innerHTML = '';
+    
+    const crashContent = document.querySelector('#crashScreen').cloneNode(true);
+    crashContent.id = 'crashGameContent';
+    
+    // Меняем ID всех элементов внутри
+    const elements = crashContent.querySelectorAll('[id]');
+    elements.forEach(el => {
+        if (el.id) {
+            el.id = 'game_' + el.id;
+        }
     });
+    
+    container.appendChild(crashContent);
+    
+    const backBtn = document.createElement('button');
+    backBtn.textContent = '🔙 Назад к играм';
+    backBtn.className = 'btn-back';
+    backBtn.style.marginTop = '12px';
+    backBtn.onclick = function() {
+        container.style.display = 'none';
+        document.getElementById('gamesMenu').style.display = 'flex';
+        if (state.crashPollingInterval) {
+            clearInterval(state.crashPollingInterval);
+            state.crashPollingInterval = null;
+        }
+        if (state.crashInterval) {
+            clearInterval(state.crashInterval);
+            state.crashInterval = null;
+        }
+    };
+    container.appendChild(backBtn);
+    
+    setTimeout(() => {
+        initCrashChart();
+        resetCrashUI();
+        startCrashPolling();
+    }, 100);
+}
+
+function showMinesGame() {
+    document.getElementById('gamesMenu').style.display = 'none';
+    const container = document.getElementById('minesGameContainer');
+    container.style.display = 'block';
+    container.innerHTML = '';
+    
+    const minesContent = document.querySelector('#minesScreen').cloneNode(true);
+    minesContent.id = 'minesGameContent';
+    container.appendChild(minesContent);
+    
+    const backBtn = document.createElement('button');
+    backBtn.textContent = '🔙 Назад к играм';
+    backBtn.className = 'btn-back';
+    backBtn.style.marginTop = '12px';
+    backBtn.onclick = function() {
+        container.style.display = 'none';
+        document.getElementById('gamesMenu').style.display = 'flex';
+    };
+    container.appendChild(backBtn);
+    
+    setTimeout(() => {
+        loadMinesStats();
+    }, 100);
+}
+
+function showUpgradeGame() {
+    document.getElementById('gamesMenu').style.display = 'none';
+    const container = document.getElementById('upgradeGameContainer');
+    container.style.display = 'block';
+    container.innerHTML = '';
+    
+    const upgradeContent = document.querySelector('#upgradeScreen').cloneNode(true);
+    upgradeContent.id = 'upgradeGameContent';
+    container.appendChild(upgradeContent);
+    
+    const backBtn = document.createElement('button');
+    backBtn.textContent = '🔙 Назад к играм';
+    backBtn.className = 'btn-back';
+    backBtn.style.marginTop = '12px';
+    backBtn.onclick = function() {
+        container.style.display = 'none';
+        document.getElementById('gamesMenu').style.display = 'flex';
+    };
+    container.appendChild(backBtn);
+    
+    setTimeout(() => {
+        loadUpgradeBalance();
+        updateUpgradeChance();
+    }, 100);
+}
+
+// ===== МИНЁР (БЫСТРАЯ ВЕРСИЯ) =====
+let minesGameData = null;
+
+function loadMinesStats() {
+    apiRequest('/get_mines_stats').then(data => {
+        document.getElementById('minesGames').textContent = data.games || 0;
+        document.getElementById('minesWins').textContent = data.wins || 0;
+        document.getElementById('minesLosses').textContent = data.losses || 0;
+        document.getElementById('minesBestMultiplier').textContent = 'x' + (data.best_multiplier || 1.0);
+    });
+}
+
+// ===== АПГРЕЙД (БЫСТРАЯ ВЕРСИЯ) =====
+function loadUpgradeBalance() {
+    apiRequest('/get_balance').then(data => {
+        if (data.balance !== undefined) {
+            document.getElementById('upgradeBalance').textContent = data.balance + ' ⭐';
+        }
+    });
+}
+
+function updateUpgradeChance() {
+    const bet = parseInt(document.getElementById('upgradeBet').value) || 1;
+    const target = parseInt(document.getElementById('upgradeTarget').value) || bet + 1;
+    if (target <= bet) {
+        document.getElementById('upgradeChance').textContent = '0%';
+        return;
+    }
+    const raw = (bet / target) * 100;
+    const chance = Math.min(Math.max(raw, 1), 70);
+    document.getElementById('upgradeChance').textContent = chance.toFixed(2) + '%';
 }
 
 // ===== ПРОФИЛЬ =====
@@ -3266,10 +2093,5 @@ function submitWithdraw() {
 }
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====
-initMinesBoard();
 loadBalance();
-loadMinesStats();
-loadCrashStats();
-initCrashChart();
-startCrashPolling();
 tg.ready();
