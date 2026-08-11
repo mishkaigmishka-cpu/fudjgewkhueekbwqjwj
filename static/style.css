@@ -699,7 +699,7 @@ input:disabled {
 /* Минёр — мягкий розовый */
 #minesGameContainer .mines-title,
 #minesGameContainer .game-title {
-    color: #f472b6;
+    color: #dc2626;
 }
 
 /* Апгрейд — мягкий золотой */
@@ -716,9 +716,9 @@ input:disabled {
 }
 
 .gm_btn.active {
-    border-color: #22c55e;
-    background: rgba(34, 197, 94, 0.12);
-    color: #22c55e;
+    border-color: #dc2626;
+    background: rgba(220, 38, 38, 0.12);
+    color: #dc2626;
 }
 
 .gm_btn:hover {
