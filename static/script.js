@@ -1,11 +1,5 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v11.3
-// ИСПРАВЛЕНИЯ:
-// 1) Исправлены шансы в кейсах (Mud, Wood, Stone, Bronze)
-// 2) Убраны уведомления о звёздах и уровнях
-// 3) Исправлена анимация 10 кейсов
-// 4) Исправлен краш (убрано мигание, кнопка работает)
-// 5) Исправлена навигация в апгрейде
+// RANDEVU — FINAL SCRIPT v11.4
 // ===============================
 
 const tg = window.Telegram.WebApp;
@@ -946,8 +940,8 @@ function show10CasesAnimation(type, data) {
         flexShrink: '0'
     });
 
-    const cardWidth = 55;
-    const cardGap = 4;
+    const cardWidth = 70;
+    const cardGap = 6;
     const totalItems = prizes.length;
     const tracks = [];
 
@@ -959,7 +953,7 @@ function show10CasesAnimation(type, data) {
             borderRadius: '8px',
             border: '1px solid rgba(255,255,255,0.06)',
             background: 'rgba(0,0,0,0.3)',
-            height: '60px',
+            height: '65px',
             flexShrink: '0'
         });
 
@@ -973,14 +967,14 @@ function show10CasesAnimation(type, data) {
             willChange: 'transform',
             position: 'relative',
             top: '2px',
-            width: (totalItems * 2 * (cardWidth + cardGap)) + 'px'
+            width: (totalItems * 3 * (cardWidth + cardGap)) + 'px'
         });
 
         const targetPrize = data.prizes[r] || prizes[0];
         const targetIndex = prizes.indexOf(targetPrize);
         const winPos = Math.floor(totalItems * 1.5) + targetIndex;
         
-        for (let i = 0; i < totalItems * 2; i++) {
+        for (let i = 0; i < totalItems * 3; i++) {
             let value;
             if (i === winPos) {
                 value = targetPrize;
@@ -992,7 +986,7 @@ function show10CasesAnimation(type, data) {
             const card = document.createElement('div');
             Object.assign(card.style, {
                 width: cardWidth + 'px',
-                height: '48px',
+                height: '50px',
                 flexShrink: '0',
                 display: 'flex',
                 alignItems: 'center',
@@ -1129,14 +1123,11 @@ async function loadLevels() {
     const container = document.getElementById('levelsList');
     container.innerHTML = '';
     
-    let prevCompleted = true;
-    
     LEVELS.forEach((level) => {
         const opened = caseCounts[level.caseType] || 0;
         const stars = levelStars[level.id] || 0;
         const wins = levelWins[level.caseType] || 0;
         const isCompleted = wins >= 3;
-        const isUnlocked = prevCompleted || isCompleted;
         const progressPercent = Math.min((opened / 10) * 100, 100);
         
         let statusText, statusClass, playDisabled = true;
@@ -1145,30 +1136,24 @@ async function loadLevels() {
             statusText = '✅ Пройден';
             statusClass = 'completed';
             playDisabled = false;
-        } else if (isUnlocked && stars > 0) {
+        } else if (stars > 0) {
             statusText = `⭐ Доступен (${stars} звёзд)`;
             statusClass = 'unlocked';
             playDisabled = false;
-        } else if (isUnlocked) {
+        } else {
             statusText = `📦 ${opened}/10 кейсов`;
             statusClass = 'unlocked';
-            playDisabled = true;
-        } else {
-            statusText = '🔒 Заблокирован';
-            statusClass = 'locked';
             playDisabled = true;
         }
         
         const card = document.createElement('div');
-        card.className = `level-card ${isCompleted ? 'completed' : isUnlocked ? 'unlocked' : 'locked'}`;
+        card.className = `level-card ${isCompleted ? 'completed' : 'unlocked'}`;
         
         let buttonHTML = '';
-        if (!isCompleted && stars > 0) {
+        if (stars > 0) {
             buttonHTML = `<button class="level-play-btn" onclick="startLevelWithStar('${level.id}')">⭐ ИГРАТЬ ЗА ЗВЕЗДУ</button>`;
-        } else if (!isCompleted && isUnlocked) {
+        } else {
             buttonHTML = `<button class="level-play-btn" ${playDisabled ? 'disabled' : ''} onclick="startLevel('${level.id}')">▶️ ИГРАТЬ</button>`;
-        } else if (!isCompleted && !isUnlocked) {
-            buttonHTML = `<button class="level-play-btn" disabled>🔒</button>`;
         }
         
         card.innerHTML = `
@@ -1193,10 +1178,6 @@ async function loadLevels() {
         `;
         
         container.appendChild(card);
-        
-        if (isCompleted) {
-            prevCompleted = true;
-        }
     });
 }
 
@@ -1920,7 +1901,7 @@ function showCrashGame() {
     container.style.display = 'block';
     container.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-size:20px; font-weight:800; color:#b388ff;">💥 КРАШ</div>
+            <div style="font-size:20px; font-weight:800; color:#ff0080;">💥 КРАШ</div>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; background:rgba(255,255,255,0.04); border-radius:16px; padding:14px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.05);">
             <span style="font-size:14px; color:#888;">Игр: <b id="gc_games" style="color:#fff;">0</b></span>
@@ -1971,7 +1952,7 @@ function showCrashGame() {
     }, 50);
 }
 
-// ===== КРАШ В МИНИ-ИГРАХ =====
+// ===== КРАШ =====
 let crash = {
     isActive: false,
     isRunning: false,
@@ -2084,7 +2065,7 @@ function drawCrashChart() {
     }
     
     const maxVal = Math.max(...data, 1);
-    const scaleY = (h - 20) / (maxVal * 1.2);
+    const scaleY = (h - 20) / (maxVal * 0.8);
     const scaleX = (w - 20) / (data.length - 1);
     
     ctx.beginPath();
@@ -2186,14 +2167,12 @@ function startCrashPolling() {
                     d.timer.style.fontSize = '0px';
                 }
                 if (d.startBtn) {
-                    d.startBtn.style.display = 'none';
+                    d.startBtn.style.display = 'inline-block';
                     d.startBtn.disabled = true;
+                    d.startBtn.textContent = '⏳ ИДЁТ ИГРА';
                 }
                 if (d.cashoutBtn) {
-                    d.cashoutBtn.style.display = 'block';
-                    d.cashoutBtn.style.width = '100%';
-                    d.cashoutBtn.style.padding = '18px';
-                    d.cashoutBtn.style.fontSize = '20px';
+                    d.cashoutBtn.style.display = 'inline-block';
                     d.cashoutBtn.disabled = false;
                     d.cashoutBtn.textContent = '💰 ЗАБРАТЬ';
                 }
@@ -2217,7 +2196,6 @@ function startCrashPolling() {
                 }
                 if (d.status) d.status.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
                 if (d.cashoutBtn) d.cashoutBtn.style.display = 'none';
-                if (d.startBtn) d.startBtn.style.display = 'none';
                 
                 if (!crash.isAnimating) {
                     crash.isAnimating = true;
@@ -2235,13 +2213,13 @@ function startCrashPolling() {
                             }
                             if (d.startBtn) {
                                 d.startBtn.style.display = 'inline-block';
+                                d.startBtn.disabled = false;
                                 d.startBtn.textContent = '🎮 ИГРАТЬ';
                                 d.startBtn.onclick = function(e) {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     placeCrashBet();
                                 };
-                                d.startBtn.disabled = false;
                             }
                             if (d.status) d.status.textContent = `⏳ Новая игра через ${Math.ceil(timeToNew)} сек...`;
                         } else {
@@ -2253,13 +2231,13 @@ function startCrashPolling() {
                             }
                             if (d.startBtn) {
                                 d.startBtn.style.display = 'inline-block';
+                                d.startBtn.disabled = false;
                                 d.startBtn.textContent = '🎮 ИГРАТЬ';
                                 d.startBtn.onclick = function(e) {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     placeCrashBet();
                                 };
-                                d.startBtn.disabled = false;
                             }
                             if (d.status) d.status.textContent = '🚀 Нажми «ИГРАТЬ», чтобы сделать ставку!';
                         }
@@ -3241,7 +3219,7 @@ document.addEventListener('DOMContentLoaded', function() {
         menu.id = 'gamesMenu';
         menu.style.cssText = 'display:flex; flex-direction:column; gap:12px; margin-top:8px;';
         menu.innerHTML = `
-            <button onclick="showCrashGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-size:20px; font-weight:700; cursor:pointer;">💥 КРАШ</button>
+            <button onclick="showCrashGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ff0080,#ff4d6d); color:#fff; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 30px rgba(255,0,128,0.3);">💥 КРАШ</button>
             <button onclick="showMinesGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; font-size:20px; font-weight:700; cursor:pointer;">💣 МИНЁР</button>
             <button onclick="showUpgradeGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-size:20px; font-weight:700; cursor:pointer;">⚡ АПГРЕЙД</button>
         `;
