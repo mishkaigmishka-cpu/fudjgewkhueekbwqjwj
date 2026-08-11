@@ -748,7 +748,7 @@ input:disabled {
     transform: scale(0.97);
 }
 
-/* Кнопка "ИГРАТЬ" в краше — без мигания */
+/* Кнопка "СДЕЛАТЬ СТАВКУ" в краше — без мигания */
 #gc_start_btn {
     transition: none !important;
     animation: none !important;
