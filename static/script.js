@@ -1,12 +1,11 @@
 // ===============================
 // RANDEVU — FINAL SCRIPT v12.0
 // ВСЕ ИСПРАВЛЕНИЯ:
-// - Краш: нет мигания, вертикальный график, корректная логика
-// - Уровни: нет кнопки "⭐ ИГРАТЬ ЗА ЗВЕЗДУ" для пройденных
+// - Краш: зелёная кнопка, нет мигания, вертикальный график, корректная логика
+// - Уровни: последовательное открытие, убрана "⭐ ИГРАТЬ ЗА ЗВЕЗДУ"
 // - Битва: убрана лишняя информация
 // - 10 кейсов: те же шансы
 // - Анимация битвы: 80 карт, 10 секунд
-// - Мини-игры: мягкие цвета
 // ===============================
 
 const tg = window.Telegram.WebApp;
@@ -1126,6 +1125,7 @@ async function loadLevels() {
     const caseCounts = data.case_counts || {};
     const levelStars = data.level_stars || {};
     const levelWins = data.level_wins || {};
+    const unlockedLevels = data.unlocked_levels || ['mud'];
     
     const container = document.getElementById('levelsList');
     container.innerHTML = '';
@@ -1135,17 +1135,18 @@ async function loadLevels() {
         const stars = levelStars[level.id] || 0;
         const wins = levelWins[level.caseType] || 0;
         const isCompleted = wins >= 3;
+        const isUnlocked = unlockedLevels.includes(level.caseType);
         const progressPercent = Math.min((opened / 10) * 100, 100);
         
         let statusText, statusClass, playDisabled = true;
         
-        if (isCompleted) {
+        if (!isUnlocked) {
+            statusText = '🔒 Заблокирован';
+            statusClass = 'locked';
+            playDisabled = true;
+        } else if (isCompleted) {
             statusText = '✅ Пройден';
             statusClass = 'completed';
-            playDisabled = false;
-        } else if (stars > 0) {
-            statusText = `⭐ Доступен (${stars} звёзд)`;
-            statusClass = 'unlocked';
             playDisabled = false;
         } else {
             statusText = `📦 ${opened}/10 кейсов`;
@@ -1154,14 +1155,14 @@ async function loadLevels() {
         }
         
         const card = document.createElement('div');
-        card.className = `level-card ${isCompleted ? 'completed' : 'unlocked'}`;
+        card.className = `level-card ${!isUnlocked ? 'locked' : isCompleted ? 'completed' : 'unlocked'}`;
         
-        // ===== УБРАНА КНОПКА "⭐ ИГРАТЬ ЗА ЗВЕЗДУ" ДЛЯ ПРОЙДЕННЫХ =====
+        // ===== ТОЛЬКО "▶️ ИГРАТЬ" ДЛЯ ВСЕХ =====
         let buttonHTML = '';
-        if (!isCompleted && stars > 0) {
-            buttonHTML = `<button class="level-play-btn" onclick="startLevelWithStar('${level.id}')">⭐ ИГРАТЬ ЗА ЗВЕЗДУ</button>`;
-        } else {
+        if (isUnlocked) {
             buttonHTML = `<button class="level-play-btn" ${playDisabled ? 'disabled' : ''} onclick="startLevel('${level.id}')">▶️ ИГРАТЬ</button>`;
+        } else {
+            buttonHTML = `<button class="level-play-btn" disabled>🔒</button>`;
         }
         
         card.innerHTML = `
@@ -1170,15 +1171,14 @@ async function loadLevels() {
                 <div class="level-name">${level.name}</div>
                 <div class="level-progress">
                     ${statusText}
-                    ${!isCompleted ? `
+                    ${!isCompleted && isUnlocked ? `
                         <div class="progress-bar">
                             <div class="fill" style="width:${progressPercent}%"></div>
                         </div>
-                    ` : `
-                        <div style="color:#ffd700; margin-top:4px;">✅ Уровень пройден!</div>
-                    `}
-                    ${stars > 0 ? `<div style="color:#b388ff; font-size:12px;">⭐ Звёзд: ${stars}</div>` : ''}
-                    ${wins > 0 && !isCompleted ? `<div style="font-size:11px; color:#666;">Побед: ${wins}/3</div>` : ''}
+                    ` : ''}
+                    ${isCompleted ? `<div style="color:#ffd700; margin-top:4px;">✅ Уровень пройден!</div>` : ''}
+                    ${stars > 0 && isUnlocked ? `<div style="color:#b388ff; font-size:12px;">⭐ Звёзд: ${stars}</div>` : ''}
+                    ${wins > 0 && !isCompleted && isUnlocked ? `<div style="font-size:11px; color:#666;">Побед: ${wins}/3</div>` : ''}
                 </div>
             </div>
             <div class="level-status ${statusClass}">${statusText}</div>
@@ -1316,7 +1316,6 @@ function showBotRouletteAnimationWithResult(data, case_type) {
     const container = document.createElement('div');
     container.style.cssText = 'display:flex; flex-direction:column; gap:8px; width:100%; max-width:600px; flex:1; justify-content:center;';
     
-    // ===== ДЛИННАЯ ПРОКРУТКА (80 карт) =====
     const cardWidth = 120;
     const cardGap = 8;
     const totalCards = 80;
@@ -1413,7 +1412,6 @@ function showBotRouletteAnimationWithResult(data, case_type) {
         void track2.offsetHeight;
         
         setTimeout(() => {
-            // ===== 10 СЕКУНД ПРОКРУТКИ =====
             track1.style.transition = 'transform 10000ms cubic-bezier(0.05, 0.8, 0.1, 1)';
             track1.style.transform = `translateX(-${finalShift1}px)`;
             track2.style.transition = 'transform 10000ms cubic-bezier(0.05, 0.8, 0.1, 1)';
@@ -1491,7 +1489,6 @@ function showBotBattleResult(data, case_type) {
         `;
     }
     
-    // ===== УБРАНА ЛИШНЯЯ ИНФОРМАЦИЯ =====
     overlay.innerHTML = `
         <div style="font-size:80px; margin-bottom:10px;">${iconMap[data.result]}</div>
         <div style="font-size:32px; font-weight:800; color:${colorMap[data.result]}; margin-bottom:20px;">${titleMap[data.result]}</div>
@@ -1886,7 +1883,7 @@ function showCrashGame() {
     container.style.display = 'block';
     container.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-size:20px; font-weight:800; color:#a78bfa;">💥 КРАШ</div>
+            <div style="font-size:20px; font-weight:800; color:#22c55e;">💥 КРАШ</div>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; background:rgba(255,255,255,0.04); border-radius:16px; padding:14px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.05);">
             <span style="font-size:14px; color:#888;">Игр: <b id="gc_games" style="color:#fff;">0</b></span>
@@ -1897,7 +1894,7 @@ function showCrashGame() {
         <div style="text-align:center; padding:16px 0; background:rgba(255,255,255,0.04); border-radius:24px; margin-bottom:16px;">
             <div id="gc_chart" style="position:relative; width:100%; height:130px; background:rgba(0,0,0,0.3); border-radius:12px; overflow:hidden; margin-bottom:8px; border:1px solid rgba(255,255,255,0.04);">
                 <canvas id="gc_canvas" width="400" height="130" style="width:100%; height:130px; display:block;"></canvas>
-                <div id="gc_multiplier" style="position:absolute; top:6px; right:12px; font-size:32px; font-weight:900; color:#a78bfa; text-shadow:0 0 30px rgba(167,139,250,0.5); transition:none; line-height:1;">x1.00</div>
+                <div id="gc_multiplier" style="position:absolute; top:6px; right:12px; font-size:32px; font-weight:900; color:#22c55e; text-shadow:0 0 30px rgba(34,197,94,0.3); transition:none; line-height:1;">x1.00</div>
                 <div style="position:absolute; bottom:0; left:0; right:0; height:3px; background:rgba(255,255,255,0.08);">
                     <div id="gc_progress" style="height:100%; width:0%; background:linear-gradient(90deg, #4caf50, #ffd700, #f44336); border-radius:0 3px 3px 0; transition:width 0.1s ease;"></div>
                 </div>
@@ -1915,7 +1912,7 @@ function showCrashGame() {
             <input type="number" id="gc_bet_input" min="1" max="1000" value="10" style="width:100%; padding:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.3); color:#fff; font-size:18px; font-weight:700; text-align:center;">
         </div>
         <div style="display:flex; gap:12px;">
-            <button id="gc_start_btn" style="flex:1; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#4caf50,#2e7d32); color:#fff; font-weight:800; font-size:18px; cursor:pointer; transition:none; animation:none;">🎮 ИГРАТЬ</button>
+            <button id="gc_start_btn" style="flex:1; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; font-weight:800; font-size:18px; cursor:pointer; transition:none; animation:none;">🎮 ИГРАТЬ</button>
             <button id="gc_cashout_btn" style="display:none; flex:1; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-weight:800; font-size:18px; cursor:pointer;">💰 ЗАБРАТЬ</button>
         </div>
     `;
@@ -2042,7 +2039,7 @@ function drawCrashChart() {
         ctx.fillText('Ожидание игры...', w/2, h/2 + 5);
         if (d.multiplier) {
             d.multiplier.textContent = 'x1.00';
-            d.multiplier.style.color = '#a78bfa';
+            d.multiplier.style.color = '#22c55e';
             d.multiplier.style.transform = 'scale(1)';
             d.multiplier.style.transition = 'none';
         }
@@ -2052,17 +2049,16 @@ function drawCrashChart() {
     }
     
     const maxVal = Math.max(...data, 1);
-    // ===== ВЕРТИКАЛЬНЫЙ ГРАФИК (scaleY = 0.5) и ОПУЩЕН НИЖЕ (topOffset = 30) =====
-    const topOffset = 30;
+    const topOffset = 5;
     const bottomOffset = 10;
     const availableHeight = h - topOffset - bottomOffset;
     const scaleY = availableHeight / (maxVal * 0.5);
     const scaleX = (w - 20) / (data.length - 1);
     
     ctx.beginPath();
-    ctx.strokeStyle = '#a78bfa';
+    ctx.strokeStyle = '#22c55e';
     ctx.lineWidth = 2.5;
-    ctx.shadowBlur = 0; // ← УБРАНО СВЕЧЕНИЕ
+    ctx.shadowBlur = 0;
     
     data.forEach((val, i) => {
         const x = 10 + i * scaleX;
@@ -2077,7 +2073,7 @@ function drawCrashChart() {
     ctx.lineTo(lastX, h - bottomOffset);
     ctx.lineTo(10, h - bottomOffset);
     ctx.closePath();
-    ctx.fillStyle = 'rgba(167,139,250,0.08)';
+    ctx.fillStyle = 'rgba(34,197,94,0.08)';
     ctx.fill();
     
     const currentVal = data[data.length - 1] || 1.00;
@@ -2120,7 +2116,7 @@ function resetCrashChart() {
     const d = crash.dom;
     if (d.multiplier) {
         d.multiplier.textContent = 'x1.00';
-        d.multiplier.style.color = '#a78bfa';
+        d.multiplier.style.color = '#22c55e';
         d.multiplier.style.transform = 'scale(1)';
         d.multiplier.style.transition = 'none';
     }
@@ -2198,7 +2194,6 @@ function startCrashPolling() {
                 if (!crash.isAnimating) {
                     crash.isAnimating = true;
                     
-                    // ===== УБРАНО МИГАНИЕ =====
                     setTimeout(() => {
                         resetCrashChart();
                         crash.isAnimating = false;
@@ -2284,7 +2279,7 @@ function startCrashPolling() {
                 }
                 if (d.multiplier) {
                     d.multiplier.textContent = 'x1.00';
-                    d.multiplier.style.color = '#a78bfa';
+                    d.multiplier.style.color = '#22c55e';
                     d.multiplier.style.transform = 'scale(1)';
                     d.multiplier.style.transition = 'none';
                     d.multiplier.className = '';
@@ -2528,7 +2523,7 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="font-size:28px; font-weight:700; color:#ffd700;">${winnings}⭐</div>
             <div style="color:#aaa; font-size:16px; margin-top:4px;">Множитель: x${multiplier}</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #a78bfa, #7c3aed); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ИГРАТЬ СНОВА</button>
+                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #22c55e, #16a34a); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ИГРАТЬ СНОВА</button>
                 <button onclick="document.getElementById('gameCrashResultOverlay').remove(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
             </div>
         `;
@@ -2539,7 +2534,7 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="color:#aaa; font-size:16px;">Множитель: x${multiplier}</div>
             <div style="color:#888; font-size:14px; margin-top:4px;">Ты потерял ставку</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
-                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #a78bfa, #7c3aed); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ИГРАТЬ СНОВА</button>
+                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #22c55e, #16a34a); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ИГРАТЬ СНОВА</button>
                 <button onclick="document.getElementById('gameCrashResultOverlay').remove(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
             </div>
         `;
@@ -2894,14 +2889,14 @@ function showUpgradeGame() {
             </div>
             <div style="background:rgba(255,255,255,0.04); border-radius:16px; padding:14px; margin-bottom:16px; text-align:center;">
                 <div style="color:#aaa; font-size:14px;">Шанс на успех:</div>
-                <div style="font-size:28px; font-weight:900; color:#a78bfa;" id="gu_chance">0%</div>
+                <div style="font-size:28px; font-weight:900; color:#22c55e;" id="gu_chance">0%</div>
             </div>
-            <button id="gu_btn" style="width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#a78bfa,#7c3aed); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">⚡ АПГРЕЙДНУТЬ</button>
+            <button id="gu_btn" style="width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">⚡ АПГРЕЙДНУТЬ</button>
         </div>
         <div id="gu_animation_section" style="display:none; text-align:center;">
-            <canvas id="gu_wheel" width="400" height="400" style="width:100%; max-width:340px; aspect-ratio:1; margin:0 auto 16px; border-radius:50%; box-shadow:0 0 60px rgba(167,139,250,0.15);"></canvas>
+            <canvas id="gu_wheel" width="400" height="400" style="width:100%; max-width:340px; aspect-ratio:1; margin:0 auto 16px; border-radius:50%; box-shadow:0 0 60px rgba(34,197,94,0.15);"></canvas>
             <div id="gu_result" style="font-size:18px; font-weight:700; min-height:30px;"></div>
-            <button onclick="resetGameUpgrade()" style="width:100%; padding:14px; border:none; border-radius:14px; background:linear-gradient(135deg,#a78bfa,#7c3aed); color:#fff; font-weight:700; cursor:pointer; margin-top:12px;">🔄 ЕЩЁ РАЗ</button>
+            <button onclick="resetGameUpgrade()" style="width:100%; padding:14px; border:none; border-radius:14px; background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; font-weight:700; cursor:pointer; margin-top:12px;">🔄 ЕЩЁ РАЗ</button>
         </div>
     `;
     
@@ -3091,12 +3086,12 @@ function startGameUpgradeAnimation(chance, bet, target) {
         ctx.restore();
 
         const gradCenter = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 24);
-        gradCenter.addColorStop(0, '#a78bfa');
-        gradCenter.addColorStop(1, '#7c3aed');
+        gradCenter.addColorStop(0, '#22c55e');
+        gradCenter.addColorStop(1, '#16a34a');
         ctx.beginPath();
         ctx.arc(centerX, centerY, 24, 0, Math.PI * 2);
         ctx.fillStyle = gradCenter;
-        ctx.shadowColor = 'rgba(167,139,250,0.5)';
+        ctx.shadowColor = 'rgba(34,197,94,0.5)';
         ctx.shadowBlur = 25;
         ctx.fill();
         ctx.shadowBlur = 0;
@@ -3109,9 +3104,9 @@ function startGameUpgradeAnimation(chance, bet, target) {
 
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.shadowColor = 'rgba(167,139,250,0.15)';
+        ctx.shadowColor = 'rgba(34,197,94,0.15)';
         ctx.shadowBlur = 50;
-        ctx.strokeStyle = 'rgba(167,139,250,0.05)';
+        ctx.strokeStyle = 'rgba(34,197,94,0.05)';
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.shadowBlur = 0;
@@ -3205,7 +3200,7 @@ function showGameUpgradeResult(result, message, newBalance) {
         <div style="font-size:18px; color:#aaa; text-align:center; margin-bottom:6px;">${message}</div>
         <div style="font-size:16px; color:#888; margin-bottom:20px;">💰 Баланс: ${newBalance} ⭐</div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-            <button onclick="document.getElementById('gameUpgradeResultOverlay').remove(); resetGameUpgrade();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #a78bfa, #7c3aed); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ЕЩЁ РАЗ</button>
+            <button onclick="document.getElementById('gameUpgradeResultOverlay').remove(); resetGameUpgrade();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #22c55e, #16a34a); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ЕЩЁ РАЗ</button>
             <button onclick="document.getElementById('gameUpgradeResultOverlay').remove(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
         </div>
     `;
@@ -3232,7 +3227,7 @@ document.addEventListener('DOMContentLoaded', function() {
         menu.id = 'gamesMenu';
         menu.style.cssText = 'display:flex; flex-direction:column; gap:12px; margin-top:8px;';
         menu.innerHTML = `
-            <button onclick="showCrashGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#a78bfa,#7c3aed); color:#fff; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 30px rgba(167,139,250,0.2);">💥 КРАШ</button>
+            <button onclick="showCrashGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 30px rgba(34,197,94,0.3);">💥 КРАШ</button>
             <button onclick="showMinesGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#f472b6,#db2777); color:#fff; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 30px rgba(244,114,182,0.2);">💣 МИНЁР</button>
             <button onclick="showUpgradeGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#000; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 30px rgba(251,191,36,0.2);">⚡ АПГРЕЙД</button>
         `;
