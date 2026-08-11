@@ -685,15 +685,15 @@ input:disabled {
 
 /* ===== МИНИ-ИГРЫ — МЯГКИЕ ЦВЕТА ===== */
 
-/* Краш — мягкий сине-фиолетовый */
+/* Краш — зелёный */
 #crashGameContainer .crash-title,
 #crashGameContainer .game-title {
-    color: #a78bfa;
+    color: #22c55e;
 }
 
 #crashGameContainer #gc_multiplier {
-    color: #a78bfa;
-    text-shadow: 0 0 30px rgba(167, 139, 250, 0.3);
+    color: #22c55e;
+    text-shadow: 0 0 30px rgba(34, 197, 94, 0.3);
 }
 
 /* Минёр — мягкий розовый */
@@ -716,9 +716,9 @@ input:disabled {
 }
 
 .gm_btn.active {
-    border-color: #a78bfa;
-    background: rgba(167, 139, 250, 0.12);
-    color: #a78bfa;
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.12);
+    color: #22c55e;
 }
 
 .gm_btn:hover {
@@ -727,11 +727,11 @@ input:disabled {
 
 /* График краша — мягкая линия без резких свечений */
 #gc_chart canvas {
-    filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.15));
+    filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.15));
 }
 
 #gc_chart {
-    border-color: rgba(167, 139, 250, 0.08);
+    border-color: rgba(34, 197, 94, 0.08);
 }
 
 /* Кнопки мини-игр — мягкие неоновые */
@@ -741,7 +741,7 @@ input:disabled {
 
 #gamesMenu button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 40px rgba(167, 139, 250, 0.15);
+    box-shadow: 0 8px 40px rgba(34, 197, 94, 0.15);
 }
 
 #gamesMenu button:active {
