@@ -305,7 +305,8 @@ crash_data = {
     'waiting_time': 0,
     'game_count': 0,
     'preview_start': 0,
-    'crash_multiplier_at_crash': 1.00
+    'crash_multiplier_at_crash': 1.00,
+    'first_visit': True
 }
 
 def generate_crash_point():
@@ -450,6 +451,7 @@ def crash_timer():
                     crash_data['waiting_time'] = now + 10
                     crash_data['multiplier'] = crash_data['crash_point']
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
+                    crash_data['first_visit'] = False
             
             elif crash_data['phase'] == 'waiting':
                 if now >= crash_data['waiting_time']:
@@ -466,19 +468,12 @@ def crash_timer():
                 crash_data['multiplier'] = get_crash_multiplier(elapsed)
                 
                 if crash_data['multiplier'] >= crash_data['crash_point'] or crash_data['multiplier'] >= 12.00:
-                    crash_data['phase'] = 'crashed'
-                    crash_data['crash_time'] = now
+                    crash_data['phase'] = 'waiting'
+                    crash_data['waiting_time'] = now + 10
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
                     crash_data['game_count'] += 1
-            
-            elif crash_data['phase'] == 'crashed':
-                if now - crash_data['crash_time'] >= 10:
-                    crash_data['phase'] = 'preview'
-                    crash_data['preview_start'] = now
-                    crash_data['multiplier'] = 1.00
-                    crash_data['crash_point'] = generate_crash_point()
                     crash_data['bets'] = {}
-                    crash_data['crash_multiplier_at_crash'] = 1.00
+                    crash_data['multiplier'] = 1.00
         
         time.sleep(0.05)
 
@@ -1355,8 +1350,6 @@ def open_case():
         if result and result[0] >= 10:
             cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
             conn.commit()
-            cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
-            conn.commit()
         
         update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
         update_status(user_id, new_total)
@@ -1535,8 +1528,6 @@ def open_10_cases():
     result = cursor.fetchone()
     if result and result[0] >= 10:
         cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
-        conn.commit()
-        cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
         conn.commit()
     
     new_bal = user[1] - total_price + total_prize
