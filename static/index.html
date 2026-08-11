@@ -128,7 +128,7 @@
 
         <!-- ===== МИНИ-ИГРЫ ===== -->
         <div id="gamesScreen" class="screen">
-            <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+            <div id="gamesMenu" style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
                 <button onclick="showCrashGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-size:20px; font-weight:700; cursor:pointer;">💥 КРАШ</button>
                 <button onclick="showMinesGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; font-size:20px; font-weight:700; cursor:pointer;">💣 МИНЁР</button>
                 <button onclick="showUpgradeGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-size:20px; font-weight:700; cursor:pointer;">⚡ АПГРЕЙД</button>
@@ -141,7 +141,7 @@
 
         <!-- ===== ЗАДАНИЯ ===== -->
         <div id="questsScreen" class="screen">
-            <div class="section-title">📋 ЗАДАНИЯ</div>
+            <div class="section-title">ЗАДАНИЯ</div>
             <div style="display:flex; gap:8px; margin-bottom:16px; overflow-x:auto; padding-bottom:4px;">
                 <button class="quest-tab active" data-tab="status" onclick="switchQuestTab('status')">👑 Статусы</button>
                 <button class="quest-tab" data-tab="levels" onclick="switchQuestTab('levels')">🎯 Уровни</button>
