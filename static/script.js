@@ -1,13 +1,11 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v11.1
+// RANDEVU — FINAL SCRIPT v11.3
 // ИСПРАВЛЕНИЯ:
-// 1) Обычные смайлики в уровнях
-// 2) Мини-игры — добавлен джойстик, кнопка "Назад" ведёт в меню кейсов
-// 3) Убран смайлик в заданиях
-// 4) Исправлена сетевая ошибка в мини-играх (добавлены таймауты и повторные попытки)
-// 5) Уровни: после 3 побед открывается новый, старый остаётся доступен.
-//    Анимация открытия кейсов — 1 прокрутка, без подставки.
-//    Кнопка "Назад" после битвы ведёт в меню уровней, а не в кейсы.
+// 1) Исправлены шансы в кейсах (Mud, Wood, Stone, Bronze)
+// 2) Убраны уведомления о звёздах и уровнях
+// 3) Исправлена анимация 10 кейсов
+// 4) Исправлен краш (убрано мигание, кнопка работает)
+// 5) Исправлена навигация в апгрейде
 // ===============================
 
 const tg = window.Telegram.WebApp;
@@ -234,13 +232,11 @@ function showGames() {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.querySelector('.nav-item[data-tab="games"]').classList.add('active');
     
-    // Показываем меню игр, скрываем контейнеры
     document.getElementById('gamesMenu').style.display = 'flex';
     document.getElementById('crashGameContainer').style.display = 'none';
     document.getElementById('minesGameContainer').style.display = 'none';
     document.getElementById('upgradeGameContainer').style.display = 'none';
     
-    // Сбрасываем краш
     if (state.crashPollingInterval) {
         clearInterval(state.crashPollingInterval);
         state.crashPollingInterval = null;
@@ -279,9 +275,9 @@ function goBack() {
         if (id === 'levelsScreen' || id === 'questsScreen' || id === 'profileScreen') {
             showMain();
         } else if (id === 'gamesScreen') {
-            showMain(); // ← ИСПРАВЛЕНО: назад в меню кейсов
+            showMain();
         } else if (id === 'crashGameContainer' || id === 'minesGameContainer' || id === 'upgradeGameContainer') {
-            showGames(); // ← ИСПРАВЛЕНО: назад в меню мини-игр
+            showGames();
         } else {
             showMain();
         }
@@ -417,9 +413,8 @@ function showTape(type, mode = 'preview') {
         top: mode === 'preview' ? '15px' : '10px'
     });
 
-    // === ИСПРАВЛЕНИЕ 5: 1 прокрутка, без подставки ===
-    const repeats = mode === 'preview' ? 20 : 20; // ← всегда 20 карт, 1 прокрутка
-    const winPosition = 10; // ← фиксированная позиция выигрыша
+    const repeats = mode === 'preview' ? 20 : 20;
+    const winPosition = 10;
 
     let cards = [];
     for (let i = 0; i < repeats; i++) {
@@ -674,7 +669,7 @@ function startFinalSpin(type) {
     const viewportWidth = viewport.offsetWidth || 700;
     const centerOffset = viewportWidth / 2;
     const shift = (winPosition * totalCardWidth) - centerOffset + (cardWidth / 2);
-    const noise = Math.floor(Math.random() * 20) - 10; // ← меньший шум для точности
+    const noise = Math.floor(Math.random() * 20) - 10;
     const finalShift = shift + noise;
 
     track.style.transition = `transform 4000ms cubic-bezier(0.1, 1, 0.1, 1)`;
@@ -815,7 +810,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         });
         backBtn.onclick = function() {
             closeAllOverlays();
-            showMain(); // ← ИСПРАВЛЕНО: назад в кейсы
+            showMain();
         };
 
         btnContainer.appendChild(againBtn);
@@ -978,7 +973,7 @@ function show10CasesAnimation(type, data) {
             willChange: 'transform',
             position: 'relative',
             top: '2px',
-            width: (totalItems * 2 * (cardWidth + cardGap)) + 'px' // ← 2 прокрутки
+            width: (totalItems * 2 * (cardWidth + cardGap)) + 'px'
         });
 
         const targetPrize = data.prizes[r] || prizes[0];
@@ -1164,9 +1159,17 @@ async function loadLevels() {
             playDisabled = true;
         }
         
-        // ===== ИСПРАВЛЕНИЕ 1: обычные смайлики =====
         const card = document.createElement('div');
         card.className = `level-card ${isCompleted ? 'completed' : isUnlocked ? 'unlocked' : 'locked'}`;
+        
+        let buttonHTML = '';
+        if (!isCompleted && stars > 0) {
+            buttonHTML = `<button class="level-play-btn" onclick="startLevelWithStar('${level.id}')">⭐ ИГРАТЬ ЗА ЗВЕЗДУ</button>`;
+        } else if (!isCompleted && isUnlocked) {
+            buttonHTML = `<button class="level-play-btn" ${playDisabled ? 'disabled' : ''} onclick="startLevel('${level.id}')">▶️ ИГРАТЬ</button>`;
+        } else if (!isCompleted && !isUnlocked) {
+            buttonHTML = `<button class="level-play-btn" disabled>🔒</button>`;
+        }
         
         card.innerHTML = `
             <div class="level-icon">${level.icon}</div>
@@ -1186,25 +1189,13 @@ async function loadLevels() {
                 </div>
             </div>
             <div class="level-status ${statusClass}">${statusText}</div>
-            ${!isCompleted && stars > 0 ? `
-                <button class="level-play-btn" onclick="startLevelWithStar('${level.id}')">
-                    ⭐ ИГРАТЬ ЗА ЗВЕЗДУ
-                </button>
-            ` : `
-                <button class="level-play-btn" ${playDisabled ? 'disabled' : ''} onclick="startLevel('${level.id}')">
-                    ${isCompleted ? '🔄 ПРОЙТИ' : '▶️ ИГРАТЬ'}
-                </button>
-            `}
+            ${buttonHTML}
         `;
         
         container.appendChild(card);
         
-        // ===== ИСПРАВЛЕНИЕ 5: старый уровень остаётся доступен =====
-        // prevCompleted обновляется только если уровень пройден
         if (isCompleted) {
             prevCompleted = true;
-        } else {
-            // не блокируем следующий, если текущий ещё не пройден
         }
     });
 }
@@ -1340,7 +1331,6 @@ function showBotRouletteAnimationWithResult(data, case_type) {
     const cardGap = 8;
     const totalCards = 20;
     
-    // === РУЛЕТКА ИГРОКА ===
     const p1Wrapper = document.createElement('div');
     p1Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(76,175,80,0.3); border-radius:12px; padding:6px; background:rgba(76,175,80,0.05);';
     let cards1 = '';
@@ -1361,13 +1351,11 @@ function showBotRouletteAnimationWithResult(data, case_type) {
     `;
     container.appendChild(p1Wrapper);
     
-    // === VS ===
     const vsDiv = document.createElement('div');
     vsDiv.style.cssText = 'text-align:center; font-size:28px; font-weight:900; color:#ff6b6b; text-shadow:0 0 30px rgba(255,0,0,0.3); flex-shrink:0; padding:4px 0;';
     vsDiv.textContent = '⚔️ VS';
     container.appendChild(vsDiv);
     
-    // === РУЛЕТКА БОТА ===
     const p2Wrapper = document.createElement('div');
     p2Wrapper.style.cssText = 'flex:1; display:flex; flex-direction:column; min-height:0; border:2px solid rgba(244,67,54,0.3); border-radius:12px; padding:6px; background:rgba(244,67,54,0.05);';
     let cards2 = '';
@@ -1497,7 +1485,6 @@ function showBotRouletteAnimationWithResult(data, case_type) {
     }, 300);
 }
 
-// ===== ИСПРАВЛЕНИЕ 5: кнопка "Назад" ведёт в уровни =====
 function showBotBattleResult(data, case_type) {
     const style = getStyle(case_type);
     
@@ -2235,30 +2222,6 @@ function startCrashPolling() {
                 if (!crash.isAnimating) {
                     crash.isAnimating = true;
                     
-                    if (d.chart) {
-                        d.chart.style.transition = 'box-shadow 0.3s ease';
-                        d.chart.style.boxShadow = '0 0 60px rgba(255,0,0,0.4)';
-                        setTimeout(() => {
-                            d.chart.style.boxShadow = 'none';
-                        }, 1500);
-                    }
-                    
-                    if (d.multiplier) {
-                        d.multiplier.style.transition = 'transform 0.1s ease';
-                        let pulseCount = 0;
-                        const pulseInterval = setInterval(() => {
-                            if (pulseCount >= 8) {
-                                clearInterval(pulseInterval);
-                                if (d.multiplier) d.multiplier.style.transform = 'scale(1)';
-                                return;
-                            }
-                            if (d.multiplier) {
-                                d.multiplier.style.transform = pulseCount % 2 === 0 ? 'scale(1.2)' : 'scale(1)';
-                            }
-                            pulseCount++;
-                        }, 150);
-                    }
-                    
                     setTimeout(() => {
                         resetCrashChart();
                         crash.isAnimating = false;
@@ -2311,7 +2274,7 @@ function startCrashPolling() {
                             showCrashResult('lose', 0, crashPoint);
                             loadCrashStats();
                         }
-                    }, 1500);
+                    }, 500);
                 }
             }
             
