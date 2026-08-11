@@ -696,19 +696,19 @@ input:disabled {
     text-shadow: 0 0 30px rgba(34, 197, 94, 0.3);
 }
 
-/* Минёр — мягкий розовый */
+/* Минёр — красный */
 #minesGameContainer .mines-title,
 #minesGameContainer .game-title {
     color: #dc2626;
 }
 
-/* Апгрейд — мягкий золотой */
+/* Апгрейд — золотой */
 #upgradeGameContainer .upgrade-title,
 #upgradeGameContainer .game-title {
     color: #fbbf24;
 }
 
-/* Кнопки выбора мин — мягкие */
+/* Кнопки выбора мин — красные */
 .gm_btn {
     border-color: rgba(255, 255, 255, 0.06);
     color: #888;
