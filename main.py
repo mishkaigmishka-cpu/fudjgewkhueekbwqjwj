@@ -434,7 +434,7 @@ def crash_timer():
     global crash_data
     while True:
         with crash_lock:
-            if not crash_data['active'] and not crash_data['crashed']:
+            if not crash_data['active'] and not crash_data['crashed'] and crash_data['round_phase'] == 'waiting':
                 crash_data['active'] = True
                 crash_data['start_time'] = time.time()
                 crash_data['multiplier'] = 1.00
@@ -467,6 +467,7 @@ def crash_timer():
                     crash_data['active'] = False
                     crash_data['round_phase'] = 'waiting'
                     crash_data['bets'] = {}
+                    crash_data['multiplier'] = 1.00
         
         time.sleep(0.05)
 
@@ -931,7 +932,7 @@ def start_bot_battle():
         add_commission(commission)
         update_battle_stats(uid, won=True, stars=winnings, case_type=case_type)
         result = 'win'
-        result_text = f'🎉 Ты выиграл! +{winnings}⭐'
+        result_text = f'🎉 Ты выиграл!'
         cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
         wins_data = cursor.fetchone()
         wins_after = wins_data[0] if wins_data else 0
@@ -939,7 +940,7 @@ def start_bot_battle():
         update_user(uid, last_open=int(time.time()))
         update_battle_stats(uid, won=False, stars=player_prize, case_type=case_type)
         result = 'lose'
-        result_text = f'😢 Ты проиграл! -{player_prize}⭐'
+        result_text = f'😢 Ты проиграл!'
         cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
         wins_data = cursor.fetchone()
         wins_after = wins_data[0] if wins_data else 0
@@ -949,7 +950,7 @@ def start_bot_battle():
         add_commission(commission)
         update_battle_stats(uid, won=False, stars=commission, case_type=case_type)
         result = 'draw'
-        result_text = f'🤝 Ничья! Ты получил {player_prize - commission}⭐'
+        result_text = f'🤝 Ничья!'
         cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
         wins_data = cursor.fetchone()
         wins_after = wins_data[0] if wins_data else 0
@@ -965,9 +966,6 @@ def start_bot_battle():
         'result_text': result_text,
         'player_prize': player_prize,
         'bot_prize': bot_prize,
-        'commission': commission,
-        'winnings': winnings if result == 'win' else 0,
-        'use_star': use_star,
         'wins': wins_after,
         'level_unlocked': level_unlocked,
         'needed_wins': 3
@@ -1129,8 +1127,8 @@ def start_crash():
     if user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
     with crash_lock:
-        if crash_data['round_phase'] != 'crashed':
-            return jsonify({'error': 'Ставки принимаются только в окне 10 секунд после краша!'}), 400
+        if crash_data['round_phase'] != 'waiting':
+            return jsonify({'error': 'Ставки принимаются только в режиме ожидания!'}), 400
         if uid in crash_data['bets']:
             return jsonify({'error': 'Ты уже сделал ставку в этом раунде'}), 400
         crash_data['bets'][uid] = bet
