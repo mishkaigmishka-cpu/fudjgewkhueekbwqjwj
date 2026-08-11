@@ -296,16 +296,16 @@ active_mines_games = {}
 crash_lock = threading.Lock()
 
 crash_data = {
-    'active': False,
+    'phase': 'preview',
     'multiplier': 1.00,
-    'crashed': False,
-    'start_time': 0,
     'crash_point': 1.00,
-    'bets': {},
+    'start_time': 0,
     'crash_time': 0,
-    'round_phase': 'waiting',
-    'crash_multiplier_at_crash': 1.00,
-    'game_count': 0
+    'bets': {},
+    'waiting_time': 0,
+    'game_count': 0,
+    'preview_start': 0,
+    'crash_multiplier_at_crash': 1.00
 }
 
 def generate_crash_point():
@@ -434,40 +434,50 @@ def crash_timer():
     global crash_data
     while True:
         with crash_lock:
-            if not crash_data['active'] and not crash_data['crashed'] and crash_data['round_phase'] == 'waiting':
-                crash_data['active'] = True
-                crash_data['start_time'] = time.time()
-                crash_data['multiplier'] = 1.00
-                crash_data['crash_point'] = generate_crash_point()
-                crash_data['round_phase'] = 'active'
-                crash_data['bets'] = {}
-                crash_data['crash_multiplier_at_crash'] = 1.00
+            now = time.time()
             
-            if crash_data['active'] and not crash_data['crashed']:
-                elapsed = time.time() - crash_data['start_time']
+            if crash_data['phase'] == 'preview':
+                if not crash_data.get('preview_start'):
+                    crash_data['preview_start'] = now
+                    crash_data['multiplier'] = 1.00
+                    crash_data['crash_point'] = generate_crash_point()
+                
+                elapsed = now - crash_data['preview_start']
                 crash_data['multiplier'] = get_crash_multiplier(elapsed)
                 
-                if crash_data['multiplier'] >= 12.00 or elapsed >= 25:
-                    crash_data['crashed'] = True
-                    crash_data['round_phase'] = 'crashed'
-                    crash_data['crash_time'] = time.time()
+                if crash_data['multiplier'] >= crash_data['crash_point'] or crash_data['multiplier'] >= 12.00:
+                    crash_data['phase'] = 'waiting'
+                    crash_data['waiting_time'] = now + 10
+                    crash_data['multiplier'] = crash_data['crash_point']
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
-                    crash_data['game_count'] += 1
-                elif crash_data['multiplier'] >= crash_data['crash_point']:
-                    crash_data['crashed'] = True
-                    crash_data['round_phase'] = 'crashed'
-                    crash_data['crash_time'] = time.time()
+            
+            elif crash_data['phase'] == 'waiting':
+                if now >= crash_data['waiting_time']:
+                    crash_data['phase'] = 'active'
+                    crash_data['start_time'] = now
+                    crash_data['multiplier'] = 1.00
+                    crash_data['crash_point'] = generate_crash_point()
+                    crash_data['crash_multiplier_at_crash'] = 1.00
+                else:
+                    crash_data['multiplier'] = 1.00
+            
+            elif crash_data['phase'] == 'active':
+                elapsed = now - crash_data['start_time']
+                crash_data['multiplier'] = get_crash_multiplier(elapsed)
+                
+                if crash_data['multiplier'] >= crash_data['crash_point'] or crash_data['multiplier'] >= 12.00:
+                    crash_data['phase'] = 'crashed'
+                    crash_data['crash_time'] = now
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
                     crash_data['game_count'] += 1
             
-            elif crash_data['crashed']:
-                elapsed_since_crash = time.time() - crash_data['crash_time']
-                if elapsed_since_crash >= 10:
-                    crash_data['crashed'] = False
-                    crash_data['active'] = False
-                    crash_data['round_phase'] = 'waiting'
-                    crash_data['bets'] = {}
+            elif crash_data['phase'] == 'crashed':
+                if now - crash_data['crash_time'] >= 10:
+                    crash_data['phase'] = 'preview'
+                    crash_data['preview_start'] = now
                     crash_data['multiplier'] = 1.00
+                    crash_data['crash_point'] = generate_crash_point()
+                    crash_data['bets'] = {}
                     crash_data['crash_multiplier_at_crash'] = 1.00
         
         time.sleep(0.05)
@@ -907,15 +917,16 @@ def start_bot_battle():
             return jsonify({'error': 'Нет звезды для этого уровня!'}), 400
         cursor.execute("UPDATE level_stars SET earned = earned - 1 WHERE user_id=? AND level_id=?", (uid, case_type))
         conn.commit()
-        cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (uid, case_type))
-        conn.commit()
         price = 0
     else:
-        prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
-        price = prices.get(case_type, 0)
-        if user[1] < price:
-            return jsonify({'error': f'Недостаточно звёзд! Нужно {price}⭐'}), 400
-        update_user(uid, balance=user[1] - price)
+        cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (uid, case_type))
+        result = cursor.fetchone()
+        opened = result[0] if result else 0
+        if opened < 10:
+            return jsonify({'error': f'Нужно открыть 10 кейсов {case_type}! (открыто {opened})'}), 400
+        cursor.execute("UPDATE case_stats SET opened = opened - 10 WHERE user_id=? AND case_type=?", (uid, case_type))
+        conn.commit()
+        price = 0
     
     player_prize = get_prize(case_type, uid)
     bot_prize = get_prize(case_type, None)
@@ -933,7 +944,7 @@ def start_bot_battle():
         add_commission(commission)
         update_battle_stats(uid, won=True, stars=winnings, case_type=case_type)
         result = 'win'
-        result_text = f'🎉 Ты выиграл!'
+        result_text = '🎉 Ты выиграл!'
         cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
         wins_data = cursor.fetchone()
         wins_after = wins_data[0] if wins_data else 0
@@ -941,7 +952,7 @@ def start_bot_battle():
         update_user(uid, last_open=int(time.time()))
         update_battle_stats(uid, won=False, stars=player_prize, case_type=case_type)
         result = 'lose'
-        result_text = f'😢 Ты проиграл!'
+        result_text = '😢 Ты проиграл!'
         cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
         wins_data = cursor.fetchone()
         wins_after = wins_data[0] if wins_data else 0
@@ -951,7 +962,7 @@ def start_bot_battle():
         add_commission(commission)
         update_battle_stats(uid, won=False, stars=commission, case_type=case_type)
         result = 'draw'
-        result_text = f'🤝 Ничья!'
+        result_text = '🤝 Ничья!'
         cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
         wins_data = cursor.fetchone()
         wins_after = wins_data[0] if wins_data else 0
@@ -1114,8 +1125,8 @@ def get_mines_stats():
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
-@app.route('/start_crash', methods=['POST'])
-def start_crash():
+@app.route('/make_crash_bet', methods=['POST'])
+def make_crash_bet():
     global crash_data
     data = request.get_json()
     uid = data.get('user_id')
@@ -1127,46 +1138,32 @@ def start_crash():
         return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
     if user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
+    
     with crash_lock:
-        if crash_data['round_phase'] != 'waiting':
-            return jsonify({'error': 'Подождите окончания игры!'}), 400
+        if crash_data['phase'] != 'waiting':
+            return jsonify({'error': 'Сейчас нельзя сделать ставку!'}), 400
         if uid in crash_data['bets']:
             return jsonify({'error': 'Ты уже сделал ставку'}), 400
+        
         crash_data['bets'][uid] = bet
         update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
-        if user[9] == 1 and user[10]:
-            track_spend(uid, user[10], bet)
-        crash_data['crashed'] = False
-        crash_data['active'] = True
-        crash_data['start_time'] = time.time()
-        crash_data['multiplier'] = 1.00
-        crash_data['crash_point'] = generate_crash_point()
-        crash_data['round_phase'] = 'active'
-        crash_data['crash_multiplier_at_crash'] = 1.00
-    return jsonify({'success': True, 'game_id': int(time.time())})
+    
+    return jsonify({'success': True})
 
 @app.route('/crash_status', methods=['POST'])
 def crash_status():
     global crash_data
     with crash_lock:
-        time_to_new_round = 0
-        if crash_data['round_phase'] == 'crashed':
-            elapsed_since_crash = time.time() - crash_data['crash_time']
-            time_to_new_round = max(0, 10 - elapsed_since_crash)
-            if elapsed_since_crash >= 10:
-                crash_data['crashed'] = False
-                crash_data['active'] = False
-                crash_data['round_phase'] = 'waiting'
-                crash_data['bets'] = {}
-                crash_data['multiplier'] = 1.00
-                crash_data['crash_multiplier_at_crash'] = 1.00
+        now = time.time()
+        waiting_time = 0
+        if crash_data['phase'] == 'waiting':
+            waiting_time = max(0, crash_data['waiting_time'] - now)
+        
         return jsonify({
+            'phase': crash_data['phase'],
             'multiplier': crash_data['multiplier'],
-            'crashed': crash_data['crashed'],
-            'active': crash_data['active'],
-            'round_phase': crash_data['round_phase'],
-            'time_to_new_round': round(time_to_new_round, 1),
-            'crash_multiplier_at_crash': crash_data['crash_multiplier_at_crash'],
+            'waiting_time': round(waiting_time, 1),
+            'crash_multiplier_at_crash': crash_data.get('crash_multiplier_at_crash', 1.00),
             'game_count': crash_data['game_count']
         })
 
@@ -1176,21 +1173,25 @@ def cashout_crash():
     data = request.get_json()
     uid = data.get('user_id')
     with crash_lock:
-        if not crash_data['active'] or crash_data['crashed']:
-            return jsonify({'error': 'Игра не активна или уже произошёл краш'}), 400
+        if crash_data['phase'] != 'active':
+            return jsonify({'error': 'Игра не активна'}), 400
         if uid not in crash_data['bets']:
-            return jsonify({'error': 'Ты не сделал ставку'}), 400
+            return jsonify({'error': 'Ты не делал ставку'}), 400
+        
         bet = crash_data['bets'][uid]
         multiplier = crash_data['multiplier']
         raw_winnings = int(bet * multiplier)
         commission = int(raw_winnings * 0.05)
         winnings = raw_winnings - commission
         final_winnings = min(winnings, 5000)
+        
         user = get_user(uid)
         update_user(uid, balance=user[1] + final_winnings, last_open=int(time.time()))
         add_commission(commission)
         update_crash_stats(uid, won=True, multiplier=multiplier, stars=final_winnings)
+        
         del crash_data['bets'][uid]
+    
     return jsonify({
         'winnings': final_winnings,
         'multiplier': multiplier,
@@ -1320,13 +1321,24 @@ def open_case():
         user = get_user(user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 404
+        
+        if case_type == "free":
+            if time.time() - user[4] < 7200:
+                wait = int((7200 - (time.time() - user[4])) // 60)
+                return jsonify({'error': f'Жди {wait} мин'}), 400
+            prize = get_prize(case_type, user_id)
+            new_bal = user[1] + prize
+            new_total = user[2] + 1
+            new_streak = user[3] + 1
+            update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
+            update_status(user_id, new_total)
+            ad = random.choice(ads) if ads else ""
+            return jsonify({'prize': prize, 'new_balance': new_bal, 'ad': ad})
+        
         prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
         price = prices.get(case_type, 0)
         if user[1] < price:
             return jsonify({'error': 'Недостаточно звёзд!'}), 400
-        if case_type == "free" and time.time() - user[4] < 7200:
-            wait = int((7200 - (time.time() - user[4])) // 60)
-            return jsonify({'error': f'Жди {wait} мин'}), 400
         if prize_from_client is not None:
             prize = prize_from_client
         else:
@@ -1334,23 +1346,21 @@ def open_case():
         new_bal = user[1] - price + prize
         new_total = user[2] + 1
         new_streak = user[3] + 1
-        if case_type != "free":
-            cursor.execute("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + 1", (user_id, case_type))
+        
+        cursor.execute("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + 1", (user_id, case_type))
+        conn.commit()
+        
+        cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
+        result = cursor.fetchone()
+        if result and result[0] >= 10:
+            cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
             conn.commit()
-            cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
-            result = cursor.fetchone()
-            if result and result[0] >= 10:
-                cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
-                conn.commit()
-                cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
-                conn.commit()
-        if case_type == "free":
-            update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
-        else:
-            update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak)
+            cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
+            conn.commit()
+        
+        update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
         update_status(user_id, new_total)
-        ad = random.choice(ads) if case_type == "free" and ads else ""
-        return jsonify({'prize': prize, 'new_balance': new_bal, 'ad': ad})
+        return jsonify({'prize': prize, 'new_balance': new_bal})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1433,7 +1443,6 @@ def get_levels_data():
     wins_data = cursor.fetchall()
     level_wins = {w[0]: w[1] for w in wins_data}
     
-    # ===== ПОСЛЕДОВАТЕЛЬНОЕ ОТКРЫТИЕ =====
     level_order = ['mud', 'wood', 'stone', 'bronze', 'silver', 'gold', 'diamond', 'netherite', 'obsidian', 'bedrock']
     unlocked_levels = []
     unlocked_levels.append('mud')
@@ -1519,16 +1528,17 @@ def open_10_cases():
         prize = get_prize(case_type, user_id)
         prizes.append(prize)
         total_prize += prize
-        if case_type != "free":
-            cursor.execute("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + 1", (user_id, case_type))
-            conn.commit()
-            cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
-            result = cursor.fetchone()
-            if result and result[0] >= 10:
-                cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
-                conn.commit()
-                cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
-                conn.commit()
+        cursor.execute("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + 1", (user_id, case_type))
+        conn.commit()
+    
+    cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
+    result = cursor.fetchone()
+    if result and result[0] >= 10:
+        cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
+        conn.commit()
+        cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
+        conn.commit()
+    
     new_bal = user[1] - total_price + total_prize
     new_total = user[2] + 10
     new_streak = user[3] + 10
