@@ -111,7 +111,6 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS promo_spend (
 )''')
 conn.commit()
 
-# ===== НОВЫЕ ТАБЛИЦЫ =====
 cursor.execute('''CREATE TABLE IF NOT EXISTS level_wins (
     user_id INTEGER,
     case_type TEXT,
@@ -157,15 +156,25 @@ ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Хал
 
 CASE_RANGES = {
     "free": {"common": [1, 2], "rare": [3, 4], "epic": [5, 6, 7, 8, 9, 10], "legendary": [100], "jackpot": [1000], "common_chance": 0.599, "rare_chance": 0.299, "epic_chance": 0.0999, "legendary_chance": 0.0001, "jackpot_chance": 0.00000001},
-    "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.7, "rare_chance": 0.25, "epic_chance": 0.0499, "legendary_chance": 0.001, "jackpot_chance": 0.00000001},
-    "wood": {"common": [2, 4, 5, 6, 7, 8, 9, 10], "rare": [12, 13, 15], "epic": [20, 50], "legendary": [100, 500], "jackpot": [1000], "common_chance": 0.6, "rare_chance": 0.3, "epic_chance": 0.099, "legendary_chance": 0.00001, "jackpot_chance": 0.00000001},
-    "stone": {"common": [11, 13, 15, 16, 17, 18, 19], "rare": [21, 23, 24, 25], "epic": [30, 50, 100, 250], "legendary": [500, 1000], "jackpot": [2500], "common_chance": 0.6, "rare_chance": 0.3, "epic_chance": 0.099, "legendary_chance": 0.00001, "jackpot_chance": 0.00000001},
-    "bronze": {"common": [20, 25, 30], "rare": [35, 40, 45, 50], "epic": [55, 60, 65, 75, 100], "legendary": [222, 333, 444, 555, 1000, 1500, 2000], "jackpot": [5000], "common_chance": 0.25, "rare_chance": 0.6499, "epic_chance": 0.09999, "legendary_chance": 0.000001, "jackpot_chance": 0.000000001},
+    
+    "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.70, "rare_chance": 0.25, "epic_chance": 0.0499, "legendary_chance": 0.001, "jackpot_chance": 0.000001},
+    
+    "wood": {"common": [2, 4, 5, 6, 7, 8, 9, 10], "rare": [12, 13, 15], "epic": [20, 50], "legendary": [100, 500], "jackpot": [1000], "common_chance": 0.75, "rare_chance": 0.19, "epic_chance": 0.05, "legendary_chance": 0.00001, "jackpot_chance": 0.000001},
+    
+    "stone": {"common": [11, 13, 15, 16, 17, 18, 19], "rare": [21, 23, 24, 25], "epic": [30, 50, 100, 250], "legendary": [500, 1000], "jackpot": [2500], "common_chance": 0.80, "rare_chance": 0.15, "epic_chance": 0.05, "legendary_chance": 0.00001, "jackpot_chance": 0.000001},
+    
+    "bronze": {"common": [20, 25, 30], "rare": [35, 40, 45, 50], "epic": [55, 60, 65, 75, 100], "legendary": [222, 333, 444, 555, 1000, 1500, 2000], "jackpot": [5000], "common_chance": 0.89, "rare_chance": 0.10, "epic_chance": 0.009999, "legendary_chance": 0.000001, "jackpot_chance": 0.0000001},
+    
     "silver": {"common": [40, 50, 60, 70], "rare": [70, 80, 90, 100], "epic": [100, 110, 120, 130, 140, 150], "legendary": [200, 250, 333, 444, 555, 666, 777, 888, 999, 1488, 2011, 5000], "jackpot": [10000], "common_chance": 0.25, "rare_chance": 0.6745, "epic_chance": 0.0749, "legendary_chance": 0.0005, "jackpot_chance": 0.00000001},
+    
     "gold": {"common": [75, 100], "rare": [150, 169, 190, 220, 251], "epic": [300, 400, 500, 777], "legendary": [999, 1000, 2000, 5000, 10000, 12500], "jackpot": [25000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
+    
     "diamond": {"common": [250, 300, 333], "rare": [350, 444, 505], "epic": [1000, 1488, 2222], "legendary": [2500, 5000, 10000, 12500, 25000], "jackpot": [50000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
+    
     "netherite": {"common": [500, 550, 600], "rare": [650, 700, 750, 800, 850], "epic": [900, 950, 1000, 1500], "legendary": [2000, 2500, 3000, 3200, 3500, 4000, 5000, 10000, 15000, 20000], "jackpot": [25000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
+    
     "obsidian": {"common": [500, 1000, 1500], "rare": [2000, 2500, 3000], "epic": [4000, 5000, 7500], "legendary": [10000, 15000], "jackpot": [25000], "common_chance": 0.35, "rare_chance": 0.35, "epic_chance": 0.2, "legendary_chance": 0.09, "jackpot_chance": 0.01},
+    
     "bedrock": {"common": [5000], "rare": [10000, 25000], "epic": [50000, 100000], "legendary": [250000], "jackpot": [1000000], "common_chance": 0.999, "rare_chance": 0.0009, "epic_chance": 0.00009, "legendary_chance": 0.000009, "jackpot_chance": 0.000001}
 }
 
@@ -186,7 +195,33 @@ def get_prize(case_type, user_id=None):
     elif rnd < data["jackpot_chance"] + data["legendary_chance"]:
         return random.choice(data["legendary"])
     elif rnd < data["common_chance"]:
-        return random.choice(data["common"])
+        # ===== ВЕСА ВНУТРИ COMMON =====
+        if case_type == "mud":
+            # 39% → 1-2, 31% → 2-7
+            if random.random() < 0.39 / 0.70:
+                return random.choice([1, 2])
+            else:
+                return random.choice([3, 4, 5, 6, 7])
+        elif case_type == "wood":
+            # 39% → 2-5, 36% → 5-10
+            if random.random() < 0.39 / 0.75:
+                return random.choice([2, 4, 5])
+            else:
+                return random.choice([6, 7, 8, 9, 10])
+        elif case_type == "stone":
+            # 55% → 11-15, 25% → 15-19
+            if random.random() < 0.55 / 0.80:
+                return random.choice([11, 13, 15])
+            else:
+                return random.choice([16, 17, 18, 19])
+        elif case_type == "bronze":
+            # 29% → 20-30, 60% → 35-50
+            if random.random() < 0.29 / 0.89:
+                return random.choice([20, 25, 30])
+            else:
+                return random.choice([35, 40, 45, 50])
+        else:
+            return random.choice(data["common"])
     elif rnd < data["common_chance"] + data["rare_chance"]:
         return random.choice(data["rare"])
     else:
@@ -942,10 +977,7 @@ def start_bot_battle():
         level_unlocked = True
         cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (uid, case_type + '_completed'))
         conn.commit()
-        try:
-            bot.send_message(uid, f"🎉 Ты прошёл уровень {case_type.upper()}! Открыт новый уровень!")
-        except:
-            pass
+        # ⚠️ УБРАНО УВЕДОМЛЕНИЕ
     
     return jsonify({
         'result': result,
@@ -1371,11 +1403,7 @@ def open_case():
                 conn.commit()
                 cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
                 conn.commit()
-                try:
-                    stars_count = get_star_count(user_id, case_type)
-                    bot.send_message(user_id, f"⭐ Ты заработал звезду уровня {case_type.upper()}! (всего {stars_count})")
-                except:
-                    pass
+                # ⚠️ УБРАНО УВЕДОМЛЕНИЕ О ЗВЕЗДЕ
         
         if case_type == "free":
             update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
@@ -1541,6 +1569,9 @@ def open_10_cases():
     user_id = data.get('user_id')
     case_type = data.get('case_type')
     
+    if case_type == "free":
+        return jsonify({'error': 'Нельзя открыть 10 бесплатных кейсов'}), 400
+    
     user = get_user(user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
@@ -1571,11 +1602,7 @@ def open_10_cases():
                 conn.commit()
                 cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
                 conn.commit()
-                try:
-                    stars_count = get_star_count(user_id, case_type)
-                    bot.send_message(user_id, f"⭐ Ты заработал звезду уровня {case_type.upper()}! (всего {stars_count})")
-                except:
-                    pass
+                # ⚠️ УБРАНО УВЕДОМЛЕНИЕ
     
     new_bal = user[1] - total_price + total_prize
     new_total = user[2] + 10
