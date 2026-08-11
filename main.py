@@ -431,6 +431,7 @@ def update_battle_stats(user_id, won, stars, case_type=None):
         cursor.execute("INSERT INTO level_wins (user_id, case_type, wins) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET wins = wins + 1", (user_id, case_type))
         conn.commit()
 
+# ===== ФУНКЦИЯ CRASH_TIMER С ИСПРАВЛЕНИЕМ =====
 def crash_timer():
     global crash_data
     while True:
@@ -468,12 +469,17 @@ def crash_timer():
                 crash_data['multiplier'] = get_crash_multiplier(elapsed)
                 
                 if crash_data['multiplier'] >= crash_data['crash_point'] or crash_data['multiplier'] >= 12.00:
-                    crash_data['phase'] = 'waiting'
-                    crash_data['waiting_time'] = now + 10
+                    crash_data['phase'] = 'crashed'
+                    crash_data['crash_time'] = now
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
                     crash_data['game_count'] += 1
                     crash_data['bets'] = {}
                     crash_data['multiplier'] = 1.00
+            
+            elif crash_data['phase'] == 'crashed':
+                if now - crash_data['crash_time'] >= 3:
+                    crash_data['phase'] = 'waiting'
+                    crash_data['waiting_time'] = now + 10
         
         time.sleep(0.05)
 
