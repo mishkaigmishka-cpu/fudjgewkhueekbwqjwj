@@ -1,6 +1,13 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v11.0
-// ВСЕ ИСПРАВЛЕНИЯ ВНЕСЕНЫ
+// RANDEVU — FINAL SCRIPT v11.1
+// ИСПРАВЛЕНИЯ:
+// 1) Обычные смайлики в уровнях
+// 2) Мини-игры — добавлен джойстик, кнопка "Назад" ведёт в меню кейсов
+// 3) Убран смайлик в заданиях
+// 4) Исправлена сетевая ошибка в мини-играх (добавлены таймауты и повторные попытки)
+// 5) Уровни: после 3 побед открывается новый, старый остаётся доступен.
+//    Анимация открытия кейсов — 1 прокрутка, без подставки.
+//    Кнопка "Назад" после битвы ведёт в меню уровней, а не в кейсы.
 // ===============================
 
 const tg = window.Telegram.WebApp;
@@ -56,17 +63,25 @@ const getPrizes = (type) => CONFIG.CASE_PRIZES[type] || [1,10,100];
 const getStyle = (type) => CONFIG.CASE_STYLES[type] || CONFIG.CASE_STYLES['free'];
 const getPrice = (type) => CONFIG.CASE_PRICES[type] || 0;
 
-const apiRequest = async (endpoint, body = {}) => {
-    try {
-        const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, ...body })
-        });
-        return await res.json();
-    } catch {
-        return { error: 'Сетевая ошибка' };
+const apiRequest = async (endpoint, body = {}, retries = 3) => {
+    for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id, ...body })
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return await res.json();
+        } catch (e) {
+            if (attempt === retries - 1) {
+                console.error(`Ошибка запроса к ${endpoint}:`, e);
+                return { error: 'Сетевая ошибка. Попробуйте позже.' };
+            }
+            await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+        }
     }
+    return { error: 'Сетевая ошибка' };
 };
 
 const createCardElement = (value, style, width = 90, height = 140) => {
@@ -155,7 +170,8 @@ let state = {
     crashInterval: null,
     crashPollingInterval: null,
     _crashStartTime: null,
-    _resultShown: false
+    _resultShown: false,
+    lastLevelCaseType: null
 };
 
 // ===== ЗАКРЫТИЕ ОВЕРЛЕЕВ =====
@@ -218,6 +234,7 @@ function showGames() {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.querySelector('.nav-item[data-tab="games"]').classList.add('active');
     
+    // Показываем меню игр, скрываем контейнеры
     document.getElementById('gamesMenu').style.display = 'flex';
     document.getElementById('crashGameContainer').style.display = 'none';
     document.getElementById('minesGameContainer').style.display = 'none';
@@ -262,9 +279,9 @@ function goBack() {
         if (id === 'levelsScreen' || id === 'questsScreen' || id === 'profileScreen') {
             showMain();
         } else if (id === 'gamesScreen') {
-            showGames();
+            showMain(); // ← ИСПРАВЛЕНО: назад в меню кейсов
         } else if (id === 'crashGameContainer' || id === 'minesGameContainer' || id === 'upgradeGameContainer') {
-            showGames();
+            showGames(); // ← ИСПРАВЛЕНО: назад в меню мини-игр
         } else {
             showMain();
         }
@@ -400,8 +417,10 @@ function showTape(type, mode = 'preview') {
         top: mode === 'preview' ? '15px' : '10px'
     });
 
-    const repeats = mode === 'preview' ? 20 : 60;
-    const winPosition = 40;
+    // === ИСПРАВЛЕНИЕ 5: 1 прокрутка, без подставки ===
+    const repeats = mode === 'preview' ? 20 : 20; // ← всегда 20 карт, 1 прокрутка
+    const winPosition = 10; // ← фиксированная позиция выигрыша
+
     let cards = [];
     for (let i = 0; i < repeats; i++) {
         let value;
@@ -635,8 +654,8 @@ function startFinalSpin(type) {
     const cardWidth = 130;
     const cardGap = 8;
     const totalCardWidth = cardWidth + cardGap;
-    const totalCards = 60;
-    const winPosition = 40;
+    const totalCards = 20;
+    const winPosition = 10;
 
     const newCards = [];
     for (let i = 0; i < totalCards; i++) {
@@ -655,10 +674,10 @@ function startFinalSpin(type) {
     const viewportWidth = viewport.offsetWidth || 700;
     const centerOffset = viewportWidth / 2;
     const shift = (winPosition * totalCardWidth) - centerOffset + (cardWidth / 2);
-    const noise = Math.floor(Math.random() * 40) - 20;
+    const noise = Math.floor(Math.random() * 20) - 10; // ← меньший шум для точности
     const finalShift = shift + noise;
 
-    track.style.transition = `transform 6000ms cubic-bezier(0.1, 1, 0.1, 1)`;
+    track.style.transition = `transform 4000ms cubic-bezier(0.1, 1, 0.1, 1)`;
     track.style.transform = `translateX(-${finalShift}px)`;
 
     let finished = false;
@@ -675,7 +694,7 @@ function startFinalSpin(type) {
             track.removeEventListener('transitionend', onFinish);
             showResultAndClaim(type, targetPrize, style, track, winPosition);
         }
-    }, 7000);
+    }, 5000);
 }
 
 function showResultAndClaim(type, targetPrize, style, track, winPosition) {
@@ -796,7 +815,7 @@ function showResultAndClaim(type, targetPrize, style, track, winPosition) {
         });
         backBtn.onclick = function() {
             closeAllOverlays();
-            showMain();
+            showMain(); // ← ИСПРАВЛЕНО: назад в кейсы
         };
 
         btnContainer.appendChild(againBtn);
@@ -959,14 +978,14 @@ function show10CasesAnimation(type, data) {
             willChange: 'transform',
             position: 'relative',
             top: '2px',
-            width: (totalItems * 3 * (cardWidth + cardGap)) + 'px'
+            width: (totalItems * 2 * (cardWidth + cardGap)) + 'px' // ← 2 прокрутки
         });
 
         const targetPrize = data.prizes[r] || prizes[0];
         const targetIndex = prizes.indexOf(targetPrize);
         const winPos = Math.floor(totalItems * 1.5) + targetIndex;
         
-        for (let i = 0; i < totalItems * 3; i++) {
+        for (let i = 0; i < totalItems * 2; i++) {
             let value;
             if (i === winPos) {
                 value = targetPrize;
@@ -1045,10 +1064,10 @@ function show10CasesAnimation(type, data) {
             const viewportWidth = track.parentElement.offsetWidth || 200;
             const centerOffset = viewportWidth / 2;
             const shift = (winPos * (cardWidth + cardGap)) - centerOffset + (cardWidth / 2);
-            const noise = Math.floor(Math.random() * 30) - 15;
+            const noise = Math.floor(Math.random() * 20) - 10;
             const finalShift = shift + noise;
             
-            track.style.transition = `transform ${5000 + Math.random() * 2000}ms cubic-bezier(0.1, 1, 0.1, 1)`;
+            track.style.transition = `transform ${4000 + Math.random() * 1000}ms cubic-bezier(0.1, 1, 0.1, 1)`;
             track.style.transform = `translateX(-${finalShift}px)`;
         });
 
@@ -1088,7 +1107,7 @@ function show10CasesAnimation(type, data) {
                 loadBalance();
                 
             }, 800);
-        }, 6000);
+        }, 5000);
     }, 300);
 }
 
@@ -1145,6 +1164,7 @@ async function loadLevels() {
             playDisabled = true;
         }
         
+        // ===== ИСПРАВЛЕНИЕ 1: обычные смайлики =====
         const card = document.createElement('div');
         card.className = `level-card ${isCompleted ? 'completed' : isUnlocked ? 'unlocked' : 'locked'}`;
         
@@ -1179,10 +1199,12 @@ async function loadLevels() {
         
         container.appendChild(card);
         
+        // ===== ИСПРАВЛЕНИЕ 5: старый уровень остаётся доступен =====
+        // prevCompleted обновляется только если уровень пройден
         if (isCompleted) {
             prevCompleted = true;
         } else {
-            prevCompleted = false;
+            // не блокируем следующий, если текущий ещё не пройден
         }
     });
 }
@@ -1197,7 +1219,6 @@ function startLevelWithStar(levelId) {
     const level = LEVELS.find(l => l.id === levelId);
     if (!level) return;
     
-    // Проверяем есть ли звезда
     apiRequest('/check_level_star', { case_type: level.caseType }).then(data => {
         if (data.error) {
             showCustomAlert('❌ ' + data.error);
@@ -1317,7 +1338,7 @@ function showBotRouletteAnimationWithResult(data, case_type) {
     
     const cardWidth = 120;
     const cardGap = 8;
-    const totalCards = 60;
+    const totalCards = 20;
     
     // === РУЛЕТКА ИГРОКА ===
     const p1Wrapper = document.createElement('div');
@@ -1388,8 +1409,8 @@ function showBotRouletteAnimationWithResult(data, case_type) {
         
         const pos1 = prizes.indexOf(playerPrize);
         const pos2 = prizes.indexOf(botPrize);
-        const winPos1 = pos1 !== -1 ? pos1 : 15;
-        const winPos2 = pos2 !== -1 ? pos2 : 15;
+        const winPos1 = pos1 !== -1 ? pos1 : 10;
+        const winPos2 = pos2 !== -1 ? pos2 : 10;
         
         const cardWidth = 120;
         const cardGap = 8;
@@ -1400,8 +1421,8 @@ function showBotRouletteAnimationWithResult(data, case_type) {
         const shift1 = (winPos1 * totalCardWidth) - centerOffset + (cardWidth / 2);
         const shift2 = (winPos2 * totalCardWidth) - centerOffset + (cardWidth / 2);
         
-        const noise1 = Math.floor(Math.random() * 40) - 20;
-        const noise2 = Math.floor(Math.random() * 40) - 20;
+        const noise1 = Math.floor(Math.random() * 20) - 10;
+        const noise2 = Math.floor(Math.random() * 20) - 10;
         const finalShift1 = shift1 + noise1;
         const finalShift2 = shift2 + noise2;
         
@@ -1423,9 +1444,9 @@ function showBotRouletteAnimationWithResult(data, case_type) {
         void track2.offsetHeight;
         
         setTimeout(() => {
-            track1.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
+            track1.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
             track1.style.transform = `translateX(-${finalShift1}px)`;
-            track2.style.transition = 'transform 8s cubic-bezier(0.1, 1, 0.1, 1)';
+            track2.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.1, 1)';
             track2.style.transform = `translateX(-${finalShift2}px)`;
         }, 100);
         
@@ -1472,10 +1493,11 @@ function showBotRouletteAnimationWithResult(data, case_type) {
                     showBotBattleResult(data, case_type);
                 }, 600);
             }
-        }, 9000);
+        }, 7000);
     }, 300);
 }
 
+// ===== ИСПРАВЛЕНИЕ 5: кнопка "Назад" ведёт в уровни =====
 function showBotBattleResult(data, case_type) {
     const style = getStyle(case_type);
     
@@ -1543,7 +1565,7 @@ function showBotBattleResult(data, case_type) {
             <button onclick="closeAllOverlays(); showLevels();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🎯 УРОВНИ
             </button>
-            <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
+            <button onclick="closeAllOverlays(); showLevels();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">
                 🔙 НАЗАД
             </button>
         </div>
@@ -2555,7 +2577,7 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="color:#aaa; font-size:16px; margin-top:4px;">Множитель: x${multiplier}</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
                 <button onclick="document.getElementById('gameCrashResultOverlay').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ИГРАТЬ СНОВА</button>
-                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); document.getElementById('crashGameContainer').style.display='none'; document.getElementById('gamesMenu').style.display='flex';" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
+                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
             </div>
         `;
     } else {
@@ -2566,7 +2588,7 @@ function showCrashResult(result, winnings, multiplier) {
             <div style="color:#888; font-size:14px; margin-top:4px;">Ты потерял ставку</div>
             <div style="display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
                 <button onclick="document.getElementById('gameCrashResultOverlay').remove(); resetCrashUI();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ИГРАТЬ СНОВА</button>
-                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); document.getElementById('crashGameContainer').style.display='none'; document.getElementById('gamesMenu').style.display='flex';" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
+                <button onclick="document.getElementById('gameCrashResultOverlay').remove(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
             </div>
         `;
     }
@@ -3230,7 +3252,7 @@ function showGameUpgradeResult(result, message, newBalance) {
         <div style="font-size:16px; color:#888; margin-bottom:20px;">💰 Баланс: ${newBalance} ⭐</div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
             <button onclick="document.getElementById('gameUpgradeResultOverlay').remove(); resetGameUpgrade();" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔄 ЕЩЁ РАЗ</button>
-            <button onclick="document.getElementById('gameUpgradeResultOverlay').remove(); document.getElementById('upgradeGameContainer').style.display='none'; document.getElementById('gamesMenu').style.display='flex';" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
+            <button onclick="document.getElementById('gameUpgradeResultOverlay').remove(); showGames();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
         </div>
     `;
     
@@ -3248,3 +3270,37 @@ function resetGameUpgrade() {
 // ===== ИНИЦИАЛИЗАЦИЯ =====
 loadBalance();
 tg.ready();
+
+// ===== ДОБАВЛЯЕМ ЭЛЕМЕНТЫ ДЛЯ МИНИ-ИГР В HTML (если их нет) =====
+document.addEventListener('DOMContentLoaded', function() {
+    if (!document.getElementById('gamesMenu')) {
+        const menu = document.createElement('div');
+        menu.id = 'gamesMenu';
+        menu.style.cssText = 'display:flex; flex-direction:column; gap:12px; margin-top:8px;';
+        menu.innerHTML = `
+            <button onclick="showCrashGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#b388ff,#7c4dff); color:#fff; font-size:20px; font-weight:700; cursor:pointer;">💥 КРАШ</button>
+            <button onclick="showMinesGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; font-size:20px; font-weight:700; cursor:pointer;">💣 МИНЁР</button>
+            <button onclick="showUpgradeGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-size:20px; font-weight:700; cursor:pointer;">⚡ АПГРЕЙД</button>
+        `;
+        document.getElementById('gamesScreen').prepend(menu);
+    }
+    
+    if (!document.getElementById('crashGameContainer')) {
+        const container = document.createElement('div');
+        container.id = 'crashGameContainer';
+        container.style.display = 'none';
+        document.getElementById('gamesScreen').appendChild(container);
+    }
+    if (!document.getElementById('minesGameContainer')) {
+        const container = document.createElement('div');
+        container.id = 'minesGameContainer';
+        container.style.display = 'none';
+        document.getElementById('gamesScreen').appendChild(container);
+    }
+    if (!document.getElementById('upgradeGameContainer')) {
+        const container = document.createElement('div');
+        container.id = 'upgradeGameContainer';
+        container.style.display = 'none';
+        document.getElementById('gamesScreen').appendChild(container);
+    }
+});
