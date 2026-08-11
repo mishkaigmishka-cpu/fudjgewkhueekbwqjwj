@@ -19,7 +19,7 @@ app = Flask(__name__)
 conn = sqlite3.connect('cases.db', check_same_thread=False)
 cursor = conn.cursor()
 
-# ===================== ТАБЛИЦЫ БД =====================
+# ===== ТАБЛИЦЫ БД =====
 cursor.execute('''CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     balance INTEGER DEFAULT 5,
@@ -151,7 +151,7 @@ cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_quests_user ON complete
 cursor.execute("CREATE INDEX IF NOT EXISTS idx_case_stats_user ON case_stats(user_id)")
 conn.commit()
 
-# ===================== КЕЙСЫ =====================
+# ===== КЕЙСЫ =====
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
 
 CASE_RANGES = {
@@ -195,27 +195,22 @@ def get_prize(case_type, user_id=None):
     elif rnd < data["jackpot_chance"] + data["legendary_chance"]:
         return random.choice(data["legendary"])
     elif rnd < data["common_chance"]:
-        # ===== ВЕСА ВНУТРИ COMMON =====
         if case_type == "mud":
-            # 39% → 1-2, 31% → 2-7
             if random.random() < 0.39 / 0.70:
                 return random.choice([1, 2])
             else:
                 return random.choice([3, 4, 5, 6, 7])
         elif case_type == "wood":
-            # 39% → 2-5, 36% → 5-10
             if random.random() < 0.39 / 0.75:
                 return random.choice([2, 4, 5])
             else:
                 return random.choice([6, 7, 8, 9, 10])
         elif case_type == "stone":
-            # 55% → 11-15, 25% → 15-19
             if random.random() < 0.55 / 0.80:
                 return random.choice([11, 13, 15])
             else:
                 return random.choice([16, 17, 18, 19])
         elif case_type == "bronze":
-            # 29% → 20-30, 60% → 35-50
             if random.random() < 0.29 / 0.89:
                 return random.choice([20, 25, 30])
             else:
@@ -296,7 +291,7 @@ def track_spend(uid, promo_code, amount):
     cursor.execute("UPDATE users SET total_spent = total_spent + ? WHERE id=?", (amount, uid))
     conn.commit()
 
-# ===================== ГЛОБАЛЬНЫЕ ДАННЫЕ =====================
+# ===== ГЛОБАЛЬНЫЕ ДАННЫЕ =====
 active_mines_games = {}
 crash_lock = threading.Lock()
 
@@ -477,7 +472,7 @@ def crash_timer():
 
 threading.Thread(target=crash_timer, daemon=True).start()
 
-# ===================== КОМАНДЫ TELEGRAM =====================
+# ===== КОМАНДЫ TELEGRAM =====
 @bot.message_handler(commands=['start'])
 def start(msg):
     uid = msg.from_user.id
@@ -881,20 +876,16 @@ def add_ad(msg):
     ads.append(parts[1])
     bot.reply_to(msg, "✅ Реклама добавлена")
 
-# ===================== ЭНДПОИНТЫ =====================
-
+# ===== ЭНДПОИНТЫ =====
 @app.route('/check_level_star', methods=['POST'])
 def check_level_star():
     data = request.get_json()
     uid = data.get('user_id')
     case_type = data.get('case_type')
-    
     cursor.execute("SELECT earned FROM level_stars WHERE user_id=? AND level_id=?", (uid, case_type))
     star = cursor.fetchone()
-    
     if not star or star[0] < 1:
         return jsonify({'has_star': False, 'error': 'Нет звезды для этого уровня!'})
-    
     return jsonify({'has_star': True, 'count': star[0]})
 
 @app.route('/start_bot_battle', methods=['POST'])
@@ -903,7 +894,6 @@ def start_bot_battle():
     uid = data.get('user_id')
     case_type = data.get('case_type')
     use_star = data.get('use_star', False)
-    
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
@@ -913,13 +903,10 @@ def start_bot_battle():
         star = cursor.fetchone()
         if not star or star[0] < 1:
             return jsonify({'error': 'Нет звезды для этого уровня!'}), 400
-        
         cursor.execute("UPDATE level_stars SET earned = earned - 1 WHERE user_id=? AND level_id=?", (uid, case_type))
         conn.commit()
-        
         cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (uid, case_type))
         conn.commit()
-        
         price = 0
     else:
         prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
@@ -945,21 +932,17 @@ def start_bot_battle():
         update_battle_stats(uid, won=True, stars=winnings, case_type=case_type)
         result = 'win'
         result_text = f'🎉 Ты выиграл! +{winnings}⭐'
-        
         cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
         wins_data = cursor.fetchone()
         wins_after = wins_data[0] if wins_data else 0
-        
     elif bot_prize > player_prize:
         update_user(uid, last_open=int(time.time()))
         update_battle_stats(uid, won=False, stars=player_prize, case_type=case_type)
         result = 'lose'
         result_text = f'😢 Ты проиграл! -{player_prize}⭐'
-        
         cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
         wins_data = cursor.fetchone()
         wins_after = wins_data[0] if wins_data else 0
-        
     else:
         user = get_user(uid)
         update_user(uid, balance=user[1] + player_prize - commission, last_open=int(time.time()))
@@ -967,7 +950,6 @@ def start_bot_battle():
         update_battle_stats(uid, won=False, stars=commission, case_type=case_type)
         result = 'draw'
         result_text = f'🤝 Ничья! Ты получил {player_prize - commission}⭐'
-        
         cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
         wins_data = cursor.fetchone()
         wins_after = wins_data[0] if wins_data else 0
@@ -977,7 +959,6 @@ def start_bot_battle():
         level_unlocked = True
         cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (uid, case_type + '_completed'))
         conn.commit()
-        # ⚠️ УБРАНО УВЕДОМЛЕНИЕ
     
     return jsonify({
         'result': result,
@@ -998,7 +979,6 @@ def start_mines_game():
     uid = data.get('user_id')
     bet = data.get('bet')
     mines = data.get('mines')
-    
     user = get_user(uid)
     if not user or user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
@@ -1006,18 +986,14 @@ def start_mines_game():
         return jsonify({'error': 'Ставка от 3 до 1000⭐'}), 400
     if mines < 3 or mines > 8:
         return jsonify({'error': 'Мин от 3 до 8'}), 400
-    
     for gid, game in active_mines_games.items():
         if game['user_id'] == uid and game['status'] == 'active':
             return jsonify({'error': 'У тебя уже есть активная игра!'}), 400
-    
     update_user(uid, balance=user[1] - bet)
-    
     board = [0] * 25
     positions = random.sample(range(25), mines)
     for pos in positions:
         board[pos] = 1
-    
     game_id = int(time.time())
     active_mines_games[game_id] = {
         'user_id': uid,
@@ -1029,7 +1005,6 @@ def start_mines_game():
         'multiplier': 1.0,
         'status': 'active'
     }
-    
     return jsonify({
         'game_id': game_id,
         'board': board,
@@ -1045,7 +1020,6 @@ def open_mines_cell():
     uid = data.get('user_id')
     game_id = data.get('game_id')
     index = data.get('index')
-    
     game = active_mines_games.get(game_id)
     if not game or game['status'] != 'active':
         return jsonify({'error': 'Игра не активна'}), 400
@@ -1053,10 +1027,8 @@ def open_mines_cell():
         return jsonify({'error': 'Не твоя игра'}), 403
     if game['opened'][index] == 1:
         return jsonify({'error': 'Клетка уже открыта'}), 400
-    
     game['opened'][index] = 1
     game['opened_count'] += 1
-    
     if game['board'][index] == 1:
         game['status'] = 'lost'
         update_user(uid, last_open=int(time.time()))
@@ -1070,10 +1042,8 @@ def open_mines_cell():
             'won': False,
             'bet': game['bet']
         })
-    
     opened = game['opened_count']
     game['multiplier'] = get_mines_multiplier(opened, game['mines'])
-    
     safe_cells = 25 - game['mines']
     if game['opened_count'] == safe_cells:
         raw_winnings = int(game['bet'] * game['multiplier'])
@@ -1092,7 +1062,6 @@ def open_mines_cell():
             'winnings': final_winnings,
             'bet': game['bet']
         })
-    
     return jsonify({
         'board': game['board'],
         'opened': game['opened'],
@@ -1107,7 +1076,6 @@ def cashout_mines():
     data = request.get_json()
     uid = data.get('user_id')
     game_id = data.get('game_id')
-    
     game = active_mines_games.get(game_id)
     if not game or game['status'] != 'active':
         return jsonify({'error': 'Игра не активна'}), 400
@@ -1115,16 +1083,13 @@ def cashout_mines():
         return jsonify({'error': 'Не твоя игра'}), 403
     if game['opened_count'] < 3:
         return jsonify({'error': 'Нужно открыть минимум 3 клетки!'}), 400
-    
     raw_winnings = int(game['bet'] * game['multiplier'])
     final_winnings = min(raw_winnings, 5000)
     user = get_user(uid)
     update_user(uid, balance=user[1] + final_winnings, last_open=int(time.time()))
     game['status'] = 'won'
     update_mines_stats(uid, won=True, multiplier=game['multiplier'], stars=final_winnings)
-    
     del active_mines_games[game_id]
-    
     return jsonify({
         'winnings': final_winnings,
         'multiplier': game['multiplier'],
@@ -1156,7 +1121,6 @@ def start_crash():
     data = request.get_json()
     uid = data.get('user_id')
     bet = data.get('bet')
-    
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
@@ -1164,19 +1128,15 @@ def start_crash():
         return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
     if user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
-    
     with crash_lock:
         if crash_data['round_phase'] != 'crashed':
             return jsonify({'error': 'Ставки принимаются только в окне 10 секунд после краша!'}), 400
-        
         if uid in crash_data['bets']:
             return jsonify({'error': 'Ты уже сделал ставку в этом раунде'}), 400
-        
         crash_data['bets'][uid] = bet
         update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
         if user[9] == 1 and user[10]:
             track_spend(uid, user[10], bet)
-        
         crash_data['crashed'] = False
         crash_data['active'] = True
         crash_data['start_time'] = time.time()
@@ -1184,7 +1144,6 @@ def start_crash():
         crash_data['crash_point'] = generate_crash_point()
         crash_data['round_phase'] = 'active'
         crash_data['crash_multiplier_at_crash'] = 1.00
-    
     return jsonify({'success': True, 'game_id': int(time.time())})
 
 @app.route('/crash_status', methods=['POST'])
@@ -1195,7 +1154,6 @@ def crash_status():
         if crash_data['round_phase'] == 'crashed':
             elapsed_since_crash = time.time() - crash_data['crash_time']
             time_to_new_round = max(0, 10 - elapsed_since_crash)
-        
         return jsonify({
             'multiplier': crash_data['multiplier'],
             'crashed': crash_data['crashed'],
@@ -1211,28 +1169,22 @@ def cashout_crash():
     global crash_data
     data = request.get_json()
     uid = data.get('user_id')
-    
     with crash_lock:
         if not crash_data['active'] or crash_data['crashed']:
             return jsonify({'error': 'Игра не активна или уже произошёл краш'}), 400
         if uid not in crash_data['bets']:
             return jsonify({'error': 'Ты не сделал ставку'}), 400
-        
         bet = crash_data['bets'][uid]
         multiplier = crash_data['multiplier']
-        
         raw_winnings = int(bet * multiplier)
         commission = int(raw_winnings * 0.05)
         winnings = raw_winnings - commission
         final_winnings = min(winnings, 5000)
-        
         user = get_user(uid)
         update_user(uid, balance=user[1] + final_winnings, last_open=int(time.time()))
         add_commission(commission)
         update_crash_stats(uid, won=True, multiplier=multiplier, stars=final_winnings)
-        
         del crash_data['bets'][uid]
-    
     return jsonify({
         'winnings': final_winnings,
         'multiplier': multiplier,
@@ -1272,27 +1224,18 @@ def upgrade_calculate():
     uid = data.get('user_id')
     bet = data.get('bet')
     target = data.get('target')
-    
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
-    
     if bet < 1 or bet > 1000:
         return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
     if target < bet + 1 or target > 2000:
-        return jsonify({'error': 'Цель должна быть от {} до 2000⭐'.format(bet + 1)}), 400
+        return jsonify({'error': f'Цель должна быть от {bet + 1} до 2000⭐'}), 400
     if user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
-    
     raw_chance = (bet / target) * 100
     chance = min(max(raw_chance, 1.0), 70.0)
-    
-    return jsonify({
-        'chance': round(chance, 2),
-        'bet': bet,
-        'target': target,
-        'balance': user[1]
-    })
+    return jsonify({'chance': round(chance, 2), 'bet': bet, 'target': target, 'balance': user[1]})
 
 @app.route('/upgrade_execute', methods=['POST'])
 def upgrade_execute():
@@ -1300,24 +1243,19 @@ def upgrade_execute():
     uid = data.get('user_id')
     bet = data.get('bet')
     target = data.get('target')
-    
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
-    
     if bet < 1 or bet > 1000:
         return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
     if target < bet + 1 or target > 2000:
-        return jsonify({'error': 'Цель должна быть от {} до 2000⭐'.format(bet + 1)}), 400
+        return jsonify({'error': f'Цель должна быть от {bet + 1} до 2000⭐'}), 400
     if user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
-    
     raw_chance = (bet / target) * 100
     chance = min(max(raw_chance, 1.0), 70.0)
-    
     rand = random.random() * 100
     success = rand <= chance
-    
     if success:
         new_balance = user[1] + (target - bet)
         update_user(uid, balance=new_balance)
@@ -1328,7 +1266,6 @@ def upgrade_execute():
         update_user(uid, balance=new_balance)
         result = 'lose'
         message = f'❌ ПРОВАЛ! Ты потерял {bet}⭐'
-    
     return jsonify({
         'result': result,
         'chance': round(chance, 2),
@@ -1391,11 +1328,9 @@ def open_case():
         new_bal = user[1] - price + prize
         new_total = user[2] + 1
         new_streak = user[3] + 1
-        
         if case_type != "free":
             cursor.execute("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + 1", (user_id, case_type))
             conn.commit()
-            
             cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
             result = cursor.fetchone()
             if result and result[0] >= 10:
@@ -1403,8 +1338,6 @@ def open_case():
                 conn.commit()
                 cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
                 conn.commit()
-                # ⚠️ УБРАНО УВЕДОМЛЕНИЕ О ЗВЕЗДЕ
-        
         if case_type == "free":
             update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
         else:
@@ -1457,50 +1390,39 @@ def apply_promo():
     data = request.get_json()
     uid = data.get('user_id')
     promo_code = data.get('promo_code', '').upper()
-    
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
-    
     cursor.execute("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=?", (promo_code,))
     promo = cursor.fetchone()
     if not promo:
         return jsonify({'error': 'Неверный промокод!'}), 400
-    
     reward, max_uses, used_count = promo
     if max_uses > 0 and used_count >= max_uses:
         return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
-    
     if user[9] == 1:
         return jsonify({'error': 'Ты уже использовал промокод!'}), 400
-    
     update_user(uid, balance=user[1] + reward, promo_used=1, promo_code=promo_code)
     cursor.execute("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=?", (promo_code,))
     conn.commit()
-    
     return jsonify({'success': True, 'reward': reward})
 
 @app.route('/get_levels_data', methods=['POST'])
 def get_levels_data():
     data = request.get_json()
     uid = data.get('user_id')
-    
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    
     cursor.execute("SELECT case_type, opened FROM case_stats WHERE user_id=?", (uid,))
     stats = cursor.fetchall()
     case_counts = {s[0]: s[1] for s in stats}
-    
     cursor.execute("SELECT level_id, earned FROM level_stars WHERE user_id=?", (uid,))
     stars_data = cursor.fetchall()
     level_stars = {s[0]: s[1] for s in stars_data}
-    
     cursor.execute("SELECT case_type, wins FROM level_wins WHERE user_id=?", (uid,))
     wins_data = cursor.fetchall()
     level_wins = {w[0]: w[1] for w in wins_data}
-    
     return jsonify({
         'case_counts': case_counts,
         'level_stars': level_stars,
@@ -1511,23 +1433,18 @@ def get_levels_data():
 def get_quests_data():
     data = request.get_json()
     uid = data.get('user_id')
-    
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    
     total_cases = user[2]
     refs = user[6]
     total_spent = user[11] or 0
-    
     cursor.execute("SELECT case_type, wins FROM level_wins WHERE user_id=?", (uid,))
     wins_data = cursor.fetchall()
     level_wins = {w[0]: w[1] for w in wins_data}
-    
     cursor.execute("SELECT quest_id FROM completed_quests WHERE user_id=?", (uid,))
     completed = cursor.fetchall()
     claimed_quests = [q[0] for q in completed]
-    
     return jsonify({
         'total_cases': total_cases,
         'refs': refs,
@@ -1544,23 +1461,18 @@ def claim_quest():
     data = request.get_json()
     uid = data.get('user_id')
     quest_id = data.get('quest_id')
-    
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
-    
     cursor.execute("SELECT * FROM completed_quests WHERE user_id=? AND quest_id=?", (uid, quest_id))
     if cursor.fetchone():
         return jsonify({'error': 'Задание уже выполнено'}), 400
-    
     reward = get_quest_reward(uid, quest_id)
     if reward is None:
         return jsonify({'error': 'Условие не выполнено'}), 400
-    
     update_user(uid, balance=user[1] + reward)
     cursor.execute("INSERT INTO completed_quests (user_id, quest_id, completed_at) VALUES (?, ?, ?)", (uid, quest_id, int(time.time())))
     conn.commit()
-    
     return jsonify({'success': True, 'reward': reward})
 
 @app.route('/open_10_cases', methods=['POST'])
@@ -1568,33 +1480,25 @@ def open_10_cases():
     data = request.get_json()
     user_id = data.get('user_id')
     case_type = data.get('case_type')
-    
     if case_type == "free":
         return jsonify({'error': 'Нельзя открыть 10 бесплатных кейсов'}), 400
-    
     user = get_user(user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    
     prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
     price = prices.get(case_type, 0)
     total_price = price * 10
-    
     if user[1] < total_price:
         return jsonify({'error': f'Недостаточно звёзд! Нужно {total_price}⭐'}), 400
-    
     total_prize = 0
     prizes = []
-    
     for i in range(10):
         prize = get_prize(case_type, user_id)
         prizes.append(prize)
         total_prize += prize
-        
         if case_type != "free":
             cursor.execute("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + 1", (user_id, case_type))
             conn.commit()
-            
             cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
             result = cursor.fetchone()
             if result and result[0] >= 10:
@@ -1602,15 +1506,11 @@ def open_10_cases():
                 conn.commit()
                 cursor.execute("UPDATE case_stats SET opened = 0 WHERE user_id=? AND case_type=?", (user_id, case_type))
                 conn.commit()
-                # ⚠️ УБРАНО УВЕДОМЛЕНИЕ
-    
     new_bal = user[1] - total_price + total_prize
     new_total = user[2] + 10
     new_streak = user[3] + 10
-    
     update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
     update_status(user_id, new_total)
-    
     return jsonify({
         'prizes': prizes,
         'total_prize': total_prize,
@@ -1626,7 +1526,6 @@ def get_quest_reward(uid, quest_id):
     user = get_user(uid)
     if not user:
         return None
-    
     if quest_id.startswith('status_'):
         status_targets = {
             'status_hunter': 10, 'status_lucky': 100, 'status_stalker': 444,
@@ -1638,7 +1537,6 @@ def get_quest_reward(uid, quest_id):
         }
         if user[2] >= status_targets.get(quest_id, 0):
             return rewards.get(quest_id, 0)
-    
     elif quest_id.startswith('level_'):
         level_map = {
             'level_mud': 'mud', 'level_wood': 'wood', 'level_stone': 'stone',
@@ -1659,13 +1557,11 @@ def get_quest_reward(uid, quest_id):
             wins = result[0] if result else 0
             if wins >= 3:
                 return level_rewards.get(quest_id, 0)
-    
     elif quest_id.startswith('friends_'):
         targets = {'friends_3': 3, 'friends_5': 5, 'friends_10': 10, 'friends_100': 100}
         rewards = {'friends_3': 15, 'friends_5': 20, 'friends_10': 30, 'friends_100': 300}
         if user[6] >= targets.get(quest_id, 0):
             return rewards.get(quest_id, 0)
-    
     elif quest_id.startswith('deposit_'):
         targets = {'deposit_100': 100, 'deposit_250': 250, 'deposit_500': 500,
                    'deposit_1000': 1000, 'deposit_10000': 10000}
@@ -1673,7 +1569,6 @@ def get_quest_reward(uid, quest_id):
                    'deposit_1000': 100, 'deposit_10000': 1000}
         if user[11] >= targets.get(quest_id, 0):
             return rewards.get(quest_id, 0)
-    
     return None
 
 if __name__ == "__main__":
