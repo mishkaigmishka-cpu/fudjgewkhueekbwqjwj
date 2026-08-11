@@ -626,6 +626,7 @@ function showTape(type, mode = 'preview') {
     }
 }
 
+// ===== ИСПРАВЛЕНИЕ 2.4: Бесплатный кейс — прямой запрос =====
 function openCaseDirect(type) {
     if (state.isOpening) return;
     state.isOpening = true;
@@ -909,6 +910,7 @@ async function open10Cases(type) {
     state.isOpening = false;
 }
 
+// ===== ИСПРАВЛЕНИЕ 2.2: 10 кейсов — "Ты выиграл!" и кнопка =====
 function show10CasesAnimation(type, data) {
     const prizes = getPrizes(type);
     const style = getStyle(type);
@@ -1987,6 +1989,7 @@ let crash = {
     _betOpenTime: null
 };
 
+// ===== ИСПРАВЛЕНИЕ 2.6: Краш — без подтверждения =====
 function initCrash() {
     const d = {
         canvas: document.getElementById('gc_canvas'),
@@ -2026,6 +2029,7 @@ function initCrash() {
         d.startBtn.onclick = function(e) {
             e.preventDefault();
             e.stopPropagation();
+            // ===== ИСПРАВЛЕНИЕ 2.6: без модалки, сразу ставка =====
             if (crash.phase === 'waiting') {
                 const bet = parseInt(d.betInput.value);
                 if (isNaN(bet) || bet < 1 || bet > 1000) {
@@ -2068,6 +2072,7 @@ async function confirmBetDirect(bet) {
     }
 }
 
+// ===== ИСПРАВЛЕНИЕ 2.1: График краша — опущен =====
 function drawCrashChart() {
     const ctx = crash.ctx;
     const canvas = crash.canvas;
@@ -2086,6 +2091,7 @@ function drawCrashChart() {
     }
     
     const maxVal = Math.max(...data, 1);
+    // ===== ИСПРАВЛЕНИЕ 2.1: topOffset = 25 (график ниже) =====
     const topOffset = 25;
     const bottomOffset = 10;
     const availableHeight = h - topOffset - bottomOffset;
@@ -2269,6 +2275,7 @@ function loadCrashStats() {
 let gameMinesData = null;
 let gameMinesSelected = 4;
 
+// ===== ИСПРАВЛЕНИЕ 2.5: Минёр — красные кнопки =====
 function showMinesGame() {
     const menu = document.getElementById('gamesMenu');
     const container = document.getElementById('minesGameContainer');
@@ -2589,9 +2596,11 @@ function showMinesResult(isWin, amount, multiplier = 1) {
     document.body.appendChild(overlay);
 }
 
+// ===== ИСПРАВЛЕНИЕ 2.3: Минёр — мины на поле после закрытия =====
 function closeMinesResult() {
     const overlay = document.getElementById('minesResultOverlay');
     if (overlay) overlay.remove();
+    // ===== ПОКАЗЫВАЕМ МИНЫ НА ПОЛЕ =====
     if (gameMinesData) {
         for (let i = 0; i < 25; i++) {
             if (gameMinesData.board[i] === 1) {
