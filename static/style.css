@@ -683,38 +683,98 @@ input:disabled {
     to { opacity: 1; transform: scale(1); }
 }
 
+/* ===== МИНИ-ИГРЫ — МЯГКИЕ ЦВЕТА ===== */
+
+/* Краш — мягкий сине-фиолетовый */
+#crashGameContainer .crash-title,
+#crashGameContainer .game-title {
+    color: #a78bfa;
+}
+
+#crashGameContainer #gc_multiplier {
+    color: #a78bfa;
+    text-shadow: 0 0 30px rgba(167, 139, 250, 0.3);
+}
+
+/* Минёр — мягкий розовый */
+#minesGameContainer .mines-title,
+#minesGameContainer .game-title {
+    color: #f472b6;
+}
+
+/* Апгрейд — мягкий золотой */
+#upgradeGameContainer .upgrade-title,
+#upgradeGameContainer .game-title {
+    color: #fbbf24;
+}
+
+/* Кнопки выбора мин — мягкие */
 .gm_btn {
-    padding: 10px 16px;
-    border: 2px solid rgba(255,255,255,0.06);
-    border-radius: 10px;
-    background: rgba(255,255,255,0.04);
+    border-color: rgba(255, 255, 255, 0.06);
     color: #888;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .gm_btn.active {
-    border-color: #b388ff;
-    background: rgba(179, 136, 255, 0.15);
-    color: #b388ff;
+    border-color: #a78bfa;
+    background: rgba(167, 139, 250, 0.12);
+    color: #a78bfa;
 }
 
 .gm_btn:hover {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255, 255, 255, 0.06);
 }
 
-#crashStartBtn, #gc_start_btn {
+/* График краша — мягкая линия без резких свечений */
+#gc_chart canvas {
+    filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.15));
+}
+
+#gc_chart {
+    border-color: rgba(167, 139, 250, 0.08);
+}
+
+/* Кнопки мини-игр — мягкие неоновые */
+#gamesMenu button {
+    transition: all 0.3s ease;
+}
+
+#gamesMenu button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 40px rgba(167, 139, 250, 0.15);
+}
+
+#gamesMenu button:active {
+    transform: scale(0.97);
+}
+
+/* Кнопка "ИГРАТЬ" в краше — без мигания */
+#gc_start_btn {
     transition: none !important;
     animation: none !important;
 }
 
-#crashStartBtn:disabled, #gc_start_btn:disabled {
+#gc_start_btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* Таймер краша — без мигания */
+#gc_timer {
+    transition: none !important;
+    animation: none !important;
+}
+
+/* Множитель краша — без пульсации */
+#gc_multiplier {
+    transition: none !important;
+    animation: none !important;
+    transform: scale(1) !important;
+}
+
+/* Прогресс-бар краша — плавный, без рывков */
+#gc_progress {
+    transition: width 0.1s ease !important;
 }
 
 @media (max-width: 380px) {
