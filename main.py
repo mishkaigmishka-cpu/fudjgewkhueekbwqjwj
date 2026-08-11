@@ -468,6 +468,7 @@ def crash_timer():
                     crash_data['round_phase'] = 'waiting'
                     crash_data['bets'] = {}
                     crash_data['multiplier'] = 1.00
+                    crash_data['crash_multiplier_at_crash'] = 1.00
         
         time.sleep(0.05)
 
@@ -1128,9 +1129,9 @@ def start_crash():
         return jsonify({'error': 'Недостаточно звёзд'}), 400
     with crash_lock:
         if crash_data['round_phase'] != 'waiting':
-            return jsonify({'error': 'Ставки принимаются только в режиме ожидания!'}), 400
+            return jsonify({'error': 'Подождите окончания игры!'}), 400
         if uid in crash_data['bets']:
-            return jsonify({'error': 'Ты уже сделал ставку в этом раунде'}), 400
+            return jsonify({'error': 'Ты уже сделал ставку'}), 400
         crash_data['bets'][uid] = bet
         update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
         if user[9] == 1 and user[10]:
@@ -1152,6 +1153,13 @@ def crash_status():
         if crash_data['round_phase'] == 'crashed':
             elapsed_since_crash = time.time() - crash_data['crash_time']
             time_to_new_round = max(0, 10 - elapsed_since_crash)
+            if elapsed_since_crash >= 10:
+                crash_data['crashed'] = False
+                crash_data['active'] = False
+                crash_data['round_phase'] = 'waiting'
+                crash_data['bets'] = {}
+                crash_data['multiplier'] = 1.00
+                crash_data['crash_multiplier_at_crash'] = 1.00
         return jsonify({
             'multiplier': crash_data['multiplier'],
             'crashed': crash_data['crashed'],
@@ -1412,19 +1420,36 @@ def get_levels_data():
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
+    
     cursor.execute("SELECT case_type, opened FROM case_stats WHERE user_id=?", (uid,))
     stats = cursor.fetchall()
     case_counts = {s[0]: s[1] for s in stats}
+    
     cursor.execute("SELECT level_id, earned FROM level_stars WHERE user_id=?", (uid,))
     stars_data = cursor.fetchall()
     level_stars = {s[0]: s[1] for s in stars_data}
+    
     cursor.execute("SELECT case_type, wins FROM level_wins WHERE user_id=?", (uid,))
     wins_data = cursor.fetchall()
     level_wins = {w[0]: w[1] for w in wins_data}
+    
+    # ===== ПОСЛЕДОВАТЕЛЬНОЕ ОТКРЫТИЕ =====
+    level_order = ['mud', 'wood', 'stone', 'bronze', 'silver', 'gold', 'diamond', 'netherite', 'obsidian', 'bedrock']
+    unlocked_levels = []
+    unlocked_levels.append('mud')
+    
+    for i in range(1, len(level_order)):
+        prev_level = level_order[i-1]
+        if level_wins.get(prev_level, 0) >= 3:
+            unlocked_levels.append(level_order[i])
+        else:
+            break
+    
     return jsonify({
         'case_counts': case_counts,
         'level_stars': level_stars,
-        'level_wins': level_wins
+        'level_wins': level_wins,
+        'unlocked_levels': unlocked_levels
     })
 
 @app.route('/get_quests_data', methods=['POST'])
