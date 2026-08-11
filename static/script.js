@@ -632,25 +632,22 @@ function openCaseDirect(type) {
     state.lastOpenedCase = type;
     
     if (type === 'free') {
-        checkBalance(type).then(canOpen => {
-            if (!canOpen) { state.isOpening = false; return; }
-            fetch('/open_case', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id, case_type: 'free' })
-            }).then(res => res.json()).then(data => {
-                if (data.error) {
-                    showCustomAlert('❌ ' + data.error);
-                    state.isOpening = false;
-                    return;
-                }
-                showCustomAlert(`🎁 Ты получил ${data.prize}⭐!`, true);
-                loadBalance();
+        fetch('/open_case', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, case_type: 'free' })
+        }).then(res => res.json()).then(data => {
+            if (data.error) {
+                showCustomAlert('❌ ' + data.error);
                 state.isOpening = false;
-            }).catch(() => {
-                showCustomAlert('❌ Ошибка открытия бесплатного кейса');
-                state.isOpening = false;
-            });
+                return;
+            }
+            showCustomAlert(`🎁 Ты получил ${data.prize}⭐!`, true);
+            loadBalance();
+            state.isOpening = false;
+        }).catch(() => {
+            showCustomAlert('❌ Ошибка открытия бесплатного кейса');
+            state.isOpening = false;
         });
         return;
     }
@@ -1124,7 +1121,7 @@ function show10CasesAnimation(type, data) {
                         ${data.prizes.map(p => `<span style="background:rgba(255,255,255,0.04); padding:4px 12px; border-radius:8px; border:1px solid rgba(255,215,0,0.1); font-size:14px; font-weight:600; color:${style.itemColor};">${p}⭐</span>`).join('')}
                     </div>
                     <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-                        <button onclick="closeAllOverlays(); open10Cases('${type}')" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🎲 ОТКРЫТЬ ЕЩЁ ×10</button>
+                        <button onclick="closeAllOverlays(); open10Cases('${type}')" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer; box-shadow:0 4px 20px rgba(179,136,255,0.3);">🎲 ОТКРЫТЬ ЕЩЁ ×10</button>
                         <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
                     </div>
                 `;
@@ -1974,7 +1971,7 @@ function showCrashGame() {
     }, 50);
 }
 
-// ===== КРАШ (НОВАЯ ЛОГИКА) =====
+// ===== КРАШ =====
 let crash = {
     phase: 'preview',
     multiplier: 1.00,
@@ -2018,7 +2015,6 @@ function initCrash() {
     }
     loadCrashStats();
     
-    // ===== ТОЛЬКО ПЕРВЫЙ РАЗ — ДЕМО =====
     if (crash.firstVisit) {
         crash.firstVisit = false;
         crash.phase = 'preview';
@@ -2090,7 +2086,7 @@ function drawCrashChart() {
     }
     
     const maxVal = Math.max(...data, 1);
-    const topOffset = 5;
+    const topOffset = 25;
     const bottomOffset = 10;
     const availableHeight = h - topOffset - bottomOffset;
     const scaleY = availableHeight / (maxVal * 0.5);
@@ -2238,10 +2234,6 @@ function startCrashPolling() {
                 }
                 if (d.timer) d.timer.textContent = '';
                 if (d.progress) d.progress.style.width = Math.min((status.multiplier / 12) * 100, 100) + '%';
-            }
-            
-            else if (status.phase === 'waiting_after_crash') {
-                // Эта фаза не используется, оставлена для совместимости
             }
         });
     }, 100);
@@ -2600,6 +2592,14 @@ function showMinesResult(isWin, amount, multiplier = 1) {
 function closeMinesResult() {
     const overlay = document.getElementById('minesResultOverlay');
     if (overlay) overlay.remove();
+    if (gameMinesData) {
+        for (let i = 0; i < 25; i++) {
+            if (gameMinesData.board[i] === 1) {
+                gameMinesData.openedCells[i] = 1;
+            }
+        }
+        renderGameMinesBoard();
+    }
 }
 
 function resetGameMines() {
