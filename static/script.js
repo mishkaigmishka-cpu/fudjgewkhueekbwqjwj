@@ -1,5 +1,5 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v13.0
+// RANDEVU — FINAL SCRIPT v15.0
 // ===============================
 
 const tg = window.Telegram.WebApp;
@@ -55,20 +55,33 @@ const getPrizes = (type) => CONFIG.CASE_PRIZES[type] || [1,10,100];
 const getStyle = (type) => CONFIG.CASE_STYLES[type] || CONFIG.CASE_STYLES['free'];
 const getPrice = (type) => CONFIG.CASE_PRICES[type] || 0;
 
-const apiRequest = async (endpoint, body = {}, retries = 3) => {
+const apiRequest = async (endpoint, body = {}, retries = 3, timeout = 15000) => {
     for (let attempt = 0; attempt < retries; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
         try {
             const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id, ...body })
+                body: JSON.stringify({ user_id, ...body }),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             return await res.json();
         } catch (e) {
-            if (attempt === retries - 1) {
-                console.error(`Ошибка запроса к ${endpoint}:`, e);
-                return { error: 'Сетевая ошибка. Попробуйте позже.' };
+            clearTimeout(timeoutId);
+            if (e.name === 'AbortError') {
+                console.warn(`Таймаут запроса к ${endpoint}`);
+                if (attempt === retries - 1) {
+                    return { error: 'Сервер не отвечает. Попробуйте позже.' };
+                }
+            } else {
+                if (attempt === retries - 1) {
+                    console.error(`Ошибка запроса к ${endpoint}:`, e);
+                    return { error: 'Сетевая ошибка. Попробуйте позже.' };
+                }
             }
             await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
         }
@@ -1103,16 +1116,15 @@ function show10CasesAnimation(type, data) {
             setTimeout(() => {
                 const totalPrize = data.total_prize || data.prizes.reduce((a, b) => a + b, 0);
                 
-                overlay.innerHTML = '';
-                overlay.style.justifyContent = 'center';
-                overlay.style.gap = '10px';
-                
                 overlay.innerHTML = `
+                    <div style="font-size:72px; margin-bottom:4px;">🎉</div>
+                    <div style="font-size:28px; font-weight:800; color:#4caf50; margin-bottom:4px;">ТЫ ВЫИГРАЛ!</div>
                     <div style="font-size:48px; font-weight:900; color:#ffd700; text-shadow:0 0 40px rgba(255,215,0,0.3);">${totalPrize}⭐</div>
                     <div style="font-size:16px; color:#aaa; margin-bottom:12px; display:flex; flex-wrap:wrap; justify-content:center; gap:6px; max-width:400px;">
                         ${data.prizes.map(p => `<span style="background:rgba(255,255,255,0.04); padding:4px 12px; border-radius:8px; border:1px solid rgba(255,215,0,0.1); font-size:14px; font-weight:600; color:${style.itemColor};">${p}⭐</span>`).join('')}
                     </div>
                     <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+                        <button onclick="closeAllOverlays(); open10Cases('${type}')" style="padding:14px 30px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🎲 ОТКРЫТЬ ЕЩЁ ×10</button>
                         <button onclick="closeAllOverlays(); showMain();" style="padding:14px 30px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">🔙 НАЗАД</button>
                     </div>
                 `;
@@ -1974,6 +1986,7 @@ let crash = {
     canvas: null,
     dom: {},
     interval: null,
+    firstVisit: true,
     _betOpenTime: null
 };
 
@@ -2005,12 +2018,25 @@ function initCrash() {
     }
     loadCrashStats();
     
+    // ===== ТОЛЬКО ПЕРВЫЙ РАЗ — ДЕМО =====
+    if (crash.firstVisit) {
+        crash.firstVisit = false;
+        crash.phase = 'preview';
+    } else {
+        crash.phase = 'waiting';
+    }
+    
     if (d.startBtn) {
         d.startBtn.onclick = function(e) {
             e.preventDefault();
             e.stopPropagation();
             if (crash.phase === 'waiting') {
-                openBetModal();
+                const bet = parseInt(d.betInput.value);
+                if (isNaN(bet) || bet < 1 || bet > 1000) {
+                    showCustomAlert('❌ Ставка от 1 до 1000⭐');
+                    return;
+                }
+                confirmBetDirect(bet);
             } else {
                 showCustomAlert('⏳ Подождите, игра ещё не закончилась!');
             }
@@ -2026,6 +2052,24 @@ function initCrash() {
     }
     
     startCrashPolling();
+}
+
+async function confirmBetDirect(bet) {
+    const data = await apiRequest('/make_crash_bet', { bet });
+    if (data.error) {
+        showCustomAlert('❌ ' + data.error);
+        return;
+    }
+    if (data.success) {
+        crash.hasBet = true;
+        crash.bet = bet;
+        if (crash.dom.betDisplay) crash.dom.betDisplay.textContent = bet;
+        if (crash.dom.potential) {
+            const potential = Math.floor(bet * crash.multiplier * 0.95);
+            crash.dom.potential.textContent = potential + '⭐';
+        }
+        loadBalance();
+    }
 }
 
 function drawCrashChart() {
@@ -2054,7 +2098,7 @@ function drawCrashChart() {
     
     ctx.beginPath();
     ctx.strokeStyle = '#22c55e';
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 4;
     ctx.shadowBlur = 0;
     
     data.forEach((val, i) => {
@@ -2128,11 +2172,13 @@ function startCrashPolling() {
         apiRequest('/crash_status', {}).then(status => {
             if (status.error) return;
             
+            const prevPhase = crash.phase;
             crash.phase = status.phase;
             crash.multiplier = status.multiplier;
             crash.waitingTime = status.waiting_time || 0;
             
             const d = crash.dom;
+            if (!d) return;
             
             if (status.phase === 'preview') {
                 updateCrashChart(status.multiplier);
@@ -2140,11 +2186,11 @@ function startCrashPolling() {
                     d.multiplier.textContent = `x${status.multiplier.toFixed(2)}`;
                     d.multiplier.style.color = status.multiplier < 2 ? '#4caf50' : status.multiplier < 5 ? '#ffd700' : '#f44336';
                 }
-                if (d.status) d.status.textContent = '🎬 Демо-игра';
+                if (d.status) d.status.textContent = '';
                 if (d.startBtn) {
                     d.startBtn.textContent = '💰 СДЕЛАТЬ СТАВКУ';
                     d.startBtn.style.display = 'inline-block';
-                    d.startBtn.disabled = false;
+                    d.startBtn.disabled = true;
                 }
                 if (d.cashoutBtn) d.cashoutBtn.style.display = 'none';
                 if (d.timer) d.timer.textContent = '';
@@ -2171,6 +2217,9 @@ function startCrashPolling() {
             }
             
             else if (status.phase === 'active') {
+                if (prevPhase !== 'active') {
+                    resetCrashChart();
+                }
                 updateCrashChart(status.multiplier);
                 if (d.multiplier) {
                     d.multiplier.textContent = `x${status.multiplier.toFixed(2)}`;
@@ -2191,100 +2240,11 @@ function startCrashPolling() {
                 if (d.progress) d.progress.style.width = Math.min((status.multiplier / 12) * 100, 100) + '%';
             }
             
-            else if (status.phase === 'crashed') {
-                const crashPoint = status.crash_multiplier_at_crash || 1.00;
-                if (d.multiplier) {
-                    d.multiplier.textContent = `x${crashPoint.toFixed(2)}`;
-                    d.multiplier.style.color = '#f44336';
-                }
-                if (d.status) d.status.textContent = `💥 КРАШ! x${crashPoint.toFixed(2)}`;
-                if (d.startBtn) {
-                    d.startBtn.style.display = 'inline-block';
-                    d.startBtn.disabled = true;
-                    d.startBtn.textContent = '⏳ ОЖИДАНИЕ...';
-                }
-                if (d.cashoutBtn) d.cashoutBtn.style.display = 'none';
-                if (d.timer) d.timer.textContent = '⏳ 10 сек до новой игры';
-                if (d.progress) d.progress.style.width = '100%';
-                
-                if (crash.hasBet) {
-                    crash.hasBet = false;
-                    loadCrashStats();
-                }
+            else if (status.phase === 'waiting_after_crash') {
+                // Эта фаза не используется, оставлена для совместимости
             }
         });
     }, 100);
-}
-
-function openBetModal() {
-    const overlay = document.createElement('div');
-    overlay.id = 'crashBetOverlay';
-    Object.assign(overlay.style, {
-        position: 'fixed',
-        top: '0', left: '0', right: '0', bottom: '0',
-        background: 'rgba(0,0,0,0.9)',
-        backdropFilter: 'blur(20px)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: '9999',
-        padding: '30px'
-    });
-    
-    overlay.innerHTML = `
-        <div style="background:rgba(255,255,255,0.05); border-radius:24px; padding:30px; max-width:380px; width:100%;">
-            <h2 style="color:#fff; text-align:center; font-size:22px; margin-bottom:16px;">💰 СТАВКА</h2>
-            <div style="color:#aaa; font-size:14px; text-align:center; margin-bottom:12px;">Осталось: <span id="betTimer">${Math.ceil(crash.waitingTime)}</span> сек</div>
-            <input id="betAmount" type="number" min="1" max="1000" value="10" style="width:100%; padding:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.3); color:#fff; font-size:18px; text-align:center;">
-            <div style="display:flex; gap:12px; margin-top:16px;">
-                <button onclick="confirmBet()" style="flex:1; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; font-weight:700; font-size:16px; cursor:pointer;">✅ ПОДТВЕРДИТЬ</button>
-                <button onclick="this.closest('#crashBetOverlay').remove()" style="flex:1; padding:14px; border:none; border-radius:12px; background:rgba(255,0,0,0.15); color:#ff6b6b; font-weight:700; font-size:16px; cursor:pointer;">❌ ОТМЕНА</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(overlay);
-    
-    const timerInterval = setInterval(() => {
-        const timerEl = document.getElementById('betTimer');
-        if (timerEl) {
-            const remaining = Math.max(0, crash.waitingTime - (Date.now() - crash._betOpenTime) / 1000);
-            timerEl.textContent = Math.ceil(remaining);
-            if (remaining <= 0) {
-                clearInterval(timerInterval);
-                if (document.getElementById('crashBetOverlay')) {
-                    document.getElementById('crashBetOverlay').remove();
-                    showCustomAlert('⏳ Время вышло!');
-                }
-            }
-        }
-    }, 100);
-    crash._betOpenTime = Date.now();
-}
-
-async function confirmBet() {
-    const input = document.getElementById('betAmount');
-    const bet = parseInt(input.value);
-    if (isNaN(bet) || bet < 1 || bet > 1000) {
-        showCustomAlert('❌ Ставка от 1 до 1000⭐');
-        return;
-    }
-    
-    const data = await apiRequest('/make_crash_bet', { bet });
-    if (data.error) {
-        showCustomAlert('❌ ' + data.error);
-        return;
-    }
-    
-    if (data.success) {
-        crash.hasBet = true;
-        crash.bet = bet;
-        document.getElementById('crashBetOverlay').remove();
-        showCustomAlert('✅ Ставка принята!', true);
-        if (crash.dom.betDisplay) crash.dom.betDisplay.textContent = bet;
-        loadBalance();
-    }
 }
 
 async function cashoutCrash() {
@@ -2330,7 +2290,7 @@ function showMinesGame() {
     container.style.display = 'block';
     container.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-size:20px; font-weight:800; color:#f472b6;">💣 МИНЁР</div>
+            <div style="font-size:20px; font-weight:800; color:#dc2626;">💣 МИНЁР</div>
         </div>
         <div style="color:#888; font-size:14px; text-align:center; margin-bottom:12px;">Открывайте клетки, избегайте мин и забирайте выигрыш!</div>
         <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; max-width:400px; margin:0 auto 16px;" id="gm_board"></div>
@@ -2344,7 +2304,7 @@ function showMinesGame() {
             <div style="color:#aaa; font-size:14px; margin-bottom:6px;">Ставка (3-1000⭐):</div>
             <input type="number" id="gm_bet_input" min="3" max="1000" value="100" style="width:100%; padding:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.3); color:#fff; font-size:18px; font-weight:700; text-align:center;">
         </div>
-        <div style="margin-bottom:12px; overflow-x:auto; white-space:nowrap; padding:4px 0;">
+        <div style="margin-bottom:12px; overflow-x:auto; white-space:nowrap; padding:4px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
             <div id="gm_options" style="display:inline-flex; gap:8px;">
                 <button class="gm_btn" data-mines="3">3 (x1.3)</button>
                 <button class="gm_btn active" data-mines="4">4 (x1.5)</button>
@@ -2354,7 +2314,7 @@ function showMinesGame() {
                 <button class="gm_btn" data-mines="8">8 (x4.0)</button>
             </div>
         </div>
-        <button id="gm_start_btn" style="width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#f472b6,#db2777); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">🎮 НАЧАТЬ ИГРУ</button>
+        <button id="gm_start_btn" style="width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#dc2626,#b91c1c); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">🎮 НАЧАТЬ ИГРУ</button>
         <button id="gm_cashout_btn" style="display:none; width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#ffd700,#f9a825); color:#000; font-weight:800; font-size:18px; cursor:pointer; margin-top:10px;">💰 ЗАБРАТЬ ВЫИГРЫШ (<span id="gm_cashout_amount">0</span>⭐)</button>
     `;
     
@@ -2522,11 +2482,7 @@ function openGameMinesCell(index) {
             }
             renderGameMinesBoard();
             
-            if (data.won) {
-                showCustomAlert(`🎉 ПОБЕДА! Ты выиграл ${data.winnings}⭐!`, true);
-            } else {
-                showCustomAlert(`💥 ВЗРЫВ! Ты потерял ${data.bet}⭐`);
-            }
+            showMinesResult(false, gameMinesData.bet);
             loadBalance();
             return;
         }
@@ -2552,7 +2508,15 @@ function cashoutGameMines() {
         gameMinesData.active = false;
         gameMinesData.game_over = true;
         document.getElementById('gm_cashout_btn').style.display = 'none';
-        showCustomAlert(`💰 ВЫИГРЫШ! Ты забрал ${data.winnings}⭐ (x${data.multiplier})`, true);
+        
+        for (let i = 0; i < 25; i++) {
+            if (gameMinesData.board[i] === 1) {
+                gameMinesData.openedCells[i] = 1;
+            }
+        }
+        renderGameMinesBoard();
+        
+        showMinesResult(true, data.winnings, data.multiplier);
         loadBalance();
     });
 }
@@ -2561,6 +2525,105 @@ function updateGameMinesCashout() {
     if (!gameMinesData) return;
     const amount = Math.floor(gameMinesData.bet * gameMinesData.multiplier);
     document.getElementById('gm_cashout_amount').textContent = amount;
+}
+
+function showMinesResult(isWin, amount, multiplier = 1) {
+    if (!gameMinesData) {
+        showCustomAlert('⚠️ Ошибка: игра не найдена');
+        return;
+    }
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'minesResultOverlay';
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0', left: '0', right: '0', bottom: '0',
+        background: 'rgba(0,0,0,0.92)',
+        backdropFilter: 'blur(20px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '1000',
+        padding: '20px',
+        animation: 'fadeIn 0.3s ease'
+    });
+    
+    const board = gameMinesData?.board || [];
+    const opened = gameMinesData?.openedCells || [];
+    let boardHTML = '';
+    for (let i = 0; i < 25; i++) {
+        let symbol = '❓';
+        let bg = 'rgba(255,255,255,0.04)';
+        let border = '1px solid rgba(255,255,255,0.06)';
+        
+        if (opened[i] === 1) {
+            if (board[i] === 1) {
+                symbol = '💣';
+                bg = 'rgba(255,0,0,0.25)';
+                border = '2px solid #ff4444';
+            } else {
+                symbol = '💎';
+                bg = 'rgba(0,255,0,0.12)';
+                border = '2px solid #44ff44';
+            }
+        } else if (isWin && board[i] === 1) {
+            symbol = '💣';
+            bg = 'rgba(255,0,0,0.10)';
+            border = '1px solid rgba(255,0,0,0.15)';
+        }
+        
+        boardHTML += `<div style="width:48px; height:48px; display:flex; align-items:center; justify-content:center; font-size:22px; background:${bg}; border-radius:8px; border:${border}; margin:2px;">${symbol}</div>`;
+    }
+    
+    const icon = isWin ? '💰' : '💥';
+    const title = isWin ? 'ВЫИГРЫШ!' : 'ВЗРЫВ!';
+    const color = isWin ? '#4caf50' : '#f44336';
+    const subtitle = isWin ? `Ты забрал ${amount}⭐ (x${multiplier.toFixed(1)})` : `Ты потерял ${amount}⭐`;
+    
+    overlay.innerHTML = `
+        <div style="font-size:56px; margin-bottom:4px;">${icon}</div>
+        <div style="font-size:26px; font-weight:800; color:${color}; margin-bottom:4px;">${title}</div>
+        <div style="font-size:16px; color:#aaa; margin-bottom:10px;">${subtitle}</div>
+        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:2px; max-width:260px; margin:0 auto 14px;">
+            ${boardHTML}
+        </div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+            <button onclick="closeMinesResult(); resetGameMines();" style="padding:12px 28px; border:none; border-radius:14px; background:linear-gradient(135deg, #b388ff, #7c4dff); color:#fff; font-weight:700; font-size:15px; cursor:pointer;">🔄 ИГРАТЬ СНОВА</button>
+            <button onclick="closeMinesResult(); document.getElementById('minesGameContainer').style.display='none'; document.getElementById('gamesMenu').style.display='flex';" style="padding:12px 28px; border:none; border-radius:14px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:15px; cursor:pointer;">🔙 НАЗАД</button>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+}
+
+function closeMinesResult() {
+    const overlay = document.getElementById('minesResultOverlay');
+    if (overlay) overlay.remove();
+}
+
+function resetGameMines() {
+    gameMinesData = null;
+    const board = document.getElementById('gm_board');
+    if (board) {
+        board.innerHTML = '';
+        for (let i = 0; i < 25; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'gm_cell';
+            cell.dataset.index = i;
+            cell.textContent = '❓';
+            cell.style.cssText = 'aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:700; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.06); cursor:pointer; transition:all 0.15s ease; user-select:none; color:#fff; min-height:60px; box-shadow:inset 0 2px 10px rgba(0,0,0,0.2);';
+            cell.onclick = () => openGameMinesCell(i);
+            board.appendChild(cell);
+        }
+    }
+    document.getElementById('gm_bet_display').textContent = '0';
+    document.getElementById('gm_count_display').textContent = '0';
+    document.getElementById('gm_total_safe').textContent = '0';
+    document.getElementById('gm_opened_display').textContent = '0';
+    document.getElementById('gm_multiplier_display').textContent = 'x1.0';
+    document.getElementById('gm_cashout_btn').style.display = 'none';
+    document.getElementById('gm_start_btn').textContent = '🎮 НАЧАТЬ ИГРУ';
 }
 
 // ===== АПГРЕЙД =====
@@ -2932,7 +2995,7 @@ document.addEventListener('DOMContentLoaded', function() {
         menu.style.cssText = 'display:flex; flex-direction:column; gap:12px; margin-top:8px;';
         menu.innerHTML = `
             <button onclick="showCrashGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 30px rgba(34,197,94,0.3);">💥 КРАШ</button>
-            <button onclick="showMinesGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#f472b6,#db2777); color:#fff; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 30px rgba(244,114,182,0.2);">💣 МИНЁР</button>
+            <button onclick="showMinesGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#dc2626,#b91c1c); color:#fff; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 30px rgba(220,38,38,0.3);">💣 МИНЁР</button>
             <button onclick="showUpgradeGame()" style="width:100%; padding:20px; border:none; border-radius:16px; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#000; font-size:20px; font-weight:700; cursor:pointer; box-shadow:0 4px 30px rgba(251,191,36,0.2);">⚡ АПГРЕЙД</button>
         `;
         document.getElementById('gamesScreen').prepend(menu);
