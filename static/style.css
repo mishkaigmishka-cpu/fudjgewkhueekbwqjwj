@@ -683,7 +683,7 @@ input:disabled {
     to { opacity: 1; transform: scale(1); }
 }
 
-/* ===== МИНИ-ИГРЫ — МЯГКИЕ ЦВЕТА ===== */
+/* ===== МИНИ-ИГРЫ ===== */
 
 /* Краш — зелёный */
 #crashGameContainer .crash-title,
@@ -696,7 +696,7 @@ input:disabled {
     text-shadow: 0 0 30px rgba(34, 197, 94, 0.3);
 }
 
-/* Минёр — красный */
+/* ===== ИСПРАВЛЕНИЕ 4.1: Цвета для минёра ===== */
 #minesGameContainer .mines-title,
 #minesGameContainer .game-title {
     color: #dc2626;
@@ -725,7 +725,7 @@ input:disabled {
     background: rgba(255, 255, 255, 0.06);
 }
 
-/* График краша — мягкая линия без резких свечений */
+/* График краша */
 #gc_chart canvas {
     filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.15));
 }
@@ -734,7 +734,7 @@ input:disabled {
     border-color: rgba(34, 197, 94, 0.08);
 }
 
-/* Кнопки мини-игр — мягкие неоновые */
+/* Кнопки мини-игр */
 #gamesMenu button {
     transition: all 0.3s ease;
 }
@@ -748,7 +748,7 @@ input:disabled {
     transform: scale(0.97);
 }
 
-/* Кнопка "СДЕЛАТЬ СТАВКУ" в краше — без мигания */
+/* Кнопка "СДЕЛАТЬ СТАВКУ" в краше */
 #gc_start_btn {
     transition: none !important;
     animation: none !important;
@@ -759,20 +759,20 @@ input:disabled {
     cursor: not-allowed;
 }
 
-/* Таймер краша — без мигания */
+/* Таймер краша */
 #gc_timer {
     transition: none !important;
     animation: none !important;
 }
 
-/* Множитель краша — без пульсации */
+/* Множитель краша */
 #gc_multiplier {
     transition: none !important;
     animation: none !important;
     transform: scale(1) !important;
 }
 
-/* Прогресс-бар краша — плавный, без рывков */
+/* Прогресс-бар краша */
 #gc_progress {
     transition: width 0.1s ease !important;
 }
