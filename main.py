@@ -19,7 +19,6 @@ app = Flask(__name__)
 conn = sqlite3.connect('cases.db', check_same_thread=False)
 cursor = conn.cursor()
 
-# ===== ТАБЛИЦЫ БД =====
 cursor.execute('''CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     balance INTEGER DEFAULT 5,
@@ -151,37 +150,25 @@ cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_quests_user ON complete
 cursor.execute("CREATE INDEX IF NOT EXISTS idx_case_stats_user ON case_stats(user_id)")
 conn.commit()
 
-# ===== КЕЙСЫ =====
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
 
 CASE_RANGES = {
     "free": {"common": [1, 2], "rare": [3, 4], "epic": [5, 6, 7, 8, 9, 10], "legendary": [100], "jackpot": [1000], "common_chance": 0.599, "rare_chance": 0.299, "epic_chance": 0.0999, "legendary_chance": 0.0001, "jackpot_chance": 0.00000001},
-    
     "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.70, "rare_chance": 0.25, "epic_chance": 0.0499, "legendary_chance": 0.001, "jackpot_chance": 0.000001},
-    
     "wood": {"common": [2, 4, 5, 6, 7, 8, 9, 10], "rare": [12, 13, 15], "epic": [20, 50], "legendary": [100, 500], "jackpot": [1000], "common_chance": 0.75, "rare_chance": 0.19, "epic_chance": 0.05, "legendary_chance": 0.00001, "jackpot_chance": 0.000001},
-    
     "stone": {"common": [11, 13, 15, 16, 17, 18, 19], "rare": [21, 23, 24, 25], "epic": [30, 50, 100, 250], "legendary": [500, 1000], "jackpot": [2500], "common_chance": 0.80, "rare_chance": 0.15, "epic_chance": 0.05, "legendary_chance": 0.00001, "jackpot_chance": 0.000001},
-    
     "bronze": {"common": [20, 25, 30], "rare": [35, 40, 45, 50], "epic": [55, 60, 65, 75, 100], "legendary": [222, 333, 444, 555, 1000, 1500, 2000], "jackpot": [5000], "common_chance": 0.89, "rare_chance": 0.10, "epic_chance": 0.009999, "legendary_chance": 0.000001, "jackpot_chance": 0.0000001},
-    
     "silver": {"common": [40, 50, 60, 70], "rare": [70, 80, 90, 100], "epic": [100, 110, 120, 130, 140, 150], "legendary": [200, 250, 333, 444, 555, 666, 777, 888, 999, 1488, 2011, 5000], "jackpot": [10000], "common_chance": 0.25, "rare_chance": 0.6745, "epic_chance": 0.0749, "legendary_chance": 0.0005, "jackpot_chance": 0.00000001},
-    
     "gold": {"common": [75, 100], "rare": [150, 169, 190, 220, 251], "epic": [300, 400, 500, 777], "legendary": [999, 1000, 2000, 5000, 10000, 12500], "jackpot": [25000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
-    
     "diamond": {"common": [250, 300, 333], "rare": [350, 444, 505], "epic": [1000, 1488, 2222], "legendary": [2500, 5000, 10000, 12500, 25000], "jackpot": [50000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
-    
     "netherite": {"common": [500, 550, 600], "rare": [650, 700, 750, 800, 850], "epic": [900, 950, 1000, 1500], "legendary": [2000, 2500, 3000, 3200, 3500, 4000, 5000, 10000, 15000, 20000], "jackpot": [25000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
-    
     "obsidian": {"common": [500, 1000, 1500], "rare": [2000, 2500, 3000], "epic": [4000, 5000, 7500], "legendary": [10000, 15000], "jackpot": [25000], "common_chance": 0.35, "rare_chance": 0.35, "epic_chance": 0.2, "legendary_chance": 0.09, "jackpot_chance": 0.01},
-    
     "bedrock": {"common": [5000], "rare": [10000, 25000], "epic": [50000, 100000], "legendary": [250000], "jackpot": [1000000], "common_chance": 0.999, "rare_chance": 0.0009, "epic_chance": 0.00009, "legendary_chance": 0.000009, "jackpot_chance": 0.000001}
 }
 
 def get_prize(case_type, user_id=None):
     data = CASE_RANGES[case_type]
     rnd = random.random()
-    
     if user_id:
         cursor.execute("SELECT luck_boost FROM users WHERE id=?", (user_id,))
         boost = cursor.fetchone()
@@ -189,7 +176,6 @@ def get_prize(case_type, user_id=None):
             rnd = rnd / boost[0]
             if rnd > 1.0:
                 rnd = 0.9999
-    
     if rnd < data["jackpot_chance"]:
         return random.choice(data["jackpot"])
     elif rnd < data["jackpot_chance"] + data["legendary_chance"]:
@@ -291,7 +277,6 @@ def track_spend(uid, promo_code, amount):
     cursor.execute("UPDATE users SET total_spent = total_spent + ? WHERE id=?", (amount, uid))
     conn.commit()
 
-# ===== ГЛОБАЛЬНЫЕ ДАННЫЕ =====
 active_mines_games = {}
 crash_lock = threading.Lock()
 
@@ -426,7 +411,6 @@ def update_battle_stats(user_id, won, stars, case_type=None):
                         WHERE user_id=?''', 
                         (battles_played, battles_won, battles_lost, total_won_stars, total_lost_stars, user_id))
     conn.commit()
-    
     if won and case_type:
         cursor.execute("INSERT INTO level_wins (user_id, case_type, wins) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET wins = wins + 1", (user_id, case_type))
         conn.commit()
@@ -436,23 +420,19 @@ def crash_timer():
     while True:
         with crash_lock:
             now = time.time()
-            
             if crash_data['phase'] == 'preview':
                 if not crash_data.get('preview_start'):
                     crash_data['preview_start'] = now
                     crash_data['multiplier'] = 1.00
                     crash_data['crash_point'] = generate_crash_point()
-                
                 elapsed = now - crash_data['preview_start']
                 crash_data['multiplier'] = get_crash_multiplier(elapsed)
-                
                 if crash_data['multiplier'] >= crash_data['crash_point'] or crash_data['multiplier'] >= 12.00:
                     crash_data['phase'] = 'waiting'
                     crash_data['waiting_time'] = now + 10
                     crash_data['multiplier'] = crash_data['crash_point']
                     crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
                     crash_data['first_visit'] = False
-            
             elif crash_data['phase'] == 'waiting':
                 if now >= crash_data['waiting_time']:
                     crash_data['phase'] = 'active'
@@ -462,11 +442,9 @@ def crash_timer():
                     crash_data['crash_multiplier_at_crash'] = 1.00
                 else:
                     crash_data['multiplier'] = 1.00
-            
             elif crash_data['phase'] == 'active':
                 elapsed = now - crash_data['start_time']
                 crash_data['multiplier'] = get_crash_multiplier(elapsed)
-                
                 if crash_data['multiplier'] >= crash_data['crash_point'] or crash_data['multiplier'] >= 12.00:
                     crash_data['phase'] = 'crashed'
                     crash_data['crash_time'] = now
@@ -474,17 +452,14 @@ def crash_timer():
                     crash_data['game_count'] += 1
                     crash_data['bets'] = {}
                     crash_data['multiplier'] = 1.00
-            
             elif crash_data['phase'] == 'crashed':
                 if now - crash_data['crash_time'] >= 3:
                     crash_data['phase'] = 'waiting'
                     crash_data['waiting_time'] = now + 10
-        
         time.sleep(0.05)
 
 threading.Thread(target=crash_timer, daemon=True).start()
 
-# ===== КОМАНДЫ TELEGRAM =====
 @bot.message_handler(commands=['start'])
 def start(msg):
     uid = msg.from_user.id
@@ -537,17 +512,14 @@ def process_topup_amount(message, msg_id):
     if amount < 1 or amount > 5000:
         bot.edit_message_text("❌ Сумма должна быть от 1 до 5000⭐!", chat_id=uid, message_id=msg_id)
         return
-    
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("🔙 Назад", callback_data="cancel_topup"))
-    
     bot.edit_message_text(
         f"💰 Пополнение на {amount}⭐\n\nНажми «Оплатить», чтобы продолжить, или «Назад» для отмены.",
         chat_id=uid,
         message_id=msg_id,
         reply_markup=kb
     )
-    
     bot.send_invoice(
         chat_id=uid,
         title=f"Пополнение на {amount}⭐",
@@ -599,35 +571,26 @@ def promo_handler(msg):
     if len(args) < 2:
         bot.reply_to(msg, "❌ Введи промокод: /promo RANDEVU20")
         return
-    
     code = args[1].upper()
-    
     cursor.execute("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=?", (code,))
     promo = cursor.fetchone()
     if not promo:
         bot.reply_to(msg, "❌ Неверный промокод!")
         return
-    
     reward, max_uses, used_count = promo
-    
     if max_uses > 0 and used_count >= max_uses:
         bot.reply_to(msg, "❌ Промокод уже использован максимальное количество раз!")
         return
-    
     user = get_user(uid)
     if not user:
         bot.reply_to(msg, "Напиши /start")
         return
-    
     if user[9] == 1:
         bot.reply_to(msg, "❌ Ты уже использовал промокод!")
         return
-    
     update_user(uid, balance=user[1] + reward, promo_used=1, promo_code=code)
-    
     cursor.execute("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=?", (code,))
     conn.commit()
-    
     bot.reply_to(msg, f"✅ Промокод активирован! Ты получил {reward}⭐")
 
 @bot.message_handler(commands=['create_promo'])
@@ -638,11 +601,9 @@ def create_promo(msg):
     if len(args) < 2:
         bot.reply_to(msg, "❌ Формат: /create_promo CODE [reward] [max_uses]")
         return
-    
     code = args[1].upper()
     reward = 20
     max_uses = 1
-    
     if len(args) >= 3:
         try:
             reward = int(args[2])
@@ -653,11 +614,9 @@ def create_promo(msg):
             max_uses = int(args[3])
         except:
             pass
-    
     cursor.execute("INSERT OR IGNORE INTO promo_codes (code, reward, created_by, created_at, max_uses) VALUES (?, ?, ?, ?, ?)",
                    (code, reward, ADMIN_ID, int(time.time()), max_uses))
     conn.commit()
-    
     bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
 
 @bot.message_handler(commands=['balance'])
@@ -888,7 +847,6 @@ def add_ad(msg):
     ads.append(parts[1])
     bot.reply_to(msg, "✅ Реклама добавлена")
 
-# ===== ЭНДПОИНТЫ =====
 @app.route('/check_level_star', methods=['POST'])
 def check_level_star():
     data = request.get_json()
@@ -909,7 +867,6 @@ def start_bot_battle():
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
-    
     if use_star:
         cursor.execute("SELECT earned FROM level_stars WHERE user_id=? AND level_id=?", (uid, case_type))
         star = cursor.fetchone()
@@ -927,17 +884,14 @@ def start_bot_battle():
         cursor.execute("UPDATE case_stats SET opened = opened - 10 WHERE user_id=? AND case_type=?", (uid, case_type))
         conn.commit()
         price = 0
-    
     player_prize = get_prize(case_type, uid)
     bot_prize = get_prize(case_type, None)
     total = player_prize + bot_prize
     commission = int(total * 0.10)
     winnings = total - commission
-    
     result = 'lose'
     result_text = ''
     wins_after = 0
-    
     if player_prize > bot_prize:
         user = get_user(uid)
         update_user(uid, balance=user[1] + winnings, last_open=int(time.time()))
@@ -966,13 +920,11 @@ def start_bot_battle():
         cursor.execute("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type))
         wins_data = cursor.fetchone()
         wins_after = wins_data[0] if wins_data else 0
-    
     level_unlocked = False
     if wins_after >= 3:
         level_unlocked = True
         cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (uid, case_type + '_completed'))
         conn.commit()
-    
     return jsonify({
         'result': result,
         'result_text': result_text,
@@ -1138,16 +1090,13 @@ def make_crash_bet():
         return jsonify({'error': 'Ставка от 1 до 1000⭐'}), 400
     if user[1] < bet:
         return jsonify({'error': 'Недостаточно звёзд'}), 400
-    
     with crash_lock:
         if crash_data['phase'] != 'waiting':
             return jsonify({'error': 'Сейчас нельзя сделать ставку!'}), 400
         if uid in crash_data['bets']:
             return jsonify({'error': 'Ты уже сделал ставку'}), 400
-        
         crash_data['bets'][uid] = bet
         update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
-    
     return jsonify({'success': True})
 
 @app.route('/crash_status', methods=['POST'])
@@ -1158,7 +1107,6 @@ def crash_status():
         waiting_time = 0
         if crash_data['phase'] == 'waiting':
             waiting_time = max(0, crash_data['waiting_time'] - now)
-        
         return jsonify({
             'phase': crash_data['phase'],
             'multiplier': crash_data['multiplier'],
@@ -1177,21 +1125,17 @@ def cashout_crash():
             return jsonify({'error': 'Игра не активна'}), 400
         if uid not in crash_data['bets']:
             return jsonify({'error': 'Ты не делал ставку'}), 400
-        
         bet = crash_data['bets'][uid]
         multiplier = crash_data['multiplier']
         raw_winnings = int(bet * multiplier)
         commission = int(raw_winnings * 0.05)
         winnings = raw_winnings - commission
         final_winnings = min(winnings, 5000)
-        
         user = get_user(uid)
         update_user(uid, balance=user[1] + final_winnings, last_open=int(time.time()))
         add_commission(commission)
         update_crash_stats(uid, won=True, multiplier=multiplier, stars=final_winnings)
-        
         del crash_data['bets'][uid]
-    
     return jsonify({
         'winnings': final_winnings,
         'multiplier': multiplier,
@@ -1321,7 +1265,6 @@ def open_case():
         user = get_user(user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 404
-        
         if case_type == "free":
             if time.time() - user[4] < 7200:
                 wait = int((7200 - (time.time() - user[4])) // 60)
@@ -1334,7 +1277,6 @@ def open_case():
             update_status(user_id, new_total)
             ad = random.choice(ads) if ads else ""
             return jsonify({'prize': prize, 'new_balance': new_bal, 'ad': ad})
-        
         prices = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
         price = prices.get(case_type, 0)
         if user[1] < price:
@@ -1346,19 +1288,15 @@ def open_case():
         new_bal = user[1] - price + prize
         new_total = user[2] + 1
         new_streak = user[3] + 1
-        
         cursor.execute("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + 1", (user_id, case_type))
         conn.commit()
-        
         cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
         result = cursor.fetchone()
         opened = result[0] if result else 0
-        
         level_order = ['mud', 'wood', 'stone', 'bronze', 'silver', 'gold', 'diamond', 'netherite', 'obsidian', 'bedrock']
         cursor.execute("SELECT case_type, wins FROM level_wins WHERE user_id=?", (user_id,))
         wins_data = cursor.fetchall()
         level_wins = {w[0]: w[1] for w in wins_data}
-        
         unlocked_levels = ['mud']
         for i in range(1, len(level_order)):
             prev_level = level_order[i-1]
@@ -1366,11 +1304,9 @@ def open_case():
                 unlocked_levels.append(level_order[i])
             else:
                 break
-        
         if case_type in unlocked_levels and opened >= 10:
             cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
             conn.commit()
-        
         update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
         update_status(user_id, new_total)
         return jsonify({'prize': prize, 'new_balance': new_bal})
@@ -1443,30 +1379,24 @@ def get_levels_data():
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    
     cursor.execute("SELECT case_type, opened FROM case_stats WHERE user_id=?", (uid,))
     stats = cursor.fetchall()
     case_counts = {s[0]: s[1] for s in stats}
-    
     cursor.execute("SELECT level_id, earned FROM level_stars WHERE user_id=?", (uid,))
     stars_data = cursor.fetchall()
     level_stars = {s[0]: s[1] for s in stars_data}
-    
     cursor.execute("SELECT case_type, wins FROM level_wins WHERE user_id=?", (uid,))
     wins_data = cursor.fetchall()
     level_wins = {w[0]: w[1] for w in wins_data}
-    
     level_order = ['mud', 'wood', 'stone', 'bronze', 'silver', 'gold', 'diamond', 'netherite', 'obsidian', 'bedrock']
     unlocked_levels = []
     unlocked_levels.append('mud')
-    
     for i in range(1, len(level_order)):
         prev_level = level_order[i-1]
         if level_wins.get(prev_level, 0) >= 3:
             unlocked_levels.append(level_order[i])
         else:
             break
-    
     return jsonify({
         'case_counts': case_counts,
         'level_stars': level_stars,
@@ -1543,16 +1473,13 @@ def open_10_cases():
         total_prize += prize
         cursor.execute("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + 1", (user_id, case_type))
         conn.commit()
-    
     cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
     result = cursor.fetchone()
     opened = result[0] if result else 0
-    
     level_order = ['mud', 'wood', 'stone', 'bronze', 'silver', 'gold', 'diamond', 'netherite', 'obsidian', 'bedrock']
     cursor.execute("SELECT case_type, wins FROM level_wins WHERE user_id=?", (user_id,))
     wins_data = cursor.fetchall()
     level_wins = {w[0]: w[1] for w in wins_data}
-    
     unlocked_levels = ['mud']
     for i in range(1, len(level_order)):
         prev_level = level_order[i-1]
@@ -1560,11 +1487,9 @@ def open_10_cases():
             unlocked_levels.append(level_order[i])
         else:
             break
-    
     if case_type in unlocked_levels and opened >= 10:
         cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
         conn.commit()
-    
     new_bal = user[1] - total_price + total_prize
     new_total = user[2] + 10
     new_streak = user[3] + 10
