@@ -431,7 +431,6 @@ def update_battle_stats(user_id, won, stars, case_type=None):
         cursor.execute("INSERT INTO level_wins (user_id, case_type, wins) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET wins = wins + 1", (user_id, case_type))
         conn.commit()
 
-# ===== ФУНКЦИЯ CRASH_TIMER С ИСПРАВЛЕНИЕМ 1.3 =====
 def crash_timer():
     global crash_data
     while True:
@@ -477,7 +476,6 @@ def crash_timer():
                     crash_data['multiplier'] = 1.00
             
             elif crash_data['phase'] == 'crashed':
-                # ===== ИСПРАВЛЕНИЕ 1.3: 3 секунды вместо 10 =====
                 if now - crash_data['crash_time'] >= 3:
                     crash_data['phase'] = 'waiting'
                     crash_data['waiting_time'] = now + 10
@@ -1313,7 +1311,6 @@ def check_balance():
         return jsonify({'error': f'Жди {wait} мин', 'can_open': False}), 400
     return jsonify({'can_open': True})
 
-# ===== ЭНДПОИНТ /open_case С ИСПРАВЛЕНИЯМИ 1.1 И 1.4 =====
 @app.route('/open_case', methods=['POST'])
 def open_case():
     try:
@@ -1325,7 +1322,6 @@ def open_case():
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        # ===== ИСПРАВЛЕНИЕ 1.4: Бесплатный кейс =====
         if case_type == "free":
             if time.time() - user[4] < 7200:
                 wait = int((7200 - (time.time() - user[4])) // 60)
@@ -1356,11 +1352,24 @@ def open_case():
         
         cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
         result = cursor.fetchone()
-        # ===== ИСПРАВЛЕНИЕ 1.1: case_stats НЕ СБРАСЫВАЕТСЯ =====
-        if result and result[0] >= 10:
+        opened = result[0] if result else 0
+        
+        level_order = ['mud', 'wood', 'stone', 'bronze', 'silver', 'gold', 'diamond', 'netherite', 'obsidian', 'bedrock']
+        cursor.execute("SELECT case_type, wins FROM level_wins WHERE user_id=?", (user_id,))
+        wins_data = cursor.fetchall()
+        level_wins = {w[0]: w[1] for w in wins_data}
+        
+        unlocked_levels = ['mud']
+        for i in range(1, len(level_order)):
+            prev_level = level_order[i-1]
+            if level_wins.get(prev_level, 0) >= 3:
+                unlocked_levels.append(level_order[i])
+            else:
+                break
+        
+        if case_type in unlocked_levels and opened >= 10:
             cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
             conn.commit()
-            # СТРОКА С UPDATE case_stats УДАЛЕНА
         
         update_user(user_id, balance=new_bal, total_cases=new_total, streak=new_streak, last_open=int(time.time()))
         update_status(user_id, new_total)
@@ -1511,7 +1520,6 @@ def claim_quest():
     conn.commit()
     return jsonify({'success': True, 'reward': reward})
 
-# ===== ЭНДПОИНТ /open_10_cases С ИСПРАВЛЕНИЕМ 1.2 =====
 @app.route('/open_10_cases', methods=['POST'])
 def open_10_cases():
     data = request.get_json()
@@ -1538,11 +1546,24 @@ def open_10_cases():
     
     cursor.execute("SELECT opened FROM case_stats WHERE user_id=? AND case_type=?", (user_id, case_type))
     result = cursor.fetchone()
-    # ===== ИСПРАВЛЕНИЕ 1.2: case_stats НЕ СБРАСЫВАЕТСЯ =====
-    if result and result[0] >= 10:
+    opened = result[0] if result else 0
+    
+    level_order = ['mud', 'wood', 'stone', 'bronze', 'silver', 'gold', 'diamond', 'netherite', 'obsidian', 'bedrock']
+    cursor.execute("SELECT case_type, wins FROM level_wins WHERE user_id=?", (user_id,))
+    wins_data = cursor.fetchall()
+    level_wins = {w[0]: w[1] for w in wins_data}
+    
+    unlocked_levels = ['mud']
+    for i in range(1, len(level_order)):
+        prev_level = level_order[i-1]
+        if level_wins.get(prev_level, 0) >= 3:
+            unlocked_levels.append(level_order[i])
+        else:
+            break
+    
+    if case_type in unlocked_levels and opened >= 10:
         cursor.execute("INSERT INTO level_stars (user_id, level_id, earned) VALUES (?, ?, 1) ON CONFLICT(user_id, level_id) DO UPDATE SET earned = earned + 1", (user_id, case_type))
         conn.commit()
-        # СТРОКА С UPDATE case_stats УДАЛЕНА
     
     new_bal = user[1] - total_price + total_prize
     new_total = user[2] + 10
