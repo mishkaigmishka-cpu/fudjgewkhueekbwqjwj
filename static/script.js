@@ -1446,6 +1446,7 @@ function applyProfileStatus(statusText) {
     if (avatar && !avatar.querySelector('img') && !avatar.textContent.trim()) avatar.textContent = tier.icon;
 }
 
+// ===== ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК ЗАДАНИЙ (С ПОДДЕРЖКОЙ DEPOSIT) =====
 function switchQuestTab(tab) {
     document.querySelectorAll('.quest-tab').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tab === tab);
@@ -1458,7 +1459,11 @@ function switchQuestTab(tab) {
     const target = document.getElementById('questTab' + tabName);
     if (target) target.classList.add('active');
 
-    loadQuestTab(tab);
+    if (tab === 'deposit') {
+        loadDepositRewards();
+    } else {
+        loadQuestTab(tab);
+    }
 }
 
 async function loadQuestTab(tab) {
@@ -1629,14 +1634,20 @@ async function claimQuest(questId, reward) {
         showCustomAlert(`✅ Получено ${data.reward !== undefined ? data.reward : reward} ${starIcon(16)}!`, true);
         loadBalance();
         const activeTab = document.querySelector('.quest-tab.active');
-        if (activeTab) loadQuestTab(activeTab.dataset.tab);
+        if (activeTab) {
+            if (activeTab.dataset.tab === 'deposit') {
+                loadDepositRewards();
+            } else {
+                loadQuestTab(activeTab.dataset.tab);
+            }
+        }
         if (document.getElementById('levelsScreen').classList.contains('active')) {
             loadLevels();
         }
     }
 }
 
-// ===== ПРОМОКОД =====
+// ===== ПРОМОКОД (СТАРЫЙ МОДАЛЬНЫЙ) =====
 function showPromoModal() {
     document.getElementById('promoModal').style.display = 'flex';
 }
@@ -1662,6 +1673,132 @@ async function submitPromo() {
         showCustomAlert(`✅ Промокод активирован! Получено ${data.reward} ${starIcon(16)}`, true);
         closePromoModal();
         loadBalance();
+    }
+}
+
+// ===== ПРОМОКОД В ПРИЛОЖЕНИИ (НОВАЯ МОДАЛКА) =====
+function showPromoAppModal() {
+    document.getElementById('promoAppModal').style.display = 'flex';
+}
+
+function closePromoAppModal() {
+    document.getElementById('promoAppModal').style.display = 'none';
+    document.getElementById('promoAppInput').value = '';
+}
+
+async function submitPromoApp() {
+    const code = document.getElementById('promoAppInput').value.trim().toUpperCase();
+    if (!code) return showCustomAlert('❌ Введи промокод!');
+    if (!userId) return;
+
+    try {
+        const res = await fetch('/claim_promo_webapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, code: code })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showCustomAlert(data.message || `✅ +${data.reward}⭐ за промокод!`, true);
+            await loadBalance();
+            closePromoAppModal();
+        } else {
+            showCustomAlert('❌ ' + (data.error || 'Ошибка'));
+        }
+    } catch (e) {
+        showCustomAlert('❌ Ошибка сети');
+    }
+}
+
+// ===== ВЫВОД СРЕДСТВ =====
+function showWithdrawModal() {
+    document.getElementById('withdrawModal').style.display = 'flex';
+}
+
+function closeWithdrawModal() {
+    document.getElementById('withdrawModal').style.display = 'none';
+    document.getElementById('withdrawAmount').value = '';
+}
+
+async function submitWithdraw() {
+    const amount = parseInt(document.getElementById('withdrawAmount').value);
+    if (!amount || amount < 1000) return showCustomAlert('❌ Минимум 1000 звёзд!');
+    if (!userId) return;
+
+    try {
+        const res = await fetch('/withdraw', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, amount: amount })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showCustomAlert('✅ ' + data.message, true);
+            await loadBalance();
+            closeWithdrawModal();
+        } else {
+            showCustomAlert('❌ ' + (data.error || 'Ошибка'));
+        }
+    } catch (e) {
+        showCustomAlert('❌ Ошибка сети');
+    }
+}
+
+// ===== НАГРАДЫ ЗА ПОПОЛНЕНИЕ =====
+async function loadDepositRewards() {
+    if (!userId) return;
+    try {
+        const res = await fetch('/get_deposit_rewards', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId })
+        });
+        const data = await res.json();
+        if (data.error) return;
+
+        const container = document.getElementById('questTabDeposit');
+        if (!container) return;
+
+        let html = '';
+        data.tiers.forEach(tier => {
+            const claimed = data.claimed.includes(tier.amount);
+            const canClaim = data.total_spent >= tier.amount && !claimed;
+
+            html += `
+                <div class="quest-item ${claimed ? 'completed' : ''}">
+                    <div class="quest-left">
+                        <div class="quest-name">💎 Пополнение ${tier.amount}⭐</div>
+                        <div class="quest-reward">🎁 ${tier.reward}⭐</div>
+                    </div>
+                    ${claimed ? '<span style="color:#4ade80;">✅</span>' :
+                     canClaim ? `<button class="quest-btn" onclick="claimDepositReward(${tier.amount})">ЗАБРАТЬ</button>` :
+                     `<span style="color:#5d5a6b;">🔒</span>`}
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    } catch (e) {}
+}
+
+async function claimDepositReward(amount) {
+    if (!userId) return;
+    try {
+        const res = await fetch('/claim_deposit_reward', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, amount: amount })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showCustomAlert(`✅ +${data.reward}⭐ получено!`, true);
+            await loadBalance();
+            await loadDepositRewards();
+        } else {
+            showCustomAlert('❌ ' + (data.error || 'Ошибка'));
+        }
+    } catch (e) {
+        showCustomAlert('❌ Ошибка сети');
     }
 }
 
