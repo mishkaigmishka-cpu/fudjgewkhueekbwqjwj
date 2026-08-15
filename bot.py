@@ -40,8 +40,11 @@ def safe_delete(chat_id, message_id):
     except Exception:
         pass
 
+# Храним ID главного сообщения для каждого пользователя
+main_message_ids = {}
+
 def show_main_menu(chat_id):
-    """Показывает главное меню с логотипом"""
+    """Показывает главное меню с логотипом (НЕ УДАЛЯЕТСЯ)"""
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
         InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(WEBAPP_URL)),
@@ -49,16 +52,36 @@ def show_main_menu(chat_id):
     )
     
     caption = "🎰 <b>Добро пожаловать в RANDEVU!</b>\n\nОткрывай кейсы, играй в мини-игры и выигрывай!"
-    logo_path = "static/assets/logo.png"
     
+    # ПРАВИЛЬНЫЙ ПУТЬ К ФОТО
+    logo_path = "static/assets/20260815T113355947161Z-ipython-tmp-b7e507bdd6df4b669f0b030606d29091.png"
+    
+    # Если уже есть главное сообщение - редактируем его
+    if chat_id in main_message_ids:
+        try:
+            bot.edit_message_caption(
+                chat_id=chat_id,
+                message_id=main_message_ids[chat_id],
+                caption=caption,
+                reply_markup=kb,
+                parse_mode="HTML"
+            )
+            return
+        except Exception:
+            pass
+    
+    # Если нет - отправляем новое
     try:
         if os.path.exists(logo_path):
             with open(logo_path, "rb") as photo:
-                bot.send_photo(chat_id, photo, caption=caption, reply_markup=kb, parse_mode="HTML")
+                msg = bot.send_photo(chat_id, photo, caption=caption, reply_markup=kb, parse_mode="HTML")
         else:
-            bot.send_message(chat_id, caption, reply_markup=kb, parse_mode="HTML")
+            msg = bot.send_message(chat_id, caption, reply_markup=kb, parse_mode="HTML")
     except Exception:
-        bot.send_message(chat_id, caption, reply_markup=kb, parse_mode="HTML")
+        msg = bot.send_message(chat_id, caption, reply_markup=kb, parse_mode="HTML")
+    
+    # Сохраняем ID главного сообщения
+    main_message_ids[chat_id] = msg.message_id
 
 # ===== БД: SQLite WAL + thread-local соединения + Lock на записи =====
 _db_local = threading.local()
@@ -535,7 +558,7 @@ def start(msg):
             pass
     update_user(uid, username=username)
 
-    # Показываем главное меню (НЕ удаляется)
+    # Показываем главное меню (НЕ УДАЛЯЕТСЯ)
     show_main_menu(msg.chat.id)
     
     # Удаляем команду /start
@@ -552,9 +575,7 @@ def deposit_menu(call):
     uid = call.from_user.id
     deposit_state[uid] = True
     
-    # Удаляем старое сообщение
-    safe_delete(call.message.chat.id, call.message.message_id)
-    
+    # НЕ УДАЛЯЕМ главное сообщение, а просто отправляем новое поверх
     kb = InlineKeyboardMarkup(row_width=1)
     kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_deposit"))
     
@@ -564,7 +585,7 @@ def deposit_menu(call):
         reply_markup=kb,
         parse_mode="HTML"
     )
-    # Удаляем это сообщение через 60 секунд
+    # Удаляем это сообщение через 60 секунд (если пользователь не взаимодействует)
     delete_message_after(call.message.chat.id, msg.message_id, 60)
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_deposit")
@@ -572,10 +593,10 @@ def back_to_deposit(call):
     uid = call.from_user.id
     deposit_state.pop(uid, None)
     
-    # Удаляем текущее сообщение
+    # Удаляем сообщение с пополнением
     safe_delete(call.message.chat.id, call.message.message_id)
     
-    # Показываем главное меню
+    # Показываем главное меню (редактируем существующее)
     show_main_menu(call.message.chat.id)
 
 @bot.message_handler(content_types=['text'], func=lambda msg: msg.from_user.id in deposit_state)
@@ -659,7 +680,7 @@ def got_payment(msg):
             )
             delete_message_after(msg.chat.id, confirm_msg.message_id, 60)
             
-            # Показываем главное меню снова
+            # Показываем главное меню снова (редактируем существующее)
             show_main_menu(msg.chat.id)
             
     except Exception as e:
