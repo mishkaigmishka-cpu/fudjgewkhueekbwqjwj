@@ -29,17 +29,17 @@ const CONFIG = {
         'free':0,'mud':5,'wood':9,'stone':19,'bronze':49,'silver':99,'gold':249,'diamond':499,'netherite':999,'obsidian':2499,'bedrock':10000
     },
     CASE_STYLES: {
-        'free': { bg:'rgba(0,0,0,0.95)', titleColor:'#2ecc71', itemColor:'#6bcbff', highlightColor:'#ffd700', glowColor:'rgba(46,204,113,0.3)', shadowColor:'rgba(46,204,113,0.5)', icon:'🎁', bgGradient:'radial-gradient(circle at 50% 50%, rgba(46,204,113,0.08), transparent 70%)' },
-        'mud': { bg:'rgba(0,0,0,0.95)', titleColor:'#8e44ad', itemColor:'#c39bd3', highlightColor:'#ff6b6b', glowColor:'rgba(142,68,173,0.3)', shadowColor:'rgba(142,68,173,0.5)', icon:'🟫', bgGradient:'radial-gradient(circle at 50% 50%, rgba(142,68,173,0.08), transparent 70%)' },
-        'wood': { bg:'rgba(0,0,0,0.95)', titleColor:'#d35400', itemColor:'#f39c12', highlightColor:'#ffd700', glowColor:'rgba(211,84,0,0.3)', shadowColor:'rgba(211,84,0,0.5)', icon:'🌳', bgGradient:'radial-gradient(circle at 50% 50%, rgba(211,84,0,0.08), transparent 70%)' },
-        'stone': { bg:'rgba(0,0,0,0.95)', titleColor:'#7f8c8d', itemColor:'#bdc3c7', highlightColor:'#ffd700', glowColor:'rgba(127,140,141,0.3)', shadowColor:'rgba(127,140,141,0.5)', icon:'🗿', bgGradient:'radial-gradient(circle at 50% 50%, rgba(127,140,141,0.08), transparent 70%)' },
-        'bronze': { bg:'rgba(0,0,0,0.95)', titleColor:'#cd7f32', itemColor:'#f0c27f', highlightColor:'#ffd700', glowColor:'rgba(205,127,50,0.3)', shadowColor:'rgba(205,127,50,0.5)', icon:'🥉', bgGradient:'radial-gradient(circle at 50% 50%, rgba(205,127,50,0.08), transparent 70%)' },
-        'silver': { bg:'rgba(0,0,0,0.95)', titleColor:'#bdc3c7', itemColor:'#ecf0f1', highlightColor:'#ffd700', glowColor:'rgba(189,195,199,0.3)', shadowColor:'rgba(189,195,199,0.5)', icon:'🔘', bgGradient:'radial-gradient(circle at 50% 50%, rgba(189,195,199,0.08), transparent 70%)' },
-        'gold': { bg:'rgba(0,0,0,0.95)', titleColor:'#f1c40f', itemColor:'#f9e79f', highlightColor:'#ffd700', glowColor:'rgba(241,196,15,0.4)', shadowColor:'rgba(241,196,15,0.6)', icon:'👑', bgGradient:'radial-gradient(circle at 50% 50%, rgba(241,196,15,0.1), transparent 70%)' },
-        'diamond': { bg:'rgba(0,0,0,0.95)', titleColor:'#3498db', itemColor:'#85c1e9', highlightColor:'#00d4ff', glowColor:'rgba(52,152,219,0.3)', shadowColor:'rgba(52,152,219,0.5)', icon:'💎', bgGradient:'radial-gradient(circle at 50% 50%, rgba(52,152,219,0.08), transparent 70%)' },
-        'netherite': { bg:'rgba(0,0,0,0.95)', titleColor:'#e74c3c', itemColor:'#f1948a', highlightColor:'#ff6b35', glowColor:'rgba(231,76,60,0.3)', shadowColor:'rgba(231,76,60,0.5)', icon:'🔥', bgGradient:'radial-gradient(circle at 50% 50%, rgba(231,76,60,0.08), transparent 70%)' },
-        'obsidian': { bg:'rgba(0,0,0,0.95)', titleColor:'#8b8b9e', itemColor:'#c8c8d4', highlightColor:'#ffd700', glowColor:'rgba(139,139,158,0.4)', shadowColor:'rgba(139,139,158,0.6)', icon:'🔮', bgGradient:'radial-gradient(circle at 50% 50%, rgba(139,139,158,0.08), transparent 70%)' },
-        'bedrock': { bg:'rgba(0,0,0,0.95)', titleColor:'#8b8b9e', itemColor:'#c8c8d4', highlightColor:'#ff6b6b', glowColor:'rgba(139,139,158,0.4)', shadowColor:'rgba(139,139,158,0.6)', icon:'⛏️', bgGradient:'radial-gradient(circle at 50% 50%, rgba(20,20,30,0.15), transparent 70%)' }
+        'free': { bg:'linear-gradient(180deg, rgba(46,204,113,0.12) 0%, rgba(11,9,18,0.95) 100%)', titleColor:'#2ecc71', itemColor:'#6bcbff', highlightColor:'#ffd700', glowColor:'rgba(46,204,113,0.3)', shadowColor:'rgba(46,204,113,0.5)', icon:'🎁', bgGradient:'radial-gradient(circle at 50% 50%, rgba(46,204,113,0.18), transparent 70%)' },
+        'mud': { bg:'linear-gradient(180deg, rgba(142,68,173,0.12) 0%, rgba(11,9,18,0.95) 100%)', titleColor:'#8e44ad', itemColor:'#c39bd3', highlightColor:'#ff6b6b', glowColor:'rgba(142,68,173,0.3)', shadowColor:'rgba(142,68,173,0.5)', icon:'🟫', bgGradient:'radial-gradient(circle at 50% 50%, rgba(142,68,173,0.18), transparent 70%)' },
+        'wood': { bg:'linear-gradient(180deg, rgba(211,84,0,0.12) 0%, rgba(11,9,18,0.95) 100%)', titleColor:'#d35400', itemColor:'#f39c12', highlightColor:'#ffd700', glowColor:'rgba(211,84,0,0.3)', shadowColor:'rgba(211,84,0,0.5)', icon:'🌳', bgGradient:'radial-gradient(circle at 50% 50%, rgba(211,84,0,0.18), transparent 70%)' },
+        'stone': { bg:'linear-gradient(180deg, rgba(127,140,141,0.12) 0%, rgba(11,9,18,0.95) 100%)', titleColor:'#7f8c8d', itemColor:'#bdc3c7', highlightColor:'#ffd700', glowColor:'rgba(127,140,141,0.3)', shadowColor:'rgba(127,140,141,0.5)', icon:'🗿', bgGradient:'radial-gradient(circle at 50% 50%, rgba(127,140,141,0.18), transparent 70%)' },
+        'bronze': { bg:'linear-gradient(180deg, rgba(205,127,50,0.12) 0%, rgba(11,9,18,0.95) 100%)', titleColor:'#cd7f32', itemColor:'#f0c27f', highlightColor:'#ffd700', glowColor:'rgba(205,127,50,0.3)', shadowColor:'rgba(205,127,50,0.5)', icon:'🥉', bgGradient:'radial-gradient(circle at 50% 50%, rgba(205,127,50,0.18), transparent 70%)' },
+        'silver': { bg:'linear-gradient(180deg, rgba(189,195,199,0.12) 0%, rgba(11,9,18,0.95) 100%)', titleColor:'#bdc3c7', itemColor:'#ecf0f1', highlightColor:'#ffd700', glowColor:'rgba(189,195,199,0.3)', shadowColor:'rgba(189,195,199,0.5)', icon:'🔘', bgGradient:'radial-gradient(circle at 50% 50%, rgba(189,195,199,0.18), transparent 70%)' },
+        'gold': { bg:'linear-gradient(180deg, rgba(241,196,15,0.14) 0%, rgba(11,9,18,0.95) 100%)', titleColor:'#f1c40f', itemColor:'#f9e79f', highlightColor:'#ffd700', glowColor:'rgba(241,196,15,0.4)', shadowColor:'rgba(241,196,15,0.6)', icon:'👑', bgGradient:'radial-gradient(circle at 50% 50%, rgba(241,196,15,0.22), transparent 70%)' },
+        'diamond': { bg:'linear-gradient(180deg, rgba(52,152,219,0.12) 0%, rgba(11,9,18,0.95) 100%)', titleColor:'#3498db', itemColor:'#85c1e9', highlightColor:'#00d4ff', glowColor:'rgba(52,152,219,0.3)', shadowColor:'rgba(52,152,219,0.5)', icon:'💎', bgGradient:'radial-gradient(circle at 50% 50%, rgba(52,152,219,0.18), transparent 70%)' },
+        'netherite': { bg:'linear-gradient(180deg, rgba(231,76,60,0.12) 0%, rgba(11,9,18,0.95) 100%)', titleColor:'#e74c3c', itemColor:'#f1948a', highlightColor:'#ff6b35', glowColor:'rgba(231,76,60,0.3)', shadowColor:'rgba(231,76,60,0.5)', icon:'🔥', bgGradient:'radial-gradient(circle at 50% 50%, rgba(231,76,60,0.18), transparent 70%)' },
+        'obsidian': { bg:'linear-gradient(180deg, rgba(139,139,158,0.14) 0%, rgba(11,9,18,0.95) 100%)', titleColor:'#8b8b9e', itemColor:'#c8c8d4', highlightColor:'#ffd700', glowColor:'rgba(139,139,158,0.4)', shadowColor:'rgba(139,139,158,0.6)', icon:'🔮', bgGradient:'radial-gradient(circle at 50% 50%, rgba(139,139,158,0.18), transparent 70%)' },
+        'bedrock': { bg:'linear-gradient(180deg, rgba(80,80,100,0.16) 0%, rgba(11,9,18,0.95) 100%)', titleColor:'#8b8b9e', itemColor:'#c8c8d4', highlightColor:'#ff6b6b', glowColor:'rgba(139,139,158,0.4)', shadowColor:'rgba(139,139,158,0.6)', icon:'⛏️', bgGradient:'radial-gradient(circle at 50% 50%, rgba(20,20,30,0.22), transparent 70%)' }
     }
 };
 
@@ -1103,8 +1103,7 @@ function showBotBattlePreview(case_type) {
     overlay.className = 'btl-overlay';
     overlay.style.setProperty('--case-color', style.titleColor);
     overlay.style.setProperty('--case-glow', style.glowColor);
-    overlay.style.background = style.bg;
-    overlay.style.backgroundImage = style.bgGradient;
+    overlay.style.background = style.bgGradient + ', ' + style.bg;
 
     overlay.innerHTML = `
         <div class="btl-panel">
@@ -1158,8 +1157,7 @@ function showBotRouletteAnimationWithResult(data, case_type) {
     overlay.className = 'br-overlay';
     overlay.style.setProperty('--case-color', style.titleColor);
     overlay.style.setProperty('--case-glow', style.glowColor);
-    overlay.style.background = style.bg;
-    overlay.style.backgroundImage = style.bgGradient;
+    overlay.style.background = style.bgGradient + ', ' + style.bg;
 
     const title = document.createElement('div');
     title.className = 'br-title';
@@ -2793,11 +2791,14 @@ function startGameUpgradeAnimation(data) {
     const chanceColor = chance >= 50 ? '#4ade80' : chance >= 25 ? '#e8c76a' : '#f87171';
 
     // Конечный угол стрелки — внутри сектора результата, который решил сервер
+    // Стрелка рисуется вверх (указывает на -π/2), поэтому смещаем targetNorm на +π/2
     let targetNorm;
     if (isWin) {
-        targetNorm = Math.PI * 2 * successChance * (0.25 + Math.random() * 0.5);
+        const winAngle = Math.PI * 2 * successChance * (0.15 + Math.random() * 0.7);
+        targetNorm = winAngle + Math.PI / 2;
     } else {
-        targetNorm = Math.PI * 2 * successChance + Math.PI * 2 * (1 - successChance) * (0.15 + Math.random() * 0.7);
+        const loseAngle = Math.PI * 2 * successChance + Math.PI * 2 * (1 - successChance) * (0.15 + Math.random() * 0.7);
+        targetNorm = loseAngle + Math.PI / 2;
     }
     const startAngle = 0;
     const totalRotation = Math.PI * 2 * 5 + targetNorm;
@@ -3051,6 +3052,21 @@ function resetGameUpgrade() {
     updateGameUpgradeChance();
 }
 
+// ===== ПРИВЕТСТВЕННЫЙ ЭКРАН =====
+function showWelcome() {
+    const overlay = document.getElementById('welcomeOverlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+function hideWelcome() {
+    const overlay = document.getElementById('welcomeOverlay');
+    if (overlay) {
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.35s ease';
+        setTimeout(() => { overlay.style.display = 'none'; }, 350);
+    }
+    localStorage.setItem('randevu_welcome_seen', '1');
+}
+
 // ===== ИНИЦИАЛИЗАЦИЯ =====
 (function init() {
     try {
@@ -3070,4 +3086,9 @@ function resetGameUpgrade() {
     }
 
     loadBalance();
+
+    // Показать приветствие при первом открытии
+    if (!localStorage.getItem('randevu_welcome_seen')) {
+        setTimeout(showWelcome, 500);
+    }
 })();
