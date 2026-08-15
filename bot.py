@@ -5,7 +5,7 @@ import time
 import os
 import threading
 from flask import Flask, request, jsonify, send_from_directory
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo, LabeledPrice
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 if not TOKEN:
@@ -475,12 +475,10 @@ def crash_timer():
 
                 if crash_data['multiplier'] >= crash_data['crash_point'] or crash_data['multiplier'] >= 12.00:
                     crash_multiplier = crash_data['multiplier']
-                    # Фаза КРАША: 4 сек показываем красное число, потом новое 10-сек окно ставок
                     crash_data['phase'] = 'crashed'
                     crash_data['crashed_until'] = now + 4
                     crash_data['crash_multiplier_at_crash'] = crash_multiplier
                     crash_data['game_count'] += 1
-                    # Проигравшие ставки (не заcashout'енные до краша) — записываем как losses
                     lost_bets = list(crash_data['bets'].items())
                     crash_data['bets'] = {}
                     for bet_uid, bet_amount in lost_bets:
@@ -504,7 +502,6 @@ def start(msg):
     uid = msg.from_user.id
     username = msg.from_user.username or ""
     args = msg.text.split()
-    is_new = get_user(uid) is None
     qw("INSERT OR IGNORE INTO users (id) VALUES (?)", (uid,))
     bonus_text = ""
     if len(args) > 1:
@@ -525,9 +522,128 @@ def start(msg):
         except Exception:
             pass
     update_user(uid, username=username)
+
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(WEBAPP_URL)),
+        InlineKeyboardButton("💎 Пополнить", callback_data="deposit_menu")
+    )
+
+    caption = f"🎰 <b>Добро пожаловать в RANDEVU!</b>{bonus_text}\n\nОткрывай кейсы, играй в мини-игры и выигрывай!"
+
+    logo_path = "assets/logo.png"
+    try:
+        if os.path.exists(logo_path):
+            with open(logo_path, "rb") as photo:
+                bot.send_photo(msg.chat.id, photo, caption=caption, reply_markup=kb, parse_mode="HTML")
+        else:
+            bot.send_message(msg.chat.id, caption, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        bot.send_message(msg.chat.id, caption, reply_markup=kb, parse_mode="HTML")
+
+
+# ===== ПОПОЛНЕНИЕ ЧЕРЕЗ TELEGRAM STARS =====
+deposit_state = {}
+
+@bot.callback_query_handler(func=lambda call: call.data == "deposit_menu")
+def deposit_menu(call):
+    uid = call.from_user.id
+    deposit_state[uid] = True
     kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(WEBAPP_URL)))
-    bot.send_message(msg.chat.id, f"⚡ RANDEVU{bonus_text}", reply_markup=kb)
+    kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_start"))
+    bot.edit_message_caption(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        caption="💎 <b>Пополнение баланса</b>\n\nВведи сумму от <b>1</b> до <b>5000</b> звёзд.\n1 звезда = 1 монета\n\n<i>Напиши число в чат...</i>",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_start")
+def back_to_start(call):
+    uid = call.from_user.id
+    deposit_state.pop(uid, None)
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(WEBAPP_URL)),
+        InlineKeyboardButton("💎 Пополнить", callback_data="deposit_menu")
+    )
+    caption = "🎰 <b>Добро пожаловать в RANDEVU!</b>\n\nОткрывай кейсы, играй в мини-игры и выигрывай!"
+    try:
+        bot.edit_message_caption(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            caption=caption,
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+    except Exception:
+        try:
+            bot.edit_message_text(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                text=caption,
+                reply_markup=kb,
+                parse_mode="HTML"
+            )
+        except Exception:
+            bot.send_message(call.message.chat.id, caption, reply_markup=kb, parse_mode="HTML")
+
+
+@bot.message_handler(content_types=['text'], func=lambda msg: msg.from_user.id in deposit_state)
+def process_deposit_amount(msg):
+    uid = msg.from_user.id
+    text = msg.text.strip()
+    deposit_state.pop(uid, None)
+
+    try:
+        amount = int(text)
+    except ValueError:
+        bot.reply_to(msg, "❌ Введи число от 1 до 5000.")
+        return
+
+    if amount < 1 or amount > 5000:
+        bot.reply_to(msg, "❌ Сумма должна быть от 1 до 5000 звёзд.")
+        return
+
+    prices = [LabeledPrice(label=f"{amount} монет", amount=amount)]
+    bot.send_invoice(
+        msg.chat.id,
+        title="Пополнение баланса RANDEVU",
+        description=f"Покупка {amount} монет за {amount} Telegram Stars",
+        invoice_payload=f"deposit_{uid}_{amount}",
+        provider_token="",
+        currency="XTR",
+        prices=prices,
+        start_parameter="deposit"
+    )
+
+
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def checkout(pre_checkout_query):
+    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+
+
+@bot.message_handler(content_types=['successful_payment'])
+def got_payment(msg):
+    uid = msg.from_user.id
+    payload = msg.successful_payment.invoice_payload
+    try:
+        _, user_id, amount = payload.split("_")
+        amount = int(amount)
+        user = get_user(uid)
+        if user:
+            new_balance = user[1] + amount
+            update_user(uid, balance=new_balance)
+            bot.send_message(
+                msg.chat.id,
+                f"✅ <b>Баланс пополнен!</b>\n\n+{amount}⭐\n💰 Текущий баланс: {new_balance}⭐",
+                parse_mode="HTML"
+            )
+    except Exception as e:
+        print(f"Payment error: {e}")
+        bot.send_message(msg.chat.id, "❌ Ошибка при зачислении. Обратись в поддержку.")
 
 
 @bot.message_handler(commands=['promo'])
@@ -797,7 +913,6 @@ def open_case():
             price = CASE_PRICES.get(case_type, 0)
             if user[1] < price:
                 return jsonify({'error': 'Недостаточно звёзд!'}), 400
-            # Приз решает ТОЛЬКО сервер
             prize = get_prize(case_type, user_id)
             new_bal = user[1] - price + prize
             new_total = user[2] + 1
@@ -863,7 +978,6 @@ def get_levels_data():
 
     rows = q("SELECT case_type, opened FROM level_progress WHERE user_id=?", (uid,)).fetchall()
     progress_all = {r[0]: r[1] for r in rows}
-    # level_progress содержит ТОЛЬКО открытые уровни
     level_progress = {lvl: progress_all.get(lvl, 0) for lvl in unlocked_levels}
 
     return jsonify({
@@ -920,7 +1034,6 @@ def start_bot_battle():
 
         row = q("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type)).fetchone()
         wins_after = row[0] if row else 0
-        # При wins >= 3 открывается следующий уровень (его level_progress начинается с 0)
         level_unlocked = wins_after >= WINS_TO_UNLOCK
 
         return jsonify({
@@ -1077,7 +1190,6 @@ def start_mines_game():
                 'multiplier': 1.0,
                 'status': 'active'
             }
-        # Поле (board) клиенту НЕ отдаётся
         return jsonify({
             'game_id': game_id,
             'balance': user[1] - bet
@@ -1346,7 +1458,6 @@ def upgrade_execute():
             return jsonify({'error': 'Недостаточно звёзд'}), 400
         raw_chance = (bet / target) * 100
         chance = min(max(raw_chance, 1.0), 70.0)
-        # Исход решает ТОЛЬКО сервер
         rand = random.random() * 100
         success = rand <= chance
         if success:
