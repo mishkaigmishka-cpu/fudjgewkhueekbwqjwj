@@ -1111,7 +1111,6 @@ def claim_promo_webapp():
         update_user(uid, balance=user[1] + reward)
         qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=?", (code,))
         qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (?, ?, ?)", (uid, code, int(time.time())))
-        # Записываем в промо-статистику
         qw("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", (uid, code, 0))
         return jsonify({'success': True, 'reward': reward, 'message': f'✅ +{reward}⭐ за промокод!'})
 
