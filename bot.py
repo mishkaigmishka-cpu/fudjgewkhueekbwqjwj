@@ -22,6 +22,44 @@ DB_PATH = os.environ.get("DB_PATH", "cases.db")
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
+# ===== АВТОУДАЛЕНИЕ СООБЩЕНИЙ =====
+def delete_message_after(chat_id, message_id, delay=60):
+    """Удаляет сообщение через delay секунд"""
+    def delete():
+        time.sleep(delay)
+        try:
+            bot.delete_message(chat_id, message_id)
+        except Exception:
+            pass
+    threading.Thread(target=delete, daemon=True).start()
+
+def safe_delete(chat_id, message_id):
+    """Безопасное удаление сообщения"""
+    try:
+        bot.delete_message(chat_id, message_id)
+    except Exception:
+        pass
+
+def show_main_menu(chat_id):
+    """Показывает главное меню с логотипом"""
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(WEBAPP_URL)),
+        InlineKeyboardButton("💎 Пополнить", callback_data="deposit_menu")
+    )
+    
+    caption = "🎰 <b>Добро пожаловать в RANDEVU!</b>\n\nОткрывай кейсы, играй в мини-игры и выигрывай!"
+    logo_path = "static/assets/logo.png"
+    
+    try:
+        if os.path.exists(logo_path):
+            with open(logo_path, "rb") as photo:
+                bot.send_photo(chat_id, photo, caption=caption, reply_markup=kb, parse_mode="HTML")
+        else:
+            bot.send_message(chat_id, caption, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        bot.send_message(chat_id, caption, reply_markup=kb, parse_mode="HTML")
+
 # ===== БД: SQLite WAL + thread-local соединения + Lock на записи =====
 _db_local = threading.local()
 write_lock = threading.RLock()
@@ -497,23 +535,14 @@ def start(msg):
             pass
     update_user(uid, username=username)
 
-    kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(
-        InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(WEBAPP_URL)),
-        InlineKeyboardButton("💎 Пополнить", callback_data="deposit_menu")
-    )
-
-    caption = f"🎰 <b>Добро пожаловать в RANDEVU!</b>{bonus_text}\n\nОткрывай кейсы, играй в мини-игры и выигрывай!"
-
-    logo_path = "static/assets/logo.png"
+    # Показываем главное меню (НЕ удаляется)
+    show_main_menu(msg.chat.id)
+    
+    # Удаляем команду /start
     try:
-        if os.path.exists(logo_path):
-            with open(logo_path, "rb") as photo:
-                bot.send_photo(msg.chat.id, photo, caption=caption, reply_markup=kb, parse_mode="HTML")
-        else:
-            bot.send_message(msg.chat.id, caption, reply_markup=kb, parse_mode="HTML")
+        bot.delete_message(msg.chat.id, msg.message_id)
     except Exception:
-        bot.send_message(msg.chat.id, caption, reply_markup=kb, parse_mode="HTML")
+        pass
 
 # ===== ПОПОЛНЕНИЕ ЧЕРЕЗ TELEGRAM STARS =====
 deposit_state = {}
@@ -522,73 +551,74 @@ deposit_state = {}
 def deposit_menu(call):
     uid = call.from_user.id
     deposit_state[uid] = True
+    
+    # Удаляем старое сообщение
+    safe_delete(call.message.chat.id, call.message.message_id)
+    
     kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_start"))
-    try:
-        bot.edit_message_caption(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            caption="💎 <b>Пополнение баланса</b>\n\nВведи сумму от <b>1</b> до <b>5000</b> звёзд.\n1 звезда = 1 монета\n\n<i>Напиши число в чат...</i>",
-            reply_markup=kb,
-            parse_mode="HTML"
-        )
-    except Exception:
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text="💎 <b>Пополнение баланса</b>\n\nВведи сумму от <b>1</b> до <b>5000</b> звёзд.\n1 звезда = 1 монета\n\n<i>Напиши число в чат...</i>",
-            reply_markup=kb,
-            parse_mode="HTML"
-        )
+    kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_deposit"))
+    
+    msg = bot.send_message(
+        call.message.chat.id,
+        "💎 <b>Пополнение баланса</b>\n\nВведи сумму от <b>1</b> до <b>5000</b> звёзд.\n1 звезда = 1 монета\n\n<i>Напиши число в чат...</i>",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+    # Удаляем это сообщение через 60 секунд
+    delete_message_after(call.message.chat.id, msg.message_id, 60)
 
-@bot.callback_query_handler(func=lambda call: call.data == "back_to_start")
-def back_to_start(call):
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_deposit")
+def back_to_deposit(call):
     uid = call.from_user.id
     deposit_state.pop(uid, None)
-    kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(
-        InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(WEBAPP_URL)),
-        InlineKeyboardButton("💎 Пополнить", callback_data="deposit_menu")
-    )
-    caption = "🎰 <b>Добро пожаловать в RANDEVU!</b>\n\nОткрывай кейсы, играй в мини-игры и выигрывай!"
-    try:
-        bot.edit_message_caption(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            caption=caption,
-            reply_markup=kb,
-            parse_mode="HTML"
-        )
-    except Exception:
-        try:
-            bot.edit_message_text(
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
-                text=caption,
-                reply_markup=kb,
-                parse_mode="HTML"
-            )
-        except Exception:
-            bot.send_message(call.message.chat.id, caption, reply_markup=kb, parse_mode="HTML")
+    
+    # Удаляем текущее сообщение
+    safe_delete(call.message.chat.id, call.message.message_id)
+    
+    # Показываем главное меню
+    show_main_menu(call.message.chat.id)
 
 @bot.message_handler(content_types=['text'], func=lambda msg: msg.from_user.id in deposit_state)
 def process_deposit_amount(msg):
     uid = msg.from_user.id
     text = msg.text.strip()
-    deposit_state.pop(uid, None)
-
+    
+    # Удаляем сообщение пользователя
+    safe_delete(msg.chat.id, msg.message_id)
+    
     try:
         amount = int(text)
     except ValueError:
-        bot.reply_to(msg, "❌ Введи число от 1 до 5000.")
+        kb = InlineKeyboardMarkup(row_width=1)
+        kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_deposit"))
+        
+        error_msg = bot.reply_to(
+            msg, 
+            "❌ Введи число от 1 до 5000.\n\n💎 <b>Пополнение баланса</b>\n\nВведи сумму от <b>1</b> до <b>5000</b> звёзд.\n1 звезда = 1 монета\n\n<i>Напиши число в чат...</i>",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        delete_message_after(msg.chat.id, error_msg.message_id, 60)
         return
 
     if amount < 1 or amount > 5000:
-        bot.reply_to(msg, "❌ Сумма должна быть от 1 до 5000 звёзд.")
+        kb = InlineKeyboardMarkup(row_width=1)
+        kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_deposit"))
+        
+        error_msg = bot.reply_to(
+            msg,
+            f"❌ Сумма должна быть от 1 до 5000 звёзд. Ты ввёл {amount}\n\n💎 <b>Пополнение баланса</b>\n\nВведи сумму от <b>1</b> до <b>5000</b> звёзд.\n1 звезда = 1 монета\n\n<i>Напиши число в чат...</i>",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        delete_message_after(msg.chat.id, error_msg.message_id, 60)
         return
 
+    # Если всё правильно - убираем из состояния
+    deposit_state.pop(uid, None)
+    
     prices = [LabeledPrice(label=f"{amount} монет", amount=amount)]
-    bot.send_invoice(
+    invoice_msg = bot.send_invoice(
         msg.chat.id,
         title="Пополнение баланса RANDEVU",
         description=f"Покупка {amount} монет за {amount} Telegram Stars",
@@ -598,6 +628,8 @@ def process_deposit_amount(msg):
         prices=prices,
         start_parameter="deposit"
     )
+    # Удаляем инвойс через 60 секунд, если не оплатили
+    delete_message_after(msg.chat.id, invoice_msg.message_id, 60)
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def checkout(pre_checkout_query):
@@ -607,6 +639,10 @@ def checkout(pre_checkout_query):
 def got_payment(msg):
     uid = msg.from_user.id
     payload = msg.successful_payment.invoice_payload
+    
+    # Удаляем сообщение об оплате
+    safe_delete(msg.chat.id, msg.message_id)
+    
     try:
         _, user_id, amount = payload.split("_")
         amount = int(amount)
@@ -614,14 +650,22 @@ def got_payment(msg):
         if user:
             new_balance = user[1] + amount
             update_user(uid, balance=new_balance)
-            bot.send_message(
+            
+            # Отправляем подтверждение (удалится через 60 секунд)
+            confirm_msg = bot.send_message(
                 msg.chat.id,
                 f"✅ <b>Баланс пополнен!</b>\n\n+{amount}⭐\n💰 Текущий баланс: {new_balance}⭐",
                 parse_mode="HTML"
             )
+            delete_message_after(msg.chat.id, confirm_msg.message_id, 60)
+            
+            # Показываем главное меню снова
+            show_main_menu(msg.chat.id)
+            
     except Exception as e:
         print(f"Payment error: {e}")
-        bot.send_message(msg.chat.id, "❌ Ошибка при зачислении. Обратись в поддержку.")
+        error_msg = bot.send_message(msg.chat.id, "❌ Ошибка при зачислении. Обратись в поддержку.")
+        delete_message_after(msg.chat.id, error_msg.message_id, 60)
 
 @bot.message_handler(commands=['promo'])
 def promo_handler(msg):
