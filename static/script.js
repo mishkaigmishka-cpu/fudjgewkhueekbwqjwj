@@ -5,6 +5,7 @@
 
 const tg = window.Telegram.WebApp;
 const user_id = tg.initDataUnsafe?.user?.id || 0;
+const userId = user_id; // Правка 10
 
 if (!user_id) {
     showCustomAlert('❌ Ошибка: не удалось получить ID пользователя.');
@@ -63,7 +64,6 @@ const CASE_NAMES = {
 const getCaseName = (type) => CASE_NAMES[type] || String(type).toUpperCase();
 
 // ===== РЕДКОСТИ НАГРАД (для ВСЕХ кейсов) =====
-// Группы значений зеркалят CASE_RANGES на сервере (только визуал, шансы решает сервер)
 const RARITY_META = {
     common:    { cls: 'rarity-common',  label: 'COMMON',   color: '#9aa3ad' },
     rare:      { cls: 'rarity-rare',    label: 'RARE',     color: '#6bcbff' },
@@ -72,15 +72,16 @@ const RARITY_META = {
     jackpot:   { cls: 'rarity-jackpot', label: 'JACKPOT',  color: '#ffffff' }
 };
 
+// Правка 12: Исправленные шансы для mud, wood, stone, obsidian
 const CASE_RARITY = {
     free:      { common: [1, 2], rare: [3, 4], epic: [5, 6, 7, 8, 9, 10], legendary: [100], jackpot: [1000],
                  chances: { common: 0.599, rare: 0.299, epic: 0.0999, legendary: 0.0001, jackpot: 0.00000001 } },
     mud:       { common: [1, 2, 3, 4, 5, 6, 7], rare: [10, 12, 13], epic: [16, 18, 20, 22, 24, 27], legendary: [50], jackpot: [500],
-                 chances: { common: 0.70, rare: 0.25, epic: 0.0499, legendary: 0.001, jackpot: 0.000001 } },
+                 chances: { common: 0.80, rare: 0.15, epic: 0.045, legendary: 0.005, jackpot: 0.000001 } },
     wood:      { common: [2, 4, 5, 6, 7, 8, 9, 10], rare: [12, 13, 15], epic: [20, 50], legendary: [100, 500], jackpot: [1000],
-                 chances: { common: 0.75, rare: 0.19, epic: 0.05, legendary: 0.00001, jackpot: 0.000001 } },
-    stone:     { common: [11, 13, 15, 16, 17, 18, 19], rare: [21, 23, 24, 25], epic: [30, 50, 100, 250], legendary: [500, 1000], jackpot: [2500],
-                 chances: { common: 0.80, rare: 0.15, epic: 0.05, legendary: 0.00001, jackpot: 0.000001 } },
+                 chances: { common: 0.80, rare: 0.14, epic: 0.05, legendary: 0.01, jackpot: 0.000001 } },
+    stone:     { common: [11, 13, 15, 16, 17, 18, 19], rare: [21, 23, 24, 25], epic: [30, 50, 100], legendary: [250, 500, 1000], jackpot: [2500],
+                 chances: { common: 0.80, rare: 0.15, epic: 0.045, legendary: 0.005, jackpot: 0.000001 } },
     bronze:    { common: [20, 25, 30], rare: [35, 40, 45, 50], epic: [55, 60, 65, 75, 100], legendary: [222, 333, 444, 555, 1000, 1500, 2000], jackpot: [5000],
                  chances: { common: 0.89, rare: 0.10, epic: 0.009999, legendary: 0.000001, jackpot: 0.0000001 } },
     silver:    { common: [40, 50, 60, 70], rare: [70, 80, 90, 100], epic: [100, 110, 120, 130, 140, 150], legendary: [200, 250, 333, 444, 555, 666, 777, 888, 999, 1488, 2011, 5000], jackpot: [10000],
@@ -92,12 +93,11 @@ const CASE_RARITY = {
     netherite: { common: [500, 550, 600], rare: [650, 700, 750, 800, 850], epic: [900, 950, 1000, 1500], legendary: [2000, 2500, 3000, 3200, 3500, 4000, 5000, 10000, 15000, 20000], jackpot: [25000],
                  chances: { common: 0.2499, rare: 0.6749, epic: 0.07, legendary: 0.005, jackpot: 0.00000001 } },
     obsidian:  { common: [500, 1000, 1500], rare: [2000, 2500, 3000], epic: [4000, 5000, 7500], legendary: [10000, 15000], jackpot: [25000],
-                 chances: { common: 0.35, rare: 0.35, epic: 0.2, legendary: 0.09, jackpot: 0.01 } },
+                 chances: { common: 0.59999, rare: 0.35, epic: 0.05, legendary: 0.000001, jackpot: 0.000009 } },
     bedrock:   { common: [5000], rare: [10000, 25000], epic: [50000, 100000], legendary: [250000], jackpot: [1000000],
                  chances: { common: 0.999, rare: 0.0009, epic: 0.00009, legendary: 0.000009, jackpot: 0.000001 } }
 };
 
-// Приоритет при пересечении диапазонов: jackpot > legendary > epic > rare > common
 const RARITY_PRIORITY = ['jackpot', 'legendary', 'epic', 'rare', 'common'];
 
 function getCaseRarityKey(type, value) {
@@ -107,7 +107,6 @@ function getCaseRarityKey(type, value) {
             if (map[key] && map[key].indexOf(value) !== -1) return key;
         }
     }
-    // Fallback: квартили списка наград
     const prizes = getPrizes(type);
     const sorted = [...prizes].sort((a, b) => a - b);
     const n = sorted.length;
@@ -123,7 +122,6 @@ function getCaseRarityKey(type, value) {
 
 const getRarity = (type, value) => RARITY_META[getCaseRarityKey(type, value)];
 
-// Тематические частицы-эмодзи для предпросмотра кейса
 const CASE_PARTICLES = {
     free: ['🎁', '✨', '⭐'],
     mud: ['🟤', '🪨', '🌱'],
@@ -138,7 +136,6 @@ const CASE_PARTICLES = {
     bedrock: ['⬛', '🪨', '💠']
 };
 
-// Кнопка «⏭ Пропустить» для анимаций
 function createSkipButton(onSkip) {
     const btn = document.createElement('button');
     btn.className = 'btn-skip-anim';
@@ -147,7 +144,6 @@ function createSkipButton(onSkip) {
     return btn;
 }
 
-// Счётчик суммы с анимацией
 function animateCountUp(el, target, duration = 900, suffix = '⭐') {
     if (!el) return;
     const start = performance.now();
@@ -162,7 +158,6 @@ function animateCountUp(el, target, duration = 900, suffix = '⭐') {
     requestAnimationFrame(frame);
 }
 
-// Конфетти при крупных выигрышах
 function spawnConfetti(container, count = 36) {
     const colors = ['#ffd700', '#4ade80', '#6bcbff', '#b388ff', '#f87171', '#ffffff'];
     for (let i = 0; i < count; i++) {
@@ -194,7 +189,6 @@ const apiRequest = async (endpoint, body = {}, retries = 3, timeout = 15000) => 
 
             if (!res.ok) {
                 const msg = (data && data.error) ? data.error : `Ошибка сервера (${res.status})`;
-                // 4xx — осмысленная ошибка сервера, ретраить не нужно
                 if (res.status >= 400 && res.status < 500) return { error: msg };
                 throw new Error(msg);
             }
@@ -227,7 +221,6 @@ const createCardElement = (value, style, width = 90, height = 140, caseType = nu
     div.style.flexDirection = 'column';
     div.style.gap = '5px';
 
-    // Тематический арт кейса в углу карточки
     if (caseType) {
         const corner = document.createElement('img');
         corner.className = 'card-case-corner';
@@ -251,9 +244,6 @@ const createCardElement = (value, style, width = 90, height = 140, caseType = nu
     return div;
 };
 
-// ===== КАСТОМНОЕ ОКНО =====
-// type: 'error' | 'success' | 'info' (по умолчанию определяется по ведущему эмодзи;
-// для обратной совместимости принимает boolean: true → 'success')
 function showCustomAlert(message, type) {
     const old = document.getElementById('customAlertOverlay');
     if (old) old.remove();
@@ -267,7 +257,6 @@ function showCustomAlert(message, type) {
         else if (msg.startsWith('✅') || msg.startsWith('🎉')) type = 'success';
         else type = 'info';
     }
-    // Убираем дублирующий ведущий эмодзи (иконка уже сверху), HTML в тексте сохраняется
     msg = msg.replace(/^(❌|✅|🎉)\s*/, '');
 
     const conf = {
@@ -440,18 +429,15 @@ function showTape(type, mode = 'preview') {
     tapeContainer.style.setProperty('--case-shadow', style.shadowColor);
     state.tapeContainer = tapeContainer;
 
-    // Верхняя плашка с балансом
     const balanceDisplay = document.createElement('div');
     balanceDisplay.className = 'tape-balance';
     balanceDisplay.innerHTML = `${starIcon(15)} ${DOM.balance.textContent.trim()}`;
     tapeContainer.appendChild(balanceDisplay);
 
     if (mode === 'preview') {
-        // ===== НОВЫЙ ЭКРАН ПРЕДПРОСМОТРА =====
         const scroll = document.createElement('div');
         scroll.className = 'pv-scroll';
 
-        // Герой: большой арт кейса + тематические частицы
         const hero = document.createElement('div');
         hero.className = 'pv-hero';
 
@@ -485,7 +471,6 @@ function showTape(type, mode = 'preview') {
         priceEl.innerHTML = price > 0 ? `${price} ${starIcon(15)}` : '🎁 Бесплатно';
         scroll.appendChild(priceEl);
 
-        // Список возможных наград с цветами редкостей
         const lootTitle = document.createElement('div');
         lootTitle.className = 'pv-loot-title';
         lootTitle.textContent = '👀 Возможные награды';
@@ -502,7 +487,6 @@ function showTape(type, mode = 'preview') {
         });
         scroll.appendChild(loot);
 
-        // Лента-предпросмотр (бесконечная прокрутка)
         const viewport = document.createElement('div');
         viewport.className = 'pv-tape-viewport';
 
@@ -525,7 +509,6 @@ function showTape(type, mode = 'preview') {
         viewport.appendChild(track);
         scroll.appendChild(viewport);
 
-        // Кнопки
         const btnContainer = document.createElement('div');
         btnContainer.className = 'pv-buttons';
 
@@ -561,7 +544,6 @@ function showTape(type, mode = 'preview') {
         scroll.appendChild(btnContainer);
         tapeContainer.appendChild(scroll);
     } else {
-        // ===== РЕЖИМ РУЛЕТКИ =====
         const title = document.createElement('div');
         title.className = 'rl-title';
         title.innerHTML = `<img src="assets/case_${type}.png" class="rl-title-icon" alt="" onerror="this.remove()"> Кейс «${getCaseName(type)}»`;
@@ -584,7 +566,6 @@ function showTape(type, mode = 'preview') {
         }
         viewport.appendChild(track);
 
-        // Центральный указатель со свечением
         const marker = document.createElement('div');
         marker.className = 'rl-marker';
         marker.innerHTML = `<div class="rl-marker-arrow"><img src="assets/roulette_pointer.png" class="rl-pointer-img" alt="▼" onerror="this.outerHTML='▼'"></div><div class="rl-marker-line"></div>`;
@@ -613,7 +594,6 @@ function showTape(type, mode = 'preview') {
     document.body.appendChild(tapeContainer);
 }
 
-// Открытие кейса: приз решает ТОЛЬКО сервер
 function openCaseDirect(type) {
     if (state.isOpening) return;
     state.isOpening = true;
@@ -633,8 +613,6 @@ function openCaseDirect(type) {
             state.currentNewBalance = data.new_balance;
             state.currentAd = data.ad || null;
 
-            // Free-кейс крутит ту же рулетку, что и платные;
-            // баланс обновится в showResult из state.currentNewBalance
             closeAllOverlays();
             showTape(type, 'roulette');
             setTimeout(() => startFinalSpin(type), 300);
@@ -677,7 +655,6 @@ function startFinalSpin(type) {
     const noise = Math.floor(Math.random() * 20) - 10;
     const finalShift = shift + noise;
 
-    // Замедление с лёгким bounce в конце
     track.style.transition = 'transform 4200ms cubic-bezier(0.12, 0.9, 0.1, 1.03)';
     track.style.transform = `translateX(-${finalShift}px)`;
 
@@ -690,7 +667,6 @@ function startFinalSpin(type) {
         showResult(type, targetPrize, style, track, winPosition);
     };
     track.addEventListener('transitionend', onFinish);
-    // Мгновенный пропуск: результат уже известен с сервера
     tapeContainer._skip = () => {
         track.style.transition = 'none';
         track.style.transform = `translateX(-${finalShift}px)`;
@@ -699,9 +675,6 @@ function startFinalSpin(type) {
     setTimeout(onFinish, 5300);
 }
 
-// ===== ЕДИНЫЙ КОМПОНЕНТ РЕЗУЛЬТАТА (glassmorphism) =====
-// opts: { id, kind: 'win'|'lose'|'draw', icon, iconImg, title, amount, amountSuffix, subtitle,
-//         extraHTML, buttons: [{label, cls, onClick, labelHTML}], confetti, balance }
 function createResultOverlay(opts) {
     const old = opts.id ? document.getElementById(opts.id) : null;
     if (old) old.remove();
@@ -1250,7 +1223,6 @@ function showBotRouletteAnimationWithResult(data, case_type) {
 
         let finished = false;
 
-        // Подсветка выигрышных карточек и панели победителя
         const highlightBattleWinner = () => {
             const playerWon = data.result === 'win';
             const botWon = data.result === 'lose';
@@ -1367,7 +1339,6 @@ function showBotBattleResult(data, case_type) {
     loadBalance();
     loadLevels();
 
-    // Анимация разблокировки нового уровня
     if (data.level_unlocked) {
         let unlockedCase = null;
         if (typeof data.level_unlocked === 'string') {
@@ -1382,7 +1353,6 @@ function showBotBattleResult(data, case_type) {
     }
 }
 
-// ===== АНИМАЦИЯ РАЗБЛОКИРОВКИ УРОВНЯ =====
 function showLevelUnlockAnimation(caseType) {
     const old = document.getElementById('levelUnlockOverlay');
     if (old) old.remove();
@@ -1417,7 +1387,6 @@ function showLevelUnlockAnimation(caseType) {
 }
 
 // ===== ЗАДАНИЯ =====
-// Редкостная рамка квеста по размеру награды
 function getQuestRarityClass(reward) {
     if (reward >= 10000) return 'rarity-jackpot';
     if (reward >= 1000) return 'rarity-legend';
@@ -1426,7 +1395,6 @@ function getQuestRarityClass(reward) {
     return 'rarity-common';
 }
 
-// Визуальный тир профиля по статусу
 function applyProfileStatus(statusText) {
     const card = document.querySelector('.profile-card');
     if (!card) return;
@@ -1441,12 +1409,11 @@ function applyProfileStatus(statusText) {
     card.classList.remove(...tiers.map(t => t.cls));
     const tier = tiers.find(t => t.match.some(m => (statusText || '').includes(m))) || tiers[tiers.length - 1];
     card.classList.add(tier.cls);
-    // Аватар — арт nav_profile.png (см. index.html); тир виден по рамке карточки
     const avatar = card.querySelector('.profile-avatar');
     if (avatar && !avatar.querySelector('img') && !avatar.textContent.trim()) avatar.textContent = tier.icon;
 }
 
-// ===== ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК ЗАДАНИЙ (С ПОДДЕРЖКОЙ DEPOSIT) =====
+// ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ЗАДАНИЙ (Правка 11) =====
 function switchQuestTab(tab) {
     document.querySelectorAll('.quest-tab').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tab === tab);
@@ -1647,36 +1614,7 @@ async function claimQuest(questId, reward) {
     }
 }
 
-// ===== ПРОМОКОД (СТАРЫЙ МОДАЛЬНЫЙ) =====
-function showPromoModal() {
-    document.getElementById('promoModal').style.display = 'flex';
-}
-
-function closePromoModal() {
-    document.getElementById('promoModal').style.display = 'none';
-    document.getElementById('promoInput').value = '';
-}
-
-async function submitPromo() {
-    const code = document.getElementById('promoInput').value.trim().toUpperCase();
-    if (!code) {
-        showCustomAlert('❌ Введите промокод!');
-        return;
-    }
-
-    const data = await apiRequest('/apply_promo', { promo_code: code });
-    if (data.error) {
-        showCustomAlert('❌ ' + data.error);
-        return;
-    }
-    if (data.success) {
-        showCustomAlert(`✅ Промокод активирован! Получено ${data.reward} ${starIcon(16)}`, true);
-        closePromoModal();
-        loadBalance();
-    }
-}
-
-// ===== ПРОМОКОД В ПРИЛОЖЕНИИ (НОВАЯ МОДАЛКА) =====
+// ===== ПРОМОКОД В ПРИЛОЖЕНИИ (Правка 11) =====
 function showPromoAppModal() {
     document.getElementById('promoAppModal').style.display = 'flex';
 }
@@ -1710,7 +1648,7 @@ async function submitPromoApp() {
     }
 }
 
-// ===== ВЫВОД СРЕДСТВ =====
+// ===== ВЫВОД СРЕДСТВ (Правка 11) =====
 function showWithdrawModal() {
     document.getElementById('withdrawModal').style.display = 'flex';
 }
@@ -1744,7 +1682,7 @@ async function submitWithdraw() {
     }
 }
 
-// ===== НАГРАДЫ ЗА ПОПОЛНЕНИЕ =====
+// ===== НАГРАДЫ ЗА ПОПОЛНЕНИЕ (Правка 11) =====
 async function loadDepositRewards() {
     if (!userId) return;
     try {
@@ -1834,15 +1772,13 @@ let crash = {
     dom: {},
     interval: null,
     firstVisit: true,
-    crashedAt: 0 // момент краша (ms) — красное число держим минимум 3 сек
+    crashedAt: 0
 };
 
-// true, если с момента краша прошло меньше 3 секунд (красное число ещё видно)
 function inCrashHold() {
     return crash.crashedAt > 0 && (Date.now() - crash.crashedAt) < 3000;
 }
 
-// Панель ставки: либо ввод, либо статус «Ставка сделана»
 function updateCrashBetPanel() {
     const d = crash.dom;
     if (!d) return;
@@ -2019,14 +1955,12 @@ async function placeCrashBet(bet) {
     }
 }
 
-// Спрайт ракеты для графика краша
 const crashRocketImg = new Image();
 crashRocketImg.src = 'assets/icon_crash.png';
 
-// Плавный градиент цвета множителя: зелёный → жёлтый → красный
 function crashColor(v, alpha = 1) {
-    const t = Math.min(Math.max((v - 1) / 9, 0), 1); // 1x → 0, 10x+ → 1
-    const hue = 140 - t * 140; // 140 (зелёный) → 0 (красный)
+    const t = Math.min(Math.max((v - 1) / 9, 0), 1);
+    const hue = 140 - t * 140;
     return `hsla(${hue}, 85%, 62%, ${alpha})`;
 }
 
@@ -2049,7 +1983,6 @@ function drawCrashChart() {
     const topOffset = 16;
     const bottomOffset = 12;
     const availableHeight = h - topOffset - bottomOffset;
-    // Логарифмическая шкала: плавный рост и на x1.2, и на x10
     const maxLog = Math.log(maxVal * 1.15);
     const scaleY = availableHeight / maxLog;
     const scaleX = (w - 30) / Math.max(data.length - 1, 1);
@@ -2064,7 +1997,6 @@ function drawCrashChart() {
         return [x, y];
     };
 
-    // Градиентная заливка под кривой (зелёный → жёлтый → красный по мере роста)
     const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
     if (isCrashed) {
         fillGrad.addColorStop(0, 'rgba(248,113,113,0.35)');
@@ -2090,7 +2022,6 @@ function drawCrashChart() {
     ctx.fill();
     ctx.restore();
 
-    // Сама кривая
     ctx.beginPath();
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = 4;
@@ -2106,7 +2037,6 @@ function drawCrashChart() {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Точка-ракета на конце кривой (или взрыв при краше)
     if (isCrashed) {
         ctx.font = '26px sans-serif';
         ctx.textAlign = 'center';
@@ -2116,7 +2046,7 @@ function drawCrashChart() {
         const size = 30;
         ctx.save();
         ctx.translate(lastX, lastY);
-        ctx.rotate(Math.PI / 4); // нос вверх-вправо по направлению роста
+        ctx.rotate(Math.PI / 4);
         ctx.shadowColor = lineColor;
         ctx.shadowBlur = 16;
         ctx.drawImage(crashRocketImg, -size / 2, -size / 2, size, size);
@@ -2183,9 +2113,6 @@ function startCrashPolling() {
             crash.phase = status.phase;
             crash.multiplier = status.multiplier;
 
-            // Синхронизация ставки с сервером: статус «Ставка сделана» не зависает.
-            // Во время фазы краша НЕ синхронизируем: сервер уже очистил ставки,
-            // а ветка краша ниже должна увидеть проигравшую ставку и показать окно.
             if (status.my_bet !== undefined && status.phase !== 'crashed' && status.phase !== 'crash') {
                 crash.hasBet = status.my_bet > 0;
                 crash.bet = status.my_bet || 0;
@@ -2208,7 +2135,6 @@ function startCrashPolling() {
             }
 
             else if (status.phase === 'waiting') {
-                // Во время 3-секундного показа краха НЕ сбрасываем красное число
                 if (d.multiplier && !inCrashHold()) {
                     d.multiplier.textContent = 'x1.00';
                     d.multiplier.style.color = '#4ade80';
@@ -2258,9 +2184,8 @@ function startCrashPolling() {
                 const justCrashed = prevPhase !== 'crashed' && prevPhase !== 'crash';
                 if (d.status) d.status.textContent = `💥 КРАШ на x${(status.multiplier || 1).toFixed(2)}`;
                 if (d.countdown) d.countdown.style.display = 'none';
-                // Красная вспышка + тряска графика (только в момент перехода)
                 if (justCrashed) {
-                    crash.crashedAt = Date.now(); // красное число держим минимум 3 сек
+                    crash.crashedAt = Date.now();
                     updateCrashChart(status.multiplier || crash.multiplier || 1);
                     const chart = document.getElementById('gc_chart');
                     if (chart) {
@@ -2278,7 +2203,6 @@ function startCrashPolling() {
                     }
                 }
                 if (crash.hasBet) {
-                    // Ставка не была забрана до краша — проигрыш (учитывается сервером)
                     const lostBet = crash.bet;
                     crash.hasBet = false;
                     crash.bet = 0;
@@ -2287,10 +2211,9 @@ function startCrashPolling() {
                     loadCrashStats();
                     if (lostBet > 0 && justCrashed) {
                         const cp = (status.multiplier || 1).toFixed(2);
-                        // Окно проигрыша — ПОСЛЕ 3-секундного показа красного числа
                         setTimeout(() => {
                             const c = document.getElementById('crashGameContainer');
-                            if (!c || c.style.display === 'none') return; // игрок ушёл с экрана краша
+                            if (!c || c.style.display === 'none') return;
                             createResultOverlay({
                                 id: 'crashResultOverlay',
                                 kind: 'lose',
@@ -2364,7 +2287,6 @@ function loadCrashStats() {
 }
 
 // ===== МИНЁР =====
-// Поле НЕ отдаётся клиенту: сервер решает safe/mine на каждой клетке
 let gameMinesData = null;
 let gameMinesSelected = 4;
 
@@ -2500,7 +2422,6 @@ function startGameMines() {
         return;
     }
 
-    // Старт новой игры: стираем старое раскрытое поле и строим чистую доску
     gameMinesData = null;
     buildMinesBoard();
 
@@ -2522,7 +2443,7 @@ function startGameMines() {
                 mines: mines,
                 opened: 0,
                 multiplier: 1.0,
-                openedCells: new Array(25).fill(0), // 0=закрыта, 1=💎, 2=💣
+                openedCells: new Array(25).fill(0),
                 active: true,
                 game_over: false
             };
@@ -2551,7 +2472,6 @@ function renderGameMinesBoard() {
 
     cells.forEach((cell, i) => {
         const v = gameMinesData.openedCells[i];
-        // Сохраняем анимационные классы flip
         const animSafe = cell.classList.contains('gm-cell-safe') ? ' gm-cell-safe' : '';
         const animMine = cell.classList.contains('gm-cell-mine') ? ' gm-cell-mine' : '';
         if (v === 1) {
@@ -2570,7 +2490,6 @@ function renderGameMinesBoard() {
     });
 }
 
-// Раскрытие поля после конца игры: мины — красные, остальные — приглушённые зелёные
 function revealMinesBoard(minesPositions, done) {
     const finish = () => { if (done) done(); };
     if (!gameMinesData || !Array.isArray(minesPositions)) {
@@ -2586,7 +2505,7 @@ function revealMinesBoard(minesPositions, done) {
         cell.onclick = null;
         setTimeout(() => {
             if (!document.body.contains(cell)) return;
-            if (gameMinesData.openedCells[i] === 1) return; // уже открытый алмаз — оставляем ярким
+            if (gameMinesData.openedCells[i] === 1) return;
             if (minesSet.has(i)) {
                 if (gameMinesData.openedCells[i] !== 2) {
                     gameMinesData.openedCells[i] = 2;
@@ -2627,17 +2546,14 @@ function openGameMinesCell(index) {
 
             const multEl = document.getElementById('gm_multiplier_display');
             multEl.textContent = 'x' + gameMinesData.multiplier;
-            // Плавный "поп" роста множителя
             multEl.classList.remove('stat-pop');
             void multEl.offsetWidth;
             multEl.classList.add('stat-pop');
 
             renderGameMinesBoard();
-            // Анимация переворота + зелёная вспышка на конкретной клетке
             if (cellEl) cellEl.classList.add('gm-cell-safe');
             updateGameMinesCashout();
 
-            // Открыты ВСЕ безопасные клетки — полный выигрыш
             if (data.game_over && data.won) {
                 gameMinesData.active = false;
                 gameMinesData.game_over = true;
@@ -2656,7 +2572,6 @@ function openGameMinesCell(index) {
             gameMinesData.game_over = true;
             document.getElementById('gm_cashout_btn').style.display = 'none';
 
-            // Красная вспышка + тряска на мине
             if (cellEl) cellEl.classList.add('gm-cell-mine');
             const board = document.getElementById('gm_board');
             if (board) {
@@ -2753,9 +2668,6 @@ function closeMinesResult() {
 }
 
 function resetGameMines() {
-    // Поле НЕ очищаем и gameMinesData НЕ обнуляем:
-    // раскрытые мины/клетки остаются видимыми за setup-панелью.
-    // Доска стирается только при старте новой игры (startGameMines).
     const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
     setText('gm_bet_display', '0');
     setText('gm_count_display', '0');
@@ -2771,7 +2683,6 @@ function resetGameMines() {
 }
 
 // ===== АПГРЕЙД =====
-// Результат решает ТОЛЬКО сервер (/upgrade_execute), фронт анимирует
 let upgradeChanceTimer = null;
 
 function showUpgradeGame() {
@@ -2852,7 +2763,6 @@ function loadGameUpgradeBalance() {
     });
 }
 
-// Шанс считает сервер (/upgrade_calculate); локальная формула — запасной вариант
 function updateGameUpgradeChance() {
     const betEl = document.getElementById('gu_bet');
     const targetEl = document.getElementById('gu_target');
@@ -2897,7 +2807,6 @@ function startGameUpgrade() {
     const btn = document.getElementById('gu_btn');
     if (btn) btn.disabled = true;
 
-    // Сервер решает результат и списывает/начисляет звёзды
     apiRequest('/upgrade_execute', { bet, target }).then(data => {
         if (btn) btn.disabled = false;
         if (data.error) {
@@ -2924,11 +2833,8 @@ function startGameUpgradeAnimation(data) {
     const isWin = data.result === 'win';
     const chance = Math.min(Math.max(Number(data.chance) || 1, 1), 99);
     const successChance = chance / 100;
-    // Цвет дуги по величине шанса
     const chanceColor = chance >= 50 ? '#4ade80' : chance >= 25 ? '#e8c76a' : '#f87171';
 
-    // Конечный угол стрелки — внутри сектора результата, который решил сервер
-    // Стрелка рисуется вверх (указывает на -π/2), поэтому смещаем targetNorm на +π/2
     let targetNorm;
     if (isWin) {
         const winAngle = Math.PI * 2 * successChance * (0.15 + Math.random() * 0.7);
@@ -3000,7 +2906,6 @@ function startGameUpgradeAnimation(data) {
         ctx.lineWidth = 4;
         ctx.stroke();
 
-        // Дуга вероятности цветом шанса
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * successChance);
         ctx.strokeStyle = chanceColor;
@@ -3036,7 +2941,6 @@ function startGameUpgradeAnimation(data) {
             ctx.stroke();
         }
 
-        // Стрелка
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(angle);
@@ -3065,7 +2969,6 @@ function startGameUpgradeAnimation(data) {
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Процент крупно в центре колеса
         ctx.font = 'bold 46px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -3090,7 +2993,6 @@ function startGameUpgradeAnimation(data) {
 
         drawWheel(startAngle + totalRotation);
 
-        // Свечение выигрышного сектора (результат решён сервером заранее)
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.beginPath();
@@ -3107,7 +3009,6 @@ function startGameUpgradeAnimation(data) {
         ctx.fill();
         ctx.restore();
 
-        // Подсветка кольца результата
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.beginPath();
@@ -3224,7 +3125,6 @@ function hideWelcome() {
 
     loadBalance();
 
-    // Показать приветствие при первом открытии
     if (!localStorage.getItem('randevu_welcome_seen')) {
         setTimeout(showWelcome, 500);
     }
