@@ -168,10 +168,12 @@
                 <button class="quest-tab active" data-tab="status" onclick="switchQuestTab('status')">👑 Статусы</button>
                 <button class="quest-tab" data-tab="levels" onclick="switchQuestTab('levels')"><img src="assets/nav_levels.png" class="ic" style="width:16px;height:16px;" alt="🎯" onerror="this.outerHTML='🎯'"> Уровни</button>
                 <button class="quest-tab" data-tab="friends" onclick="switchQuestTab('friends')"><img src="assets/friends.png" class="ic" style="width:16px;height:16px;" alt="👥" onerror="this.outerHTML='👥'"> Друзья</button>
+                <button class="quest-tab" data-tab="deposit" onclick="switchQuestTab('deposit')">💎 Пополнение</button>
             </div>
             <div id="questTabStatus" class="quest-tab-content active"></div>
             <div id="questTabLevels" class="quest-tab-content"></div>
             <div id="questTabFriends" class="quest-tab-content"></div>
+            <div id="questTabDeposit" class="quest-tab-content"></div>
             <button onclick="goBack()" class="btn-back" style="margin-top:16px;">🔙 Назад</button>
         </div>
 
@@ -186,8 +188,9 @@
                     <div>👤 Статус: <span id="profileStatus">🟢 Новичок</span></div>
                 </div>
                 <div class="profile-buttons">
-                    <button onclick="showInvite()"><img src="assets/friends.png" class="ic" style="width:17px;height:17px;" alt="📨" onerror="this.outerHTML='📨'"> Пригласить</button>
-                    <button onclick="showPromoModal()"><img src="assets/promo.png" class="ic" style="width:17px;height:17px;" alt="🎟" onerror="this.outerHTML='🎟'"> Промокод</button>
+                    <button class="btn-game btn-primary" onclick="showPromoAppModal()" style="width:100%; margin-top:12px;">🎁 ПРОМОКОД</button>
+                    <button class="btn-game btn-primary" onclick="showWithdrawModal()" style="width:100%; margin-top:8px;">💸 ВЫВОД</button>
+                    <button class="btn-game btn-ghost" onclick="showInvite()" style="width:100%; margin-top:8px;">📨 ПРИГЛАСИТЬ</button>
                 </div>
                 <button onclick="goBack()" class="btn-back">🔙 Назад</button>
             </div>
@@ -209,6 +212,27 @@
                     <button onclick="submitPromo()">✅ АКТИВИРОВАТЬ</button>
                     <button onclick="closePromoModal()">❌ Отмена</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Промокод в приложении -->
+        <div id="promoAppModal" class="promo-modal" style="display:none;">
+            <div class="promo-panel">
+                <div class="promo-title">🎁 Промокод</div>
+                <input type="text" id="promoAppInput" placeholder="Введите промокод" style="text-transform:uppercase;">
+                <button class="btn-game btn-primary" onclick="submitPromoApp()" style="width:100%;">✅ АКТИВИРОВАТЬ</button>
+                <button class="btn-game btn-ghost" onclick="closePromoAppModal()" style="width:100%; margin-top:8px;">🔙 ОТМЕНА</button>
+            </div>
+        </div>
+
+        <!-- Вывод средств -->
+        <div id="withdrawModal" class="promo-modal" style="display:none;">
+            <div class="promo-panel">
+                <div class="promo-title">💸 Вывод звёзд</div>
+                <div style="color:#aaa; font-size:14px; margin-bottom:10px;">Минимум: 1000⭐</div>
+                <input type="number" id="withdrawAmount" placeholder="Сумма" min="1000">
+                <button class="btn-game btn-primary" onclick="submitWithdraw()" style="width:100%;">📤 ЗАЯВКА НА ВЫВОД</button>
+                <button class="btn-game btn-ghost" onclick="closeWithdrawModal()" style="width:100%; margin-top:8px;">🔙 ОТМЕНА</button>
             </div>
         </div>
 
