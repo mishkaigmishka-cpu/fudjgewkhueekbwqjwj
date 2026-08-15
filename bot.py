@@ -42,14 +42,16 @@ def safe_delete(chat_id, message_id):
 main_message_ids = {}
 
 def show_main_menu(chat_id):
-    """Показывает главное меню (создаёт или редактирует существующее)."""
+    """Показывает главное меню с НОВОЙ картинкой (создаёт или редактирует существующее)."""
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
         InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(WEBAPP_URL)),
         InlineKeyboardButton("💎 Пополнить", callback_data="deposit_menu")
     )
     caption = "🎰 <b>Добро пожаловать в RANDEVU!</b>\n\nОткрывай кейсы, играй в мини-игры и выигрывай!"
-    logo_path = "static/assets/20260815T113355947161Z-ipython-tmp-b7e507bdd6df4b669f0b030606d29091.png"
+
+    # НОВАЯ КАРТИНКА
+    logo_path = "static/assets/20260815T144844044172Z-ipython-tmp-29c96895207449b9923f8ffa5b30a84e.png"
 
     # Если уже есть главное сообщение — редактируем его
     if chat_id in main_message_ids:
@@ -63,7 +65,6 @@ def show_main_menu(chat_id):
             )
             return
         except Exception:
-            # Если не удалось отредактировать (например, сообщение удалено) — удаляем ID
             main_message_ids.pop(chat_id, None)
 
     # Если нет — отправляем новое
@@ -544,7 +545,7 @@ def back_to_deposit(call):
     uid = call.from_user.id
     deposit_state.pop(uid, None)
     safe_delete(call.message.chat.id, call.message.message_id)
-    show_main_menu(call.message.chat.id)  # Редактирует существующее, не создаёт новое
+    show_main_menu(call.message.chat.id)
 
 @bot.message_handler(content_types=['text'], func=lambda msg: msg.from_user.id in deposit_state)
 def process_deposit_amount(msg):
@@ -614,13 +615,13 @@ def got_payment(msg):
                 parse_mode="HTML"
             )
             delete_message_after(msg.chat.id, confirm_msg.message_id, 60)
-            show_main_menu(msg.chat.id)  # Редактирует существующее
+            show_main_menu(msg.chat.id)
     except Exception as e:
         print(f"Payment error: {e}")
         error_msg = bot.send_message(msg.chat.id, "❌ Ошибка при зачислении. Обратись в поддержку.")
         delete_message_after(msg.chat.id, error_msg.message_id, 60)
 
-# ===== ОСТАЛЬНЫЕ КОМАНДЫ (ПОЛНОСТЬЮ СОХРАНЕНЫ) =====
+# ===== ОСТАЛЬНЫЕ КОМАНДЫ =====
 @bot.message_handler(commands=['promo'])
 def promo_handler(msg):
     uid = msg.from_user.id
