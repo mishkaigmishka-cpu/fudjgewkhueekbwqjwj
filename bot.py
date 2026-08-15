@@ -38,22 +38,22 @@ def safe_delete(chat_id, message_id):
     except Exception:
         pass
 
-# Храним ID главного сообщения для каждого пользователя
 main_message_ids = {}
 
+# ===== БАНЫ =====
+def is_banned(uid):
+    row = q("SELECT banned FROM users WHERE id=?", (uid,)).fetchone()
+    return row and row[0] == 1
+
 def show_main_menu(chat_id):
-    """Показывает главное меню с НОВОЙ картинкой (создаёт или редактирует существующее)."""
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
         InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(WEBAPP_URL)),
         InlineKeyboardButton("💎 Пополнить", callback_data="deposit_menu")
     )
     caption = "🎰 <b>Добро пожаловать в RANDEVU!</b>\n\nОткрывай кейсы, играй в мини-игры и выигрывай!"
-
-    # НОВАЯ КАРТИНКА
     logo_path = "static/assets/20260815T144844044172Z-ipython-tmp-29c96895207449b9923f8ffa5b30a84e.png"
 
-    # Если уже есть главное сообщение — редактируем его
     if chat_id in main_message_ids:
         try:
             bot.edit_message_caption(
@@ -67,7 +67,6 @@ def show_main_menu(chat_id):
         except Exception:
             main_message_ids.pop(chat_id, None)
 
-    # Если нет — отправляем новое
     try:
         if os.path.exists(logo_path):
             with open(logo_path, "rb") as photo:
@@ -117,7 +116,10 @@ def init_db():
             promo_used INTEGER DEFAULT 0,
             promo_code TEXT DEFAULT '',
             total_spent INTEGER DEFAULT 0,
-            luck_boost REAL DEFAULT 1.0
+            luck_boost REAL DEFAULT 1.0,
+            banned INTEGER DEFAULT 0,
+            total_deposit INTEGER DEFAULT 0,
+            claimed_deposit TEXT DEFAULT ''
         )''')
         conn.execute('''CREATE TABLE IF NOT EXISTS invited (
             inviter_id INTEGER,
@@ -159,12 +161,17 @@ def init_db():
             max_uses INTEGER DEFAULT 1,
             used_count INTEGER DEFAULT 0
         )''')
+        conn.execute('''CREATE TABLE IF NOT EXISTS used_promos (
+            user_id INTEGER,
+            promo_code TEXT,
+            used_at INTEGER,
+            PRIMARY KEY (user_id, promo_code)
+        )''')
         conn.execute('''CREATE TABLE IF NOT EXISTS promo_spend (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             promo_code TEXT,
-            spent INTEGER DEFAULT 0,
-            FOREIGN KEY (user_id) REFERENCES users(id)
+            spent INTEGER DEFAULT 0
         )''')
         conn.execute('''CREATE TABLE IF NOT EXISTS level_wins (
             user_id INTEGER,
@@ -191,6 +198,7 @@ def init_db():
             PRIMARY KEY (user_id, case_type)
         )''')
         conn.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_used_promos_user ON used_promos(user_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_promo_spend_user ON promo_spend(user_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_level_wins_user ON level_wins(user_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_completed_quests_user ON completed_quests(user_id)")
@@ -213,32 +221,60 @@ WINS_TO_UNLOCK = 3
 
 CASE_RANGES = {
     "free": {"common": [1, 2], "rare": [3, 4], "epic": [5, 6, 7, 8, 9, 10], "legendary": [100], "jackpot": [1000], "common_chance": 0.599, "rare_chance": 0.299, "epic_chance": 0.0999, "legendary_chance": 0.0001, "jackpot_chance": 0.00000001},
-    "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.70, "rare_chance": 0.25, "epic_chance": 0.0499, "legendary_chance": 0.001, "jackpot_chance": 0.000001},
-    "wood": {"common": [2, 4, 5, 6, 7, 8, 9, 10], "rare": [12, 13, 15], "epic": [20, 50], "legendary": [100, 500], "jackpot": [1000], "common_chance": 0.75, "rare_chance": 0.19, "epic_chance": 0.05, "legendary_chance": 0.00001, "jackpot_chance": 0.000001},
-    "stone": {"common": [11, 13, 15, 16, 17, 18, 19], "rare": [21, 23, 24, 25], "epic": [30, 50, 100, 250], "legendary": [500, 1000], "jackpot": [2500], "common_chance": 0.80, "rare_chance": 0.15, "epic_chance": 0.05, "legendary_chance": 0.00001, "jackpot_chance": 0.000001},
+
+    "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.80, "rare_chance": 0.15, "epic_chance": 0.045, "legendary_chance": 0.005, "jackpot_chance": 0.000001},
+
+    "wood": {"common": [2, 4, 5, 6, 7, 8, 9, 10], "rare": [12, 13, 15], "epic": [20, 50], "legendary": [100, 500], "jackpot": [1000], "common_chance": 0.80, "rare_chance": 0.14, "epic_chance": 0.05, "legendary_chance": 0.01, "jackpot_chance": 0.000001},
+
+    "stone": {"common": [11, 13, 15, 16, 17, 18, 19], "rare": [21, 23, 24, 25], "epic": [30, 50, 100], "legendary": [250, 500, 1000], "jackpot": [2500], "common_chance": 0.80, "rare_chance": 0.15, "epic_chance": 0.045, "legendary_chance": 0.005, "jackpot_chance": 0.000001},
+
     "bronze": {"common": [20, 25, 30], "rare": [35, 40, 45, 50], "epic": [55, 60, 65, 75, 100], "legendary": [222, 333, 444, 555, 1000, 1500, 2000], "jackpot": [5000], "common_chance": 0.89, "rare_chance": 0.10, "epic_chance": 0.009999, "legendary_chance": 0.000001, "jackpot_chance": 0.0000001},
+
     "silver": {"common": [40, 50, 60, 70], "rare": [70, 80, 90, 100], "epic": [100, 110, 120, 130, 140, 150], "legendary": [200, 250, 333, 444, 555, 666, 777, 888, 999, 1488, 2011, 5000], "jackpot": [10000], "common_chance": 0.25, "rare_chance": 0.6745, "epic_chance": 0.0749, "legendary_chance": 0.0005, "jackpot_chance": 0.00000001},
+
     "gold": {"common": [75, 100], "rare": [150, 169, 190, 220, 251], "epic": [300, 400, 500, 777], "legendary": [999, 1000, 2000, 5000, 10000, 12500], "jackpot": [25000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
+
     "diamond": {"common": [250, 300, 333], "rare": [350, 444, 505], "epic": [1000, 1488, 2222], "legendary": [2500, 5000, 10000, 12500, 25000], "jackpot": [50000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
+
     "netherite": {"common": [500, 550, 600], "rare": [650, 700, 750, 800, 850], "epic": [900, 950, 1000, 1500], "legendary": [2000, 2500, 3000, 3200, 3500, 4000, 5000, 10000, 15000, 20000], "jackpot": [25000], "common_chance": 0.2499, "rare_chance": 0.6749, "epic_chance": 0.07, "legendary_chance": 0.005, "jackpot_chance": 0.00000001},
-    "obsidian": {"common": [500, 1000, 1500], "rare": [2000, 2500, 3000], "epic": [4000, 5000, 7500], "legendary": [10000, 15000], "jackpot": [25000], "common_chance": 0.35, "rare_chance": 0.35, "epic_chance": 0.2, "legendary_chance": 0.09, "jackpot_chance": 0.01},
+
+    "obsidian": {"common": [500, 1000, 1500], "rare": [2000, 2500, 3000], "epic": [4000, 5000, 7500], "legendary": [10000, 15000], "jackpot": [25000], "common_chance": 0.59999, "rare_chance": 0.35, "epic_chance": 0.05, "legendary_chance": 0.000001, "jackpot_chance": 0.000009},
+
     "bedrock": {"common": [5000], "rare": [10000, 25000], "epic": [50000, 100000], "legendary": [250000], "jackpot": [1000000], "common_chance": 0.999, "rare_chance": 0.0009, "epic_chance": 0.00009, "legendary_chance": 0.000009, "jackpot_chance": 0.000001}
 }
 
 def get_prize(case_type, user_id=None):
     data = CASE_RANGES[case_type]
     rnd = random.random()
+
+    c = data["common_chance"]
+    r = data["rare_chance"]
+    e = data["epic_chance"]
+    l = data["legendary_chance"]
+    j = data["jackpot_chance"]
+
     if user_id:
         row = q("SELECT luck_boost FROM users WHERE id=?", (user_id,)).fetchone()
         if row and row[0] > 1.0:
-            rnd = rnd / row[0]
-            if rnd > 1.0:
-                rnd = 0.9999
-    if rnd < data["jackpot_chance"]:
+            c = max(0, c - 0.21)
+            r = r + 0.07
+            e = e + 0.05
+            l = l + 0.05
+            j = j + 0.01
+            total = c + r + e + l + j
+            if total > 1.0:
+                factor = 1.0 / total
+                c *= factor
+                r *= factor
+                e *= factor
+                l *= factor
+                j *= factor
+
+    if rnd < j:
         return random.choice(data["jackpot"])
-    elif rnd < data["jackpot_chance"] + data["legendary_chance"]:
+    elif rnd < j + l:
         return random.choice(data["legendary"])
-    elif rnd < data["common_chance"]:
+    elif rnd < j + l + c:
         if case_type == "mud":
             if random.random() < 0.39 / 0.70:
                 return random.choice([1, 2])
@@ -261,7 +297,7 @@ def get_prize(case_type, user_id=None):
                 return random.choice([35, 40, 45, 50])
         else:
             return random.choice(data["common"])
-    elif rnd < data["common_chance"] + data["rare_chance"]:
+    elif rnd < j + l + c + r:
         return random.choice(data["rare"])
     else:
         return random.choice(data["epic"])
@@ -608,7 +644,8 @@ def got_payment(msg):
         user = get_user(uid)
         if user:
             new_balance = user[1] + amount
-            update_user(uid, balance=new_balance)
+            total_deposit = user[14] + amount
+            update_user(uid, balance=new_balance, total_deposit=total_deposit)
             confirm_msg = bot.send_message(
                 msg.chat.id,
                 f"✅ <b>Баланс пополнен!</b>\n\n+{amount}⭐\n💰 Текущий баланс: {new_balance}⭐",
@@ -621,42 +658,94 @@ def got_payment(msg):
         error_msg = bot.send_message(msg.chat.id, "❌ Ошибка при зачислении. Обратись в поддержку.")
         delete_message_after(msg.chat.id, error_msg.message_id, 60)
 
-# ===== ОСТАЛЬНЫЕ КОМАНДЫ =====
-@bot.message_handler(commands=['promo'])
-def promo_handler(msg):
-    uid = msg.from_user.id
+# ===== АДМИН-КОМАНДЫ =====
+@bot.message_handler(commands=['ban'])
+def ban_user(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
     args = msg.text.split()
     if len(args) < 2:
-        bot.reply_to(msg, "❌ Введи промокод: /promo RANDEVU20")
+        bot.reply_to(msg, "❌ Формат: /ban @username")
         return
-    code = args[1].upper()
-    promo = q("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=?", (code,)).fetchone()
-    if not promo:
-        bot.reply_to(msg, "❌ Неверный промокод!")
-        return
-    reward, max_uses, used_count = promo
-    if max_uses > 0 and used_count >= max_uses:
-        bot.reply_to(msg, "❌ Промокод уже использован максимальное количество раз!")
-        return
-    user = get_user(uid)
+    username = args[1].replace('@', '')
+    user = get_user_by_username(username)
     if not user:
-        bot.reply_to(msg, "Напиши /start")
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
         return
-    if user[9] == 1:
-        bot.reply_to(msg, "❌ Ты уже использовал промокод!")
-        return
-    update_user(uid, balance=user[1] + reward, promo_used=1, promo_code=code)
-    qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=?", (code,))
-    bot.reply_to(msg, f"✅ Промокод активирован! Ты получил {reward}⭐")
+    update_user(user[0], banned=1)
+    bot.reply_to(msg, f"✅ @{username} забанен!")
 
-@bot.message_handler(commands=['balance'])
-def balance_cmd(msg):
-    user = get_user(msg.from_user.id)
+@bot.message_handler(commands=['unban'])
+def unban_user(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Формат: /unban @username")
+        return
+    username = args[1].replace('@', '')
+    user = get_user_by_username(username)
     if not user:
-        bot.reply_to(msg, "Напиши /start")
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
         return
-    bot.reply_to(msg, f"💰 Баланс: {user[1]}⭐\n📦 Открыто кейсов: {user[2]}\n🏆 Статус: {user[5]}\n👥 Рефералов: {user[6]}")
+    update_user(user[0], banned=0)
+    bot.reply_to(msg, f"✅ @{username} разбанен!")
 
+@bot.message_handler(commands=['reset'])
+def reset_user(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Формат: /reset @username")
+        return
+    username = args[1].replace('@', '')
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        return
+    update_user(user[0], balance=0, total_cases=0, streak=0, status="🟢 Новичок", refs=0, total_spent=0)
+    qw("DELETE FROM level_wins WHERE user_id=?", (user[0],))
+    qw("DELETE FROM level_progress WHERE user_id=?", (user[0],))
+    qw("DELETE FROM completed_quests WHERE user_id=?", (user[0],))
+    bot.reply_to(msg, f"✅ @{username} сброшен!")
+
+@bot.message_handler(commands=['luck'])
+def luck_boost(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Формат: /luck @username")
+        return
+    username = args[1].replace('@', '')
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        return
+    if user[12] > 1.0:
+        bot.reply_to(msg, f"❌ У @{username} уже повышены шансы!")
+        return
+    update_user(user[0], luck_boost=5.0)
+    bot.reply_to(msg, f"✅ Шансы @{username} увеличены в 5x!")
+
+@bot.message_handler(commands=['unluck'])
+def unluck_boost(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "❌ Формат: /unluck @username")
+        return
+    username = args[1].replace('@', '')
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        return
+    update_user(user[0], luck_boost=1.0)
+    bot.reply_to(msg, f"✅ Шансы @{username} сброшены!")
+
+# ===== ПРОМОКОДЫ =====
 @bot.message_handler(commands=['create_promo'])
 def create_promo(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -682,69 +771,6 @@ def create_promo(msg):
        (code, reward, ADMIN_ID, int(time.time()), max_uses))
     bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
 
-@bot.message_handler(commands=['give'])
-def give_to_user(msg):
-    if msg.from_user.id != ADMIN_ID:
-        return
-    args = msg.text.split()
-    if len(args) < 3:
-        bot.reply_to(msg, "❌ Формат: /give @username 500")
-        return
-    username = args[1].replace('@', '')
-    try:
-        amount = int(args[2])
-    except ValueError:
-        bot.reply_to(msg, "❌ Сумма должна быть числом")
-        return
-    user = get_user_by_username(username)
-    if not user:
-        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
-        return
-    update_user(user[0], balance=user[1] + amount)
-    bot.reply_to(msg, f"✅ @{username} получил {amount}⭐\n💰 Баланс: {user[1] + amount}⭐")
-    try:
-        bot.send_message(user[0], f"💰 Админ выдал тебе {amount}⭐!\nНовый баланс: {user[1] + amount}⭐")
-    except Exception:
-        pass
-
-@bot.message_handler(commands=['set_status'])
-def set_status(msg):
-    if msg.from_user.id != ADMIN_ID:
-        return
-    args = msg.text.split()
-    if len(args) < 3:
-        bot.reply_to(msg, "❌ Формат: /set_status @username Легенда")
-        return
-    username = args[1].replace('@', '')
-    status = ' '.join(args[2:])
-    user = get_user_by_username(username)
-    if not user:
-        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
-        return
-    update_user(user[0], status=status)
-    bot.reply_to(msg, f"✅ Статус @{username} изменён на {status}")
-
-@bot.message_handler(commands=['boost'])
-def boost_player(msg):
-    if msg.from_user.id != ADMIN_ID:
-        return
-    args = msg.text.split()
-    if len(args) < 3:
-        bot.reply_to(msg, "❌ Формат: /boost @username 2.0")
-        return
-    username = args[1].replace('@', '')
-    try:
-        boost = float(args[2])
-    except ValueError:
-        bot.reply_to(msg, "❌ Множитель должен быть числом (например, 2.0)")
-        return
-    user = get_user_by_username(username)
-    if not user:
-        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
-        return
-    update_user(user[0], luck_boost=boost)
-    bot.reply_to(msg, f"✅ Шансы @{username} увеличены в {boost}x!")
-
 @bot.message_handler(commands=['promo_stats'])
 def promo_stats(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -761,7 +787,7 @@ def promo_stats(msg):
     reward, max_uses, used_count, created_at = promo
     spend_data = q("SELECT user_id, spent FROM promo_spend WHERE promo_code=?", (code,)).fetchall()
     total_spent = sum([s[1] for s in spend_data]) if spend_data else 0
-    text = f"📊 **СТАТИСТИКА ПРОМОКОДА {code}**\n\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}\n✅ Использовано: {used_count}\n💰 Всего потрачено: {total_spent}⭐\n👥 Пользователей: {len(spend_data) if spend_data else 0}"
+    text = f"📊 СТАТИСТИКА ПРОМОКОДА {code}\n\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}\n✅ Использовано: {used_count}\n💰 Всего потрачено: {total_spent}⭐\n👥 Пользователей: {len(spend_data) if spend_data else 0}"
     bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['list_promo'])
@@ -772,10 +798,10 @@ def list_promo(msg):
     if not promos:
         bot.reply_to(msg, "❌ Нет созданных промокодов")
         return
-    text = "📋 **СПИСОК ПРОМОКОДОВ:**\n\n"
+    text = "📋 СПИСОК ПРОМОКОДОВ:\n\n"
     for code, reward, max_uses, used_count in promos:
         status = "✅" if max_uses == 0 or used_count < max_uses else "❌"
-        text += f"{status} `{code}` — {reward}⭐ (исп. {used_count}/{max_uses if max_uses > 0 else '∞'})\n"
+        text += f"{status} {code} — {reward}⭐ (исп. {used_count}/{max_uses if max_uses > 0 else '∞'})\n"
     bot.reply_to(msg, text)
 
 # ===== ЭНДПОИНТЫ =====
@@ -786,7 +812,10 @@ def health():
 @app.route('/get_balance', methods=['POST'])
 def get_balance():
     data = request.get_json()
-    user = get_user(data.get('user_id'))
+    uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
+    user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'balance': user[1], 'total_cases': user[2], 'status': user[5], 'refs': user[6]})
@@ -794,9 +823,11 @@ def get_balance():
 @app.route('/check_balance', methods=['POST'])
 def check_balance():
     data = request.get_json()
-    user_id = data.get('user_id')
+    uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!', 'can_open': False}), 403
     case_type = data.get('case_type')
-    user = get_user(user_id)
+    user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     price = CASE_PRICES.get(case_type, 0)
@@ -811,6 +842,8 @@ def check_balance():
 def check_balance_simple():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     amount = data.get('amount', 0)
     user = get_user(uid)
     if not user:
@@ -824,6 +857,8 @@ def get_prize_endpoint():
         return jsonify({'error': 'No data provided'}), 400
     case_type = data.get('case_type')
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     if case_type not in CASE_RANGES:
         return jsonify({'error': 'Invalid case type'}), 400
     prize = get_prize(case_type, uid)
@@ -834,6 +869,8 @@ def open_case():
     try:
         data = request.get_json()
         user_id = data.get('user_id')
+        if is_banned(user_id):
+            return jsonify({'error': 'Ты забанен!'}), 403
         case_type = data.get('case_type')
         if case_type not in CASE_RANGES:
             return jsonify({'error': 'Invalid case type'}), 400
@@ -859,8 +896,9 @@ def open_case():
             prize = get_prize(case_type, user_id)
             new_bal = user[1] - price + prize
             new_total = user[2] + 1
+            total_spent = user[11] + price
             register_case_opening(user_id, case_type, 1)
-            update_user(user_id, balance=new_bal, total_cases=new_total, last_open=int(time.time()))
+            update_user(user_id, balance=new_bal, total_cases=new_total, total_spent=total_spent, last_open=int(time.time()))
             update_status(user_id, new_total)
             return jsonify({'prize': prize, 'new_balance': new_bal})
     except Exception as e:
@@ -870,6 +908,8 @@ def open_case():
 def open_10_cases():
     data = request.get_json()
     user_id = data.get('user_id')
+    if is_banned(user_id):
+        return jsonify({'error': 'Ты забанен!'}), 403
     case_type = data.get('case_type')
     if case_type == "free":
         return jsonify({'error': 'Нельзя открыть 10 бесплатных кейсов'}), 400
@@ -892,7 +932,8 @@ def open_10_cases():
         register_case_opening(user_id, case_type, 10)
         new_bal = user[1] - total_price + total_prize
         new_total = user[2] + 10
-        update_user(user_id, balance=new_bal, total_cases=new_total, last_open=int(time.time()))
+        total_spent = user[11] + total_price
+        update_user(user_id, balance=new_bal, total_cases=new_total, total_spent=total_spent, last_open=int(time.time()))
         update_status(user_id, new_total)
         return jsonify({'prizes': prizes, 'total_prize': total_prize, 'new_balance': new_bal})
 
@@ -900,6 +941,8 @@ def open_10_cases():
 def get_levels_data():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
@@ -914,6 +957,8 @@ def get_levels_data():
 def start_bot_battle():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     case_type = data.get('case_type')
     with write_lock:
         user = get_user(uid)
@@ -958,6 +1003,8 @@ def start_bot_battle():
 def get_quests_data():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
@@ -975,6 +1022,8 @@ def get_quests_data():
 def claim_quest():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     quest_id = data.get('quest_id')
     with write_lock:
         user = get_user(uid)
@@ -1018,6 +1067,8 @@ def get_quest_reward(uid, quest_id):
 def apply_promo():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     promo_code = data.get('promo_code', '').upper()
     with write_lock:
         user = get_user(uid)
@@ -1029,10 +1080,106 @@ def apply_promo():
         reward, max_uses, used_count = promo
         if max_uses > 0 and used_count >= max_uses:
             return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
-        if user[9] == 1:
-            return jsonify({'error': 'Ты уже использовал промокод!'}), 400
-        update_user(uid, balance=user[1] + reward, promo_used=1, promo_code=promo_code)
+        used = q("SELECT * FROM used_promos WHERE user_id=? AND promo_code=?", (uid, promo_code)).fetchone()
+        if used:
+            return jsonify({'error': 'Ты уже использовал этот промокод!'}), 400
+        update_user(uid, balance=user[1] + reward)
         qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=?", (promo_code,))
+        qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (?, ?, ?)", (uid, promo_code, int(time.time())))
+        return jsonify({'success': True, 'reward': reward})
+
+@app.route('/claim_promo_webapp', methods=['POST'])
+def claim_promo_webapp():
+    data = request.get_json()
+    uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
+    code = data.get('code', '').upper()
+    with write_lock:
+        user = get_user(uid)
+        if not user:
+            return jsonify({'error': 'Пользователь не найден'}), 404
+        promo = q("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=?", (code,)).fetchone()
+        if not promo:
+            return jsonify({'error': 'Неверный промокод!'}), 400
+        reward, max_uses, used_count = promo
+        if max_uses > 0 and used_count >= max_uses:
+            return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
+        used = q("SELECT * FROM used_promos WHERE user_id=? AND promo_code=?", (uid, code)).fetchone()
+        if used:
+            return jsonify({'error': 'Ты уже использовал этот промокод!'}), 400
+        update_user(uid, balance=user[1] + reward)
+        qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=?", (code,))
+        qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (?, ?, ?)", (uid, code, int(time.time())))
+        # Записываем в промо-статистику
+        qw("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", (uid, code, 0))
+        return jsonify({'success': True, 'reward': reward, 'message': f'✅ +{reward}⭐ за промокод!'})
+
+@app.route('/withdraw', methods=['POST'])
+def withdraw():
+    data = request.get_json()
+    uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
+    amount = data.get('amount', 0)
+    with write_lock:
+        user = get_user(uid)
+        if not user:
+            return jsonify({'error': 'Пользователь не найден'}), 404
+        if amount < 1000:
+            return jsonify({'error': 'Минимум 1000⭐ для вывода!'}), 400
+        if user[1] < amount:
+            return jsonify({'error': 'Недостаточно звёзд!'}), 400
+        update_user(uid, balance=user[1] - amount)
+        bot.send_message(ADMIN_ID, f"💸 ЗАЯВКА НА ВЫВОД\nПользователь: @{user[8]}\nСумма: {amount}⭐\nID: {uid}")
+        return jsonify({'success': True, 'message': f'✅ Заявка на вывод {amount}⭐ отправлена!'})
+
+@app.route('/get_deposit_rewards', methods=['POST'])
+def get_deposit_rewards():
+    data = request.get_json()
+    uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
+    user = get_user(uid)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    tiers = [
+        {'amount': 100, 'reward': 10},
+        {'amount': 250, 'reward': 25},
+        {'amount': 500, 'reward': 50},
+        {'amount': 1000, 'reward': 100},
+        {'amount': 2500, 'reward': 250},
+        {'amount': 10000, 'reward': 1000}
+    ]
+    claimed = [int(x) for x in user[15].split(',') if x] if user[15] else []
+    return jsonify({
+        'tiers': tiers,
+        'claimed': claimed,
+        'total_spent': user[14]
+    })
+
+@app.route('/claim_deposit_reward', methods=['POST'])
+def claim_deposit_reward():
+    data = request.get_json()
+    uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
+    amount = data.get('amount', 0)
+    with write_lock:
+        user = get_user(uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        tiers = {100: 10, 250: 25, 500: 50, 1000: 100, 2500: 250, 10000: 1000}
+        if amount not in tiers:
+            return jsonify({'error': 'Неверная награда'}), 400
+        claimed = [int(x) for x in user[15].split(',') if x] if user[15] else []
+        if amount in claimed:
+            return jsonify({'error': 'Награда уже получена'}), 400
+        if user[14] < amount:
+            return jsonify({'error': 'Недостаточно пополнений'}), 400
+        reward = tiers[amount]
+        new_claimed = user[15] + f",{amount}" if user[15] else str(amount)
+        update_user(uid, balance=user[1] + reward, claimed_deposit=new_claimed)
         return jsonify({'success': True, 'reward': reward})
 
 # ===== MINES =====
@@ -1040,6 +1187,8 @@ def apply_promo():
 def start_mines_game():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     bet = data.get('bet')
     mines = data.get('mines')
     if not isinstance(bet, int) or not isinstance(mines, int):
@@ -1057,6 +1206,8 @@ def start_mines_game():
                 if game['user_id'] == uid and game['status'] == 'active':
                     return jsonify({'error': 'У тебя уже есть активная игра!'}), 400
             update_user(uid, balance=user[1] - bet)
+            total_spent = user[11] + bet
+            update_user(uid, total_spent=total_spent)
             board = [0] * 25
             positions = random.sample(range(25), mines)
             for pos in positions:
@@ -1069,6 +1220,8 @@ def start_mines_game():
 def open_mines_cell():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     game_id = data.get('game_id')
     index = data.get('cell', data.get('index'))
     if not isinstance(index, int) or index < 0 or index > 24:
@@ -1109,6 +1262,8 @@ def open_mines_cell():
 def cashout_mines():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     game_id = data.get('game_id')
     with write_lock:
         with mines_lock:
@@ -1145,6 +1300,8 @@ def exit_mines():
 def get_mines_stats():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     stats = q("SELECT * FROM mines_stats WHERE user_id=?", (uid,)).fetchone()
     if not stats:
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
@@ -1156,6 +1313,8 @@ def make_crash_bet():
     global crash_data
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     bet = data.get('bet')
     if not isinstance(bet, int):
         return jsonify({'error': 'Некорректная ставка'}), 400
@@ -1173,6 +1332,8 @@ def make_crash_bet():
             return jsonify({'error': 'Ты уже сделал ставку'}), 400
         crash_data['bets'][uid] = bet
         update_user(uid, balance=user[1] - bet, last_open=int(time.time()))
+        total_spent = user[11] + bet
+        update_user(uid, total_spent=total_spent)
     return jsonify({'success': True})
 
 @app.route('/crash_status', methods=['POST'])
@@ -1180,6 +1341,8 @@ def crash_status():
     global crash_data
     data = request.get_json(silent=True) or {}
     uid = data.get('user_id')
+    if uid and is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     with crash_lock:
         now = time.time()
         waiting_time = 0
@@ -1192,6 +1355,8 @@ def cashout_crash():
     global crash_data
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     with crash_lock:
         if crash_data['phase'] != 'active':
             return jsonify({'error': 'Игра не активна'}), 400
@@ -1211,6 +1376,8 @@ def cashout_crash():
 def get_crash_stats():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     stats = q("SELECT * FROM crash_stats WHERE user_id=?", (uid,)).fetchone()
     if not stats:
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
@@ -1221,6 +1388,8 @@ def get_crash_stats():
 def upgrade_calculate():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     bet = data.get('bet')
     target = data.get('target')
     user = get_user(uid)
@@ -1242,6 +1411,8 @@ def upgrade_calculate():
 def upgrade_execute():
     data = request.get_json()
     uid = data.get('user_id')
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     bet = data.get('bet')
     target = data.get('target')
     with write_lock:
@@ -1268,6 +1439,8 @@ def upgrade_execute():
         else:
             new_balance = user[1] - bet
             update_user(uid, balance=new_balance)
+            total_spent = user[11] + bet
+            update_user(uid, total_spent=total_spent)
             result = 'lose'
             message = f'❌ ПРОВАЛ! Ты потерял {bet}⭐'
         return jsonify({'result': result, 'chance': round(chance, 2), 'bet': bet, 'target': target, 'new_balance': new_balance, 'message': message})
