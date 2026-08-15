@@ -72,11 +72,12 @@ const RARITY_META = {
     jackpot:   { cls: 'rarity-jackpot', label: 'JACKPOT',  color: '#ffffff' }
 };
 
+// Правка: Шансы грязи синхронизированы с сервером
 const CASE_RARITY = {
     free:      { common: [1, 2], rare: [3, 4], epic: [5, 6, 7, 8, 9, 10], legendary: [100], jackpot: [1000],
                  chances: { common: 0.599, rare: 0.299, epic: 0.0999, legendary: 0.0001, jackpot: 0.00000001 } },
     mud:       { common: [1, 2, 3, 4, 5, 6, 7], rare: [10, 12, 13], epic: [16, 18, 20, 22, 24, 27], legendary: [50], jackpot: [500],
-                 chances: { common: 0.80, rare: 0.15, epic: 0.045, legendary: 0.005, jackpot: 0.000001 } },
+                 chances: { common: 0.876, rare: 0.089, epic: 0.03, legendary: 0.005, jackpot: 0.000001 } },
     wood:      { common: [2, 4, 5, 6, 7, 8, 9, 10], rare: [12, 13, 15], epic: [20, 50], legendary: [100, 500], jackpot: [1000],
                  chances: { common: 0.80, rare: 0.14, epic: 0.05, legendary: 0.01, jackpot: 0.000001 } },
     stone:     { common: [11, 13, 15, 16, 17, 18, 19], rare: [21, 23, 24, 25], epic: [30, 50, 100], legendary: [250, 500, 1000], jackpot: [2500],
@@ -2307,7 +2308,7 @@ function loadCrashStats() {
 
 // ===== МИНЁР =====
 let gameMinesData = null;
-let gameMinesSelected = 5; // Правка: дефолт 5 мин (было 4)
+let gameMinesSelected = 5;
 
 function showMinesGame() {
     const menu = document.getElementById('gamesMenu');
@@ -2348,7 +2349,6 @@ function showMinesGame() {
         </div>
         <div style="margin-bottom:12px; overflow-x:auto; white-space:nowrap; padding:4px 0;">
             <div id="gm_options" style="display:inline-flex; gap:8px;">
-                <!-- Правка: кнопки мин 4-9 -->
                 <button class="gm_btn" data-mines="4">4 (x1.3)</button>
                 <button class="gm_btn active" data-mines="5">5 (x1.5)</button>
                 <button class="gm_btn" data-mines="6">6 (x2.0)</button>
@@ -2437,7 +2437,6 @@ function startGameMines() {
         showCustomAlert('❌ Ставка должна быть от 3 до 1000⭐');
         return;
     }
-    // Правка: мин от 4 до 9
     if (mines < 4 || mines > 9) {
         showCustomAlert('❌ Мин должно быть от 4 до 9');
         return;
