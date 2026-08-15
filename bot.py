@@ -45,7 +45,6 @@ def is_banned(uid):
     row = q("SELECT banned FROM users WHERE id=?", (uid,)).fetchone()
     return row and row[0] == 1
 
-# ===== ГЛАВНОЕ МЕНЮ (Правка 2) =====
 def show_main_menu(chat_id):
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
@@ -199,7 +198,6 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_completed_quests_user ON completed_quests(user_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_case_stats_user ON case_stats(user_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_level_progress_user ON level_progress(user_id)")
-        # Правка 1: Миграция для старых баз
         try: conn.execute("ALTER TABLE users ADD COLUMN total_deposit INTEGER DEFAULT 0")
         except sqlite3.OperationalError: pass
         try: conn.execute("ALTER TABLE users ADD COLUMN claimed_deposit TEXT DEFAULT ''")
@@ -302,7 +300,6 @@ def get_prize(case_type, user_id=None):
     else:
         return random.choice(data["epic"])
 
-# ===== ПОЛЬЗОВАТЕЛИ =====
 def get_user(uid):
     return q("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
 
@@ -400,7 +397,6 @@ def update_battle_stats(user_id, won, stars, case_type=None):
     if won and case_type:
         qw("INSERT INTO level_wins (user_id, case_type, wins) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET wins = wins + 1", (user_id, case_type))
 
-# ===== ГЛОБАЛЬНЫЕ ДАННЫЕ =====
 active_mines_games = {}
 mines_lock = threading.Lock()
 crash_lock = threading.Lock()
@@ -464,14 +460,15 @@ def get_crash_multiplier(elapsed):
         multiplier = 12.00
     return round(min(multiplier, 12.00), 2)
 
+# Правка 1: Таблица множителей для мин 4-9 (иксы остались прежними)
 def get_mines_multiplier(opened, mines):
     multipliers = {
-        3: {1: 1.05, 2: 1.15, 3: 1.30, 4: 1.50, 5: 1.75, 6: 2.10, 7: 2.50, 8: 3.00, 9: 3.50, 10: 4.20, 11: 5.00, 12: 6.00},
-        4: {1: 1.10, 2: 1.20, 3: 1.40, 4: 1.70, 5: 2.00, 6: 2.40, 7: 3.00, 8: 3.80, 9: 4.50, 10: 5.50, 11: 6.50, 12: 8.00},
-        5: {1: 1.15, 2: 1.30, 3: 1.55, 4: 1.90, 5: 2.30, 6: 2.80, 7: 3.50, 8: 4.50, 9: 5.50, 10: 6.50, 11: 8.00, 12: 10.00},
-        6: {1: 1.20, 2: 1.40, 3: 1.70, 4: 2.10, 5: 2.60, 6: 3.20, 7: 4.00, 8: 5.00, 9: 6.50, 10: 8.00, 11: 10.00, 12: 12.00},
-        7: {1: 1.25, 2: 1.50, 3: 1.85, 4: 2.30, 5: 2.90, 6: 3.60, 7: 4.50, 8: 5.50, 9: 7.50, 10: 9.00, 11: 12.00, 12: 15.00},
-        8: {1: 1.30, 2: 1.60, 3: 2.00, 4: 2.50, 5: 3.20, 6: 4.00, 7: 5.00, 8: 6.50, 9: 8.50, 10: 10.00, 11: 14.00, 12: 18.00}
+        4: {1: 1.05, 2: 1.15, 3: 1.30, 4: 1.50, 5: 1.75, 6: 2.10, 7: 2.50, 8: 3.00, 9: 3.50, 10: 4.20, 11: 5.00, 12: 6.00},
+        5: {1: 1.10, 2: 1.20, 3: 1.40, 4: 1.70, 5: 2.00, 6: 2.40, 7: 3.00, 8: 3.80, 9: 4.50, 10: 5.50, 11: 6.50, 12: 8.00},
+        6: {1: 1.15, 2: 1.30, 3: 1.55, 4: 1.90, 5: 2.30, 6: 2.80, 7: 3.50, 8: 4.50, 9: 5.50, 10: 6.50, 11: 8.00, 12: 10.00},
+        7: {1: 1.20, 2: 1.40, 3: 1.70, 4: 2.10, 5: 2.60, 6: 3.20, 7: 4.00, 8: 5.00, 9: 6.50, 10: 8.00, 11: 10.00, 12: 12.00},
+        8: {1: 1.25, 2: 1.50, 3: 1.85, 4: 2.30, 5: 2.90, 6: 3.60, 7: 4.50, 8: 5.50, 9: 7.50, 10: 9.00, 11: 12.00, 12: 15.00},
+        9: {1: 1.30, 2: 1.60, 3: 2.00, 4: 2.50, 5: 3.20, 6: 4.00, 7: 5.00, 8: 6.50, 9: 8.50, 10: 10.00, 11: 14.00, 12: 18.00}
     }
     return multipliers.get(mines, {}).get(opened, 1.00)
 
@@ -525,7 +522,6 @@ def crash_timer():
                     crash_data['multiplier'] = 1.00
         time.sleep(0.05)
 
-# ===== КОМАНДЫ TELEGRAM =====
 @bot.message_handler(commands=['start'])
 def start(msg):
     uid = msg.from_user.id
@@ -557,7 +553,6 @@ def start(msg):
     except Exception:
         pass
 
-# ===== ПОПОЛНЕНИЕ =====
 deposit_state = {}
 
 @bot.callback_query_handler(func=lambda call: call.data == "deposit_menu")
@@ -633,7 +628,6 @@ def process_deposit_amount(msg):
 def checkout(pre_checkout_query):
     bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
-# ===== ПЛАТЕЖ (Правка 3) =====
 @bot.message_handler(content_types=['successful_payment'])
 def got_payment(msg):
     uid = msg.from_user.id
@@ -663,7 +657,6 @@ def got_payment(msg):
         error_msg = bot.send_message(msg.chat.id, "❌ Ошибка при зачислении. Обратись в поддержку.")
         delete_message_after(msg.chat.id, error_msg.message_id, 60)
 
-# ===== АДМИН-КОМАНДЫ =====
 @bot.message_handler(commands=['ban'])
 def ban_user(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -696,7 +689,6 @@ def unban_user(msg):
     update_user(user[0], banned=0)
     bot.reply_to(msg, f"✅ @{username} разбанен!")
 
-# ===== СБРОС (Правка 8) =====
 @bot.message_handler(commands=['reset'])
 def reset_user(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -758,6 +750,71 @@ def unluck_boost(msg):
     update_user(user[0], luck_boost=1.0)
     bot.reply_to(msg, f"✅ Шансы @{username} сброшены!")
 
+# ===== АДМИН-КОМАНДЫ =====
+@bot.message_handler(commands=['give'])
+def give_stars(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "❌ Формат: /give @username сумма")
+        return
+    username = args[1].replace('@', '')
+    try:
+        amount = int(args[2])
+    except ValueError:
+        bot.reply_to(msg, "❌ Сумма должна быть числом")
+        return
+    if amount < 1 or amount > 1000:
+        bot.reply_to(msg, "❌ Сумма должна быть от 1 до 1000⭐")
+        return
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        return
+    new_balance = user[1] + amount
+    update_user(user[0], balance=new_balance)
+    bot.reply_to(msg, f"✅ Начислено {amount}⭐ @{username}!\nНовый баланс: {new_balance}⭐")
+    try:
+        bot.send_message(user[0], f"🎁 Администратор начислил тебе {amount}⭐!\nТекущий баланс: {new_balance}⭐")
+    except Exception:
+        pass
+
+@bot.message_handler(commands=['bonus'])
+def bonus(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    bot.reply_to(msg, f"✅ Ты ADMIN! Твой ID: {ADMIN_ID}")
+
+@bot.message_handler(commands=['addbalance'])
+def add_balance(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "❌ Формат: /addbalance @username сумма")
+        return
+    username = args[1].replace('@', '')
+    try:
+        amount = int(args[2])
+    except ValueError:
+        bot.reply_to(msg, "❌ Сумма должна быть числом")
+        return
+    if amount < 1 or amount > 1000:
+        bot.reply_to(msg, "❌ Сумма должна быть от 1 до 1000⭐")
+        return
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        return
+    new_balance = user[1] + amount
+    update_user(user[0], balance=new_balance)
+    bot.reply_to(msg, f"✅ Начислено {amount}⭐ @{username}!\nНовый баланс: {new_balance}⭐")
+    try:
+        bot.send_message(user[0], f"🎁 Администратор начислил тебе {amount}⭐!\nТекущий баланс: {new_balance}⭐")
+    except Exception:
+        pass
+
 # ===== ПРОМОКОДЫ =====
 @bot.message_handler(commands=['create_promo'])
 def create_promo(msg):
@@ -817,7 +874,6 @@ def list_promo(msg):
         text += f"{status} {code} — {reward}⭐ (исп. {used_count}/{max_uses if max_uses > 0 else '∞'})\n"
     bot.reply_to(msg, text)
 
-# ===== ЭНДПОИНТЫ =====
 @app.route('/health')
 def health():
     return 'ok'
@@ -877,7 +933,6 @@ def get_prize_endpoint():
     prize = get_prize(case_type, uid)
     return jsonify({'prize': prize})
 
-# ===== ОТКРЫТИЕ КЕЙСА (Правка 4) =====
 @app.route('/open_case', methods=['POST'])
 def open_case():
     try:
@@ -902,8 +957,8 @@ def open_case():
                 register_case_opening(user_id, case_type, 1)
                 update_user(user_id, balance=new_bal, total_cases=new_total, last_open=int(time.time()))
                 update_status(user_id, new_total)
-                ad = random.choice(ads) if ads else ""
-                return jsonify({'prize': prize, 'new_balance': new_bal, 'ad': ad})
+                # Правка: Убрана реклама
+                return jsonify({'prize': prize, 'new_balance': new_bal})
             price = CASE_PRICES.get(case_type, 0)
             if user[1] < price:
                 return jsonify({'error': 'Недостаточно звёзд!'}), 400
@@ -912,7 +967,6 @@ def open_case():
             new_total = user[2] + 1
             total_spent = user[11] + price
             register_case_opening(user_id, case_type, 1)
-            # Платные кейсы НЕ обновляют last_open
             update_user(user_id, balance=new_bal, total_cases=new_total, total_spent=total_spent)
             update_status(user_id, new_total)
             return jsonify({'prize': prize, 'new_balance': new_bal})
@@ -968,7 +1022,6 @@ def get_levels_data():
     level_progress = {lvl: progress_all.get(lvl, 0) for lvl in unlocked_levels}
     return jsonify({'unlocked_levels': unlocked_levels, 'level_wins': level_wins, 'level_progress': level_progress})
 
-# ===== БИТВА С БОТОМ (Правка 5) =====
 @app.route('/start_bot_battle', methods=['POST'])
 def start_bot_battle():
     data = request.get_json()
@@ -1129,7 +1182,6 @@ def claim_promo_webapp():
         qw("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", (uid, code, 0))
         return jsonify({'success': True, 'reward': reward, 'message': f'✅ +{reward}⭐ за промокод!'})
 
-# ===== ВЫВОД (Правка 6) =====
 @app.route('/withdraw', methods=['POST'])
 def withdraw():
     data = request.get_json()
@@ -1213,8 +1265,9 @@ def start_mines_game():
         return jsonify({'error': 'Некорректные параметры'}), 400
     if bet < 3 or bet > 1000:
         return jsonify({'error': 'Ставка от 3 до 1000⭐'}), 400
-    if mines < 3 or mines > 8:
-        return jsonify({'error': 'Мин от 3 до 8'}), 400
+    # Правка: Мин от 4 до 9 (вместо 3-8)
+    if mines < 4 or mines > 9:
+        return jsonify({'error': 'Мин от 4 до 9'}), 400
     with write_lock:
         user = get_user(uid)
         if not user or user[1] < bet:
@@ -1231,7 +1284,9 @@ def start_mines_game():
             for pos in positions:
                 board[pos] = 1
             game_id = int(time.time() * 1000)
-            active_mines_games[game_id] = {'user_id': uid, 'bet': bet, 'mines': mines, 'board': board, 'opened': [0] * 25, 'opened_count': 0, 'multiplier': 1.0, 'status': 'active'}
+            # Правка: максимальный множитель после 3 клеток
+            max_mult = get_mines_multiplier(3, mines)
+            active_mines_games[game_id] = {'user_id': uid, 'bet': bet, 'mines': mines, 'board': board, 'opened': [0] * 25, 'opened_count': 0, 'multiplier': 1.0, 'max_multiplier': max_mult, 'status': 'active'}
         return jsonify({'game_id': game_id, 'balance': user[1] - bet})
 
 @app.route('/open_mines_cell', methods=['POST'])
@@ -1266,7 +1321,9 @@ def open_mines_cell():
             safe_cells = 25 - game['mines']
             if game['opened_count'] == safe_cells:
                 raw_winnings = int(game['bet'] * game['multiplier'])
-                final_winnings = min(raw_winnings, 5000)
+                # Правка: ограничение максимальным множителем
+                capped = int(game['bet'] * game['max_multiplier'])
+                final_winnings = min(raw_winnings, capped, 5000)
                 user = get_user(uid)
                 new_bal = user[1] + final_winnings
                 update_user(uid, balance=new_bal, last_open=int(time.time()))
@@ -1293,7 +1350,9 @@ def cashout_mines():
             if game['opened_count'] < 3:
                 return jsonify({'error': 'Нужно открыть минимум 3 клетки!'}), 400
             raw_winnings = int(game['bet'] * game['multiplier'])
-            final_winnings = min(raw_winnings, 5000)
+            # Правка: ограничение максимальным множителем
+            capped = int(game['bet'] * game['max_multiplier'])
+            final_winnings = min(raw_winnings, capped, 5000)
             user = get_user(uid)
             new_bal = user[1] + final_winnings
             update_user(uid, balance=new_bal, last_open=int(time.time()))
@@ -1304,7 +1363,6 @@ def cashout_mines():
             del active_mines_games[game_id]
             return jsonify({'win': final_winnings, 'balance': new_bal, 'multiplier': multiplier, 'game_over': True, 'won': True, 'mines_positions': mines_positions})
 
-# ===== ВЫХОД ИЗ МАЙНА (Правка 7) =====
 @app.route('/exit_mines', methods=['POST'])
 def exit_mines():
     data = request.get_json()
@@ -1468,7 +1526,6 @@ def upgrade_execute():
             message = f'❌ ПРОВАЛ! Ты потерял {bet}⭐'
         return jsonify({'result': result, 'chance': round(chance, 2), 'bet': bet, 'target': target, 'new_balance': new_balance, 'message': message})
 
-# ===== СТАТИКА / WEBHOOK =====
 @app.route('/')
 def home():
     return send_from_directory('static', 'index.html')
@@ -1486,7 +1543,6 @@ def webhook():
         return ''
     return '', 400
 
-# ===== ЗАПУСК =====
 _start_lock = threading.Lock()
 _threads_started = False
 
