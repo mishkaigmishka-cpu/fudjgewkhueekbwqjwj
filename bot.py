@@ -3,6 +3,7 @@ import random
 import sqlite3
 import time
 import os
+import shutil
 import threading
 from flask import Flask, request, jsonify, send_from_directory
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo, LabeledPrice
@@ -17,7 +18,17 @@ if not WEBAPP_URL:
 WEBAPP_URL = WEBAPP_URL.rstrip('/')
 
 ADMIN_ID = 7819642052
-DB_PATH = os.environ.get("DB_PATH", "cases.db")
+
+# База хранится вне папки с кодом — не пропадёт при git pull или перезаливке
+_DB_DIR = os.path.expanduser("~/randevu_bot_data")
+DB_PATH = os.environ.get("DB_PATH", os.path.join(_DB_DIR, "cases.db"))
+
+# Сам создаёт папку и переносит старую базу при первом запуске
+os.makedirs(_DB_DIR, exist_ok=True)
+_old_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cases.db")
+if os.path.exists(_old_db) and not os.path.exists(DB_PATH):
+    shutil.copy2(_old_db, DB_PATH)
+    print(f"✅ База перенесена в {DB_PATH}")
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
@@ -220,7 +231,7 @@ WINS_TO_UNLOCK = 3
 CASE_RANGES = {
     "free": {"common": [1, 2], "rare": [3, 4], "epic": [5, 6, 7, 8, 9, 10], "legendary": [100], "jackpot": [1000], "common_chance": 0.599, "rare_chance": 0.299, "epic_chance": 0.0999, "legendary_chance": 0.0001, "jackpot_chance": 0.00000001},
 
-    "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.80, "rare_chance": 0.15, "epic_chance": 0.045, "legendary_chance": 0.005, "jackpot_chance": 0.000001},
+    "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.876, "rare_chance": 0.089, "epic_chance": 0.03, "legendary_chance": 0.005, "jackpot_chance": 0.000001},
 
     "wood": {"common": [2, 4, 5, 6, 7, 8, 9, 10], "rare": [12, 13, 15], "epic": [20, 50], "legendary": [100, 500], "jackpot": [1000], "common_chance": 0.80, "rare_chance": 0.14, "epic_chance": 0.05, "legendary_chance": 0.01, "jackpot_chance": 0.000001},
 
@@ -460,7 +471,6 @@ def get_crash_multiplier(elapsed):
         multiplier = 12.00
     return round(min(multiplier, 12.00), 2)
 
-# Правка 1: Таблица множителей для мин 4-9 (иксы остались прежними)
 def get_mines_multiplier(opened, mines):
     multipliers = {
         4: {1: 1.05, 2: 1.15, 3: 1.30, 4: 1.50, 5: 1.75, 6: 2.10, 7: 2.50, 8: 3.00, 9: 3.50, 10: 4.20, 11: 5.00, 12: 6.00},
@@ -957,7 +967,6 @@ def open_case():
                 register_case_opening(user_id, case_type, 1)
                 update_user(user_id, balance=new_bal, total_cases=new_total, last_open=int(time.time()))
                 update_status(user_id, new_total)
-                # Правка: Убрана реклама
                 return jsonify({'prize': prize, 'new_balance': new_bal})
             price = CASE_PRICES.get(case_type, 0)
             if user[1] < price:
@@ -1265,7 +1274,6 @@ def start_mines_game():
         return jsonify({'error': 'Некорректные параметры'}), 400
     if bet < 3 or bet > 1000:
         return jsonify({'error': 'Ставка от 3 до 1000⭐'}), 400
-    # Правка: Мин от 4 до 9 (вместо 3-8)
     if mines < 4 or mines > 9:
         return jsonify({'error': 'Мин от 4 до 9'}), 400
     with write_lock:
@@ -1284,7 +1292,6 @@ def start_mines_game():
             for pos in positions:
                 board[pos] = 1
             game_id = int(time.time() * 1000)
-            # Правка: максимальный множитель после 3 клеток
             max_mult = get_mines_multiplier(3, mines)
             active_mines_games[game_id] = {'user_id': uid, 'bet': bet, 'mines': mines, 'board': board, 'opened': [0] * 25, 'opened_count': 0, 'multiplier': 1.0, 'max_multiplier': max_mult, 'status': 'active'}
         return jsonify({'game_id': game_id, 'balance': user[1] - bet})
@@ -1321,7 +1328,6 @@ def open_mines_cell():
             safe_cells = 25 - game['mines']
             if game['opened_count'] == safe_cells:
                 raw_winnings = int(game['bet'] * game['multiplier'])
-                # Правка: ограничение максимальным множителем
                 capped = int(game['bet'] * game['max_multiplier'])
                 final_winnings = min(raw_winnings, capped, 5000)
                 user = get_user(uid)
@@ -1350,7 +1356,6 @@ def cashout_mines():
             if game['opened_count'] < 3:
                 return jsonify({'error': 'Нужно открыть минимум 3 клетки!'}), 400
             raw_winnings = int(game['bet'] * game['multiplier'])
-            # Правка: ограничение максимальным множителем
             capped = int(game['bet'] * game['max_multiplier'])
             final_winnings = min(raw_winnings, capped, 5000)
             user = get_user(uid)
