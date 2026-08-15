@@ -5,7 +5,7 @@
 
 const tg = window.Telegram.WebApp;
 const user_id = tg.initDataUnsafe?.user?.id || 0;
-const userId = user_id; // Правка 10
+const userId = user_id;
 
 if (!user_id) {
     showCustomAlert('❌ Ошибка: не удалось получить ID пользователя.');
@@ -72,7 +72,6 @@ const RARITY_META = {
     jackpot:   { cls: 'rarity-jackpot', label: 'JACKPOT',  color: '#ffffff' }
 };
 
-// Правка 12: Исправленные шансы для mud, wood, stone, obsidian
 const CASE_RARITY = {
     free:      { common: [1, 2], rare: [3, 4], epic: [5, 6, 7, 8, 9, 10], legendary: [100], jackpot: [1000],
                  chances: { common: 0.599, rare: 0.299, epic: 0.0999, legendary: 0.0001, jackpot: 0.00000001 } },
@@ -611,7 +610,7 @@ function openCaseDirect(type) {
 
             state.currentPrize = data.prize;
             state.currentNewBalance = data.new_balance;
-            state.currentAd = data.ad || null;
+            // Реклама убрана
 
             closeAllOverlays();
             showTape(type, 'roulette');
@@ -784,7 +783,7 @@ function showResult(type, targetPrize, style, track, winPosition) {
             title: `Кейс «${getCaseName(type)}» — выигрыш!`,
             amount: targetPrize,
             subtitle: `<span class="rarity-badge ${rarity.cls}" style="font-size:11px;">${rarity.label}</span>`,
-            extraHTML: state.currentAd ? `<div class="result-ad">📢 ${state.currentAd}</div>` : '',
+            extraHTML: '', // Реклама убрана
             buttons,
             confetti: isBig,
             confettiCount: rarity.cls === 'rarity-jackpot' ? 60 : 30,
@@ -1413,7 +1412,7 @@ function applyProfileStatus(statusText) {
     if (avatar && !avatar.querySelector('img') && !avatar.textContent.trim()) avatar.textContent = tier.icon;
 }
 
-// ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ЗАДАНИЙ (Правка 11) =====
+// ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ЗАДАНИЙ =====
 function switchQuestTab(tab) {
     document.querySelectorAll('.quest-tab').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tab === tab);
@@ -1614,7 +1613,85 @@ async function claimQuest(questId, reward) {
     }
 }
 
-// ===== ПРОМОКОД В ПРИЛОЖЕНИИ (Правка 11) =====
+// ===== НАГРАДЫ ЗА ПОПОЛНЕНИЕ (единый стиль) =====
+async function loadDepositRewards() {
+    if (!userId) return;
+    try {
+        const res = await fetch('/get_deposit_rewards', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId })
+        });
+        const data = await res.json();
+        if (data.error) return;
+
+        const container = document.getElementById('questTabDeposit');
+        if (!container) return;
+        container.innerHTML = '';
+
+        data.tiers.forEach(tier => {
+            const claimed = data.claimed.includes(tier.amount);
+            const canClaim = data.total_spent >= tier.amount && !claimed;
+            const progressPercent = Math.min((data.total_spent / tier.amount) * 100, 100);
+
+            let rarityClass = 'rarity-common';
+            if (tier.reward >= 1000) rarityClass = 'rarity-jackpot';
+            else if (tier.reward >= 250) rarityClass = 'rarity-legend';
+            else if (tier.reward >= 100) rarityClass = 'rarity-epic';
+            else if (tier.reward >= 25) rarityClass = 'rarity-rare';
+
+            const item = document.createElement('div');
+            item.className = `quest-item ${rarityClass} ${claimed ? 'completed' : ''}`;
+
+            let buttonHTML;
+            if (claimed) {
+                buttonHTML = `<button class="quest-btn claimed" disabled>✅ Завершено</button>`;
+            } else if (canClaim) {
+                buttonHTML = `<button class="quest-btn" onclick="claimDepositReward(${tier.amount})">🎁 ЗАБРАТЬ</button>`;
+            } else {
+                buttonHTML = `<button class="quest-btn" disabled>🔒 ${data.total_spent}/${tier.amount}</button>`;
+            }
+
+            item.innerHTML = `
+                <div class="quest-left">
+                    <div class="quest-name"><span class="quest-icon">💎</span> Пополнение ${tier.amount}⭐</div>
+                    <div class="quest-desc">Всего пополнено: ${data.total_spent}⭐</div>
+                    <div class="quest-reward">🎁 ${tier.reward} ${starIcon(14)}</div>
+                    <div class="quest-progress-bar">
+                        <div class="fill ${canClaim ? 'completed' : ''}" style="width:${progressPercent}%"></div>
+                    </div>
+                    <div style="font-size:12px; color:#5d5a6b; margin-top:2px;">${data.total_spent}/${tier.amount}</div>
+                </div>
+                ${buttonHTML}
+            `;
+
+            container.appendChild(item);
+        });
+    } catch (e) {}
+}
+
+async function claimDepositReward(amount) {
+    if (!userId) return;
+    try {
+        const res = await fetch('/claim_deposit_reward', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, amount: amount })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showCustomAlert(`✅ +${data.reward}⭐ получено!`, true);
+            await loadBalance();
+            await loadDepositRewards();
+        } else {
+            showCustomAlert('❌ ' + (data.error || 'Ошибка'));
+        }
+    } catch (e) {
+        showCustomAlert('❌ Ошибка сети');
+    }
+}
+
+// ===== ПРОМОКОД В ПРИЛОЖЕНИИ =====
 function showPromoAppModal() {
     document.getElementById('promoAppModal').style.display = 'flex';
 }
@@ -1648,7 +1725,7 @@ async function submitPromoApp() {
     }
 }
 
-// ===== ВЫВОД СРЕДСТВ (Правка 11) =====
+// ===== ВЫВОД СРЕДСТВ =====
 function showWithdrawModal() {
     document.getElementById('withdrawModal').style.display = 'flex';
 }
@@ -1674,64 +1751,6 @@ async function submitWithdraw() {
             showCustomAlert('✅ ' + data.message, true);
             await loadBalance();
             closeWithdrawModal();
-        } else {
-            showCustomAlert('❌ ' + (data.error || 'Ошибка'));
-        }
-    } catch (e) {
-        showCustomAlert('❌ Ошибка сети');
-    }
-}
-
-// ===== НАГРАДЫ ЗА ПОПОЛНЕНИЕ (Правка 11) =====
-async function loadDepositRewards() {
-    if (!userId) return;
-    try {
-        const res = await fetch('/get_deposit_rewards', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId })
-        });
-        const data = await res.json();
-        if (data.error) return;
-
-        const container = document.getElementById('questTabDeposit');
-        if (!container) return;
-
-        let html = '';
-        data.tiers.forEach(tier => {
-            const claimed = data.claimed.includes(tier.amount);
-            const canClaim = data.total_spent >= tier.amount && !claimed;
-
-            html += `
-                <div class="quest-item ${claimed ? 'completed' : ''}">
-                    <div class="quest-left">
-                        <div class="quest-name">💎 Пополнение ${tier.amount}⭐</div>
-                        <div class="quest-reward">🎁 ${tier.reward}⭐</div>
-                    </div>
-                    ${claimed ? '<span style="color:#4ade80;">✅</span>' :
-                     canClaim ? `<button class="quest-btn" onclick="claimDepositReward(${tier.amount})">ЗАБРАТЬ</button>` :
-                     `<span style="color:#5d5a6b;">🔒</span>`}
-                </div>
-            `;
-        });
-
-        container.innerHTML = html;
-    } catch (e) {}
-}
-
-async function claimDepositReward(amount) {
-    if (!userId) return;
-    try {
-        const res = await fetch('/claim_deposit_reward', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, amount: amount })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showCustomAlert(`✅ +${data.reward}⭐ получено!`, true);
-            await loadBalance();
-            await loadDepositRewards();
         } else {
             showCustomAlert('❌ ' + (data.error || 'Ошибка'));
         }
@@ -2288,7 +2307,7 @@ function loadCrashStats() {
 
 // ===== МИНЁР =====
 let gameMinesData = null;
-let gameMinesSelected = 4;
+let gameMinesSelected = 5; // Правка: дефолт 5 мин (было 4)
 
 function showMinesGame() {
     const menu = document.getElementById('gamesMenu');
@@ -2329,12 +2348,13 @@ function showMinesGame() {
         </div>
         <div style="margin-bottom:12px; overflow-x:auto; white-space:nowrap; padding:4px 0;">
             <div id="gm_options" style="display:inline-flex; gap:8px;">
-                <button class="gm_btn" data-mines="3">3 (x1.3)</button>
-                <button class="gm_btn active" data-mines="4">4 (x1.5)</button>
-                <button class="gm_btn" data-mines="5">5 (x2.0)</button>
-                <button class="gm_btn" data-mines="6">6 (x2.5)</button>
-                <button class="gm_btn" data-mines="7">7 (x3.0)</button>
-                <button class="gm_btn" data-mines="8">8 (x4.0)</button>
+                <!-- Правка: кнопки мин 4-9 -->
+                <button class="gm_btn" data-mines="4">4 (x1.3)</button>
+                <button class="gm_btn active" data-mines="5">5 (x1.5)</button>
+                <button class="gm_btn" data-mines="6">6 (x2.0)</button>
+                <button class="gm_btn" data-mines="7">7 (x2.5)</button>
+                <button class="gm_btn" data-mines="8">8 (x3.0)</button>
+                <button class="gm_btn" data-mines="9">9 (x4.0)</button>
             </div>
         </div>
         <button id="gm_start_btn" style="width:100%; padding:16px; border:none; border-radius:16px; background:linear-gradient(135deg,#be403c,#96302e); color:#fff; font-weight:800; font-size:18px; cursor:pointer;">🎮 НАЧАТЬ ИГРУ</button>
@@ -2417,8 +2437,9 @@ function startGameMines() {
         showCustomAlert('❌ Ставка должна быть от 3 до 1000⭐');
         return;
     }
-    if (mines < 3 || mines > 8) {
-        showCustomAlert('❌ Мин должно быть от 3 до 8');
+    // Правка: мин от 4 до 9
+    if (mines < 4 || mines > 9) {
+        showCustomAlert('❌ Мин должно быть от 4 до 9');
         return;
     }
 
