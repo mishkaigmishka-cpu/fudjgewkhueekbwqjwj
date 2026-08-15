@@ -2864,3 +2864,68 @@ nav {
     padding: 16px;
     font-size: 16px;
 }
+
+/* ===== ПРОМО-МОДАЛКИ И КНОПКИ ===== */
+.promo-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 4, 10, 0.88);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 24px;
+    animation: fadeIn 0.3s var(--ease);
+}
+
+.promo-panel {
+    width: 100%;
+    max-width: 380px;
+    background: rgba(22, 18, 34, 0.92);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-radius: 24px;
+    padding: 28px 24px;
+    border: 1px solid var(--stroke);
+    box-shadow: 0 16px 60px rgba(0, 0, 0, 0.5);
+}
+
+.promo-title {
+    font-size: 20px;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 18px;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, #c4b5fd, #a78bfa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.promo-panel input {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--stroke);
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    font-size: 16px;
+    text-align: center;
+    margin-bottom: 12px;
+    transition: border-color 0.3s var(--ease);
+}
+
+.promo-panel input:focus {
+    outline: none;
+    border-color: rgba(167, 139, 250, 0.3);
+}
+
+.promo-panel .btn-game {
+    width: 100%;
+}
+
+.promo-panel .btn-game + .btn-game {
+    margin-top: 8px;
+}
