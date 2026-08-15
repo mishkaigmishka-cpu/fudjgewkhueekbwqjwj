@@ -26,7 +26,6 @@ app = Flask(__name__)
 _db_local = threading.local()
 write_lock = threading.RLock()
 
-
 def get_conn():
     conn = getattr(_db_local, 'conn', None)
     if conn is None:
@@ -36,11 +35,9 @@ def get_conn():
         _db_local.conn = conn
     return conn
 
-
 def q(sql, params=()):
     """SELECT-запрос (чтение)."""
     return get_conn().execute(sql, params)
-
 
 def qw(sql, params=()):
     """Запрос на запись с коммитом (под write_lock)."""
@@ -48,7 +45,6 @@ def qw(sql, params=()):
         cur = get_conn().execute(sql, params)
         get_conn().commit()
     return cur
-
 
 def init_db():
     conn = get_conn()
@@ -147,7 +143,6 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_level_progress_user ON level_progress(user_id)")
         conn.commit()
 
-
 init_db()
 
 # ===== КЕЙСЫ =====
@@ -186,7 +181,6 @@ CASE_RANGES = {
 
     "bedrock": {"common": [5000], "rare": [10000, 25000], "epic": [50000, 100000], "legendary": [250000], "jackpot": [1000000], "common_chance": 0.999, "rare_chance": 0.0009, "epic_chance": 0.00009, "legendary_chance": 0.000009, "jackpot_chance": 0.000001}
 }
-
 
 def get_prize(case_type, user_id=None):
     data = CASE_RANGES[case_type]
@@ -231,15 +225,12 @@ def get_prize(case_type, user_id=None):
     else:
         return random.choice(data["epic"])
 
-
 # ===== ПОЛЬЗОВАТЕЛИ =====
 def get_user(uid):
     return q("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
 
-
 def get_user_by_username(username):
     return q("SELECT * FROM users WHERE username=?", (username,)).fetchone()
-
 
 def update_user(uid, **kwargs):
     if not kwargs:
@@ -247,7 +238,6 @@ def update_user(uid, **kwargs):
     sets = ', '.join(f"{k}=?" for k in kwargs)
     vals = list(kwargs.values()) + [uid]
     qw(f"UPDATE users SET {sets} WHERE id=?", vals)
-
 
 def update_status(uid, total_cases):
     if total_cases >= 2500:
@@ -264,12 +254,10 @@ def update_status(uid, total_cases):
         status = "🟢 Новичок"
     update_user(uid, status=status)
 
-
 # ===== УРОВНИ =====
 def get_level_wins(uid):
     rows = q("SELECT case_type, wins FROM level_wins WHERE user_id=?", (uid,)).fetchall()
     return {r[0]: r[1] for r in rows}
-
 
 def get_unlocked_levels(uid):
     """mud открыт всегда; уровень i открыт, если wins[i-1] >= 3. Цепочка прерывается на первом закрытом."""
@@ -282,30 +270,25 @@ def get_unlocked_levels(uid):
             break
     return unlocked
 
-
 def add_case_stats(uid, case_type, n=1):
     qw("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, ?) "
        "ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + ?",
        (uid, case_type, n, n))
-
 
 def add_level_progress(uid, case_type, n=1):
     qw("INSERT INTO level_progress (user_id, case_type, opened) VALUES (?, ?, ?) "
        "ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + ?",
        (uid, case_type, n, n))
 
-
 def get_level_progress(uid, case_type):
     row = q("SELECT opened FROM level_progress WHERE user_id=? AND case_type=?", (uid, case_type)).fetchone()
     return row[0] if row else 0
-
 
 def register_case_opening(uid, case_type, n=1):
     """case_stats += n ВСЕГДА; level_progress += n ТОЛЬКО если уровень открыт у пользователя."""
     add_case_stats(uid, case_type, n)
     if case_type in LEVEL_ORDER and case_type in get_unlocked_levels(uid):
         add_level_progress(uid, case_type, n)
-
 
 # ===== СТАТИСТИКА ИГР =====
 def _update_game_stats(table, user_id, won, multiplier, stars):
@@ -327,14 +310,11 @@ def _update_game_stats(table, user_id, won, multiplier, stars):
         1 if won else 0, 0 if won else 1, multiplier,
         stars if won else 0, 0 if won else stars))
 
-
 def update_mines_stats(user_id, won, multiplier, stars):
     _update_game_stats('mines_stats', user_id, won, multiplier, stars)
 
-
 def update_crash_stats(user_id, won, multiplier, stars):
     _update_game_stats('crash_stats', user_id, won, multiplier, stars)
-
 
 def update_battle_stats(user_id, won, stars, case_type=None):
     qw("""INSERT INTO battle_stats
@@ -357,7 +337,6 @@ def update_battle_stats(user_id, won, stars, case_type=None):
            "ON CONFLICT(user_id, case_type) DO UPDATE SET wins = wins + 1",
            (user_id, case_type))
 
-
 # ===== ГЛОБАЛЬНЫЕ ДАННЫЕ =====
 active_mines_games = {}
 mines_lock = threading.Lock()
@@ -378,7 +357,6 @@ crash_data = {
     'first_visit': True
 }
 
-
 def generate_crash_point():
     rnd = random.random()
     if rnd < 0.35:
@@ -391,7 +369,6 @@ def generate_crash_point():
         return round(6.00 + (rnd - 0.90) * 25.00, 2)
     else:
         return round(10.00 + (rnd - 0.98) * 60.00, 2)
-
 
 def get_crash_multiplier(elapsed):
     if elapsed < 1.0:
@@ -424,7 +401,6 @@ def get_crash_multiplier(elapsed):
         multiplier = 12.00
     return round(min(multiplier, 12.00), 2)
 
-
 def get_mines_multiplier(opened, mines):
     multipliers = {
         3: {1: 1.05, 2: 1.15, 3: 1.30, 4: 1.50, 5: 1.75, 6: 2.10, 7: 2.50, 8: 3.00, 9: 3.50, 10: 4.20, 11: 5.00, 12: 6.00},
@@ -435,7 +411,6 @@ def get_mines_multiplier(opened, mines):
         8: {1: 1.30, 2: 1.60, 3: 2.00, 4: 2.50, 5: 3.20, 6: 4.00, 7: 5.00, 8: 6.50, 9: 8.50, 10: 10.00, 11: 14.00, 12: 18.00}
     }
     return multipliers.get(mines, {}).get(opened, 1.00)
-
 
 def crash_timer():
     global crash_data
@@ -495,7 +470,6 @@ def crash_timer():
 
         time.sleep(0.05)
 
-
 # ===== КОМАНДЫ TELEGRAM =====
 @bot.message_handler(commands=['start'])
 def start(msg):
@@ -531,7 +505,7 @@ def start(msg):
 
     caption = f"🎰 <b>Добро пожаловать в RANDEVU!</b>{bonus_text}\n\nОткрывай кейсы, играй в мини-игры и выигрывай!"
 
-    logo_path = "assets/logo.png"
+    logo_path = "static/assets/logo.png"
     try:
         if os.path.exists(logo_path):
             with open(logo_path, "rb") as photo:
@@ -540,7 +514,6 @@ def start(msg):
             bot.send_message(msg.chat.id, caption, reply_markup=kb, parse_mode="HTML")
     except Exception:
         bot.send_message(msg.chat.id, caption, reply_markup=kb, parse_mode="HTML")
-
 
 # ===== ПОПОЛНЕНИЕ ЧЕРЕЗ TELEGRAM STARS =====
 deposit_state = {}
@@ -551,14 +524,22 @@ def deposit_menu(call):
     deposit_state[uid] = True
     kb = InlineKeyboardMarkup(row_width=1)
     kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_start"))
-    bot.edit_message_caption(
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-        caption="💎 <b>Пополнение баланса</b>\n\nВведи сумму от <b>1</b> до <b>5000</b> звёзд.\n1 звезда = 1 монета\n\n<i>Напиши число в чат...</i>",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
-
+    try:
+        bot.edit_message_caption(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            caption="💎 <b>Пополнение баланса</b>\n\nВведи сумму от <b>1</b> до <b>5000</b> звёзд.\n1 звезда = 1 монета\n\n<i>Напиши число в чат...</i>",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+    except Exception:
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text="💎 <b>Пополнение баланса</b>\n\nВведи сумму от <b>1</b> до <b>5000</b> звёзд.\n1 звезда = 1 монета\n\n<i>Напиши число в чат...</i>",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_start")
 def back_to_start(call):
@@ -590,7 +571,6 @@ def back_to_start(call):
         except Exception:
             bot.send_message(call.message.chat.id, caption, reply_markup=kb, parse_mode="HTML")
 
-
 @bot.message_handler(content_types=['text'], func=lambda msg: msg.from_user.id in deposit_state)
 def process_deposit_amount(msg):
     uid = msg.from_user.id
@@ -619,11 +599,9 @@ def process_deposit_amount(msg):
         start_parameter="deposit"
     )
 
-
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def checkout(pre_checkout_query):
     bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
-
 
 @bot.message_handler(content_types=['successful_payment'])
 def got_payment(msg):
@@ -644,7 +622,6 @@ def got_payment(msg):
     except Exception as e:
         print(f"Payment error: {e}")
         bot.send_message(msg.chat.id, "❌ Ошибка при зачислении. Обратись в поддержку.")
-
 
 @bot.message_handler(commands=['promo'])
 def promo_handler(msg):
@@ -681,7 +658,6 @@ def promo_handler(msg):
 
     bot.reply_to(msg, f"✅ Промокод активирован! Ты получил {reward}⭐")
 
-
 @bot.message_handler(commands=['balance'])
 def balance_cmd(msg):
     user = get_user(msg.from_user.id)
@@ -689,7 +665,6 @@ def balance_cmd(msg):
         bot.reply_to(msg, "Напиши /start")
         return
     bot.reply_to(msg, f"💰 Баланс: {user[1]}⭐\n📦 Открыто кейсов: {user[2]}\n🏆 Статус: {user[5]}\n👥 Рефералов: {user[6]}")
-
 
 @bot.message_handler(commands=['create_promo'])
 def create_promo(msg):
@@ -720,7 +695,6 @@ def create_promo(msg):
 
     bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
 
-
 @bot.message_handler(commands=['give'])
 def give_to_user(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -746,7 +720,6 @@ def give_to_user(msg):
     except Exception:
         pass
 
-
 @bot.message_handler(commands=['set_status'])
 def set_status(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -763,7 +736,6 @@ def set_status(msg):
         return
     update_user(user[0], status=status)
     bot.reply_to(msg, f"✅ Статус @{username} изменён на {status}")
-
 
 @bot.message_handler(commands=['boost'])
 def boost_player(msg):
@@ -785,7 +757,6 @@ def boost_player(msg):
         return
     update_user(user[0], luck_boost=boost)
     bot.reply_to(msg, f"✅ Шансы @{username} увеличены в {boost}x!")
-
 
 @bot.message_handler(commands=['promo_stats'])
 def promo_stats(msg):
@@ -811,7 +782,6 @@ def promo_stats(msg):
     text += f"👥 Пользователей: {len(spend_data) if spend_data else 0}\n"
     bot.reply_to(msg, text)
 
-
 @bot.message_handler(commands=['list_promo'])
 def list_promo(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -826,12 +796,10 @@ def list_promo(msg):
         text += f"{status} `{code}` — {reward}⭐ (исп. {used_count}/{max_uses if max_uses > 0 else '∞'})\n"
     bot.reply_to(msg, text)
 
-
 # ===== ЭНДПОИНТЫ =====
 @app.route('/health')
 def health():
     return 'ok'
-
 
 @app.route('/get_balance', methods=['POST'])
 def get_balance():
@@ -840,7 +808,6 @@ def get_balance():
     if not user:
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'balance': user[1], 'total_cases': user[2], 'status': user[5], 'refs': user[6]})
-
 
 @app.route('/check_balance', methods=['POST'])
 def check_balance():
@@ -858,7 +825,6 @@ def check_balance():
         return jsonify({'error': f'Жди {wait} мин', 'can_open': False}), 400
     return jsonify({'can_open': True})
 
-
 @app.route('/check_balance_simple', methods=['POST'])
 def check_balance_simple():
     data = request.get_json()
@@ -868,7 +834,6 @@ def check_balance_simple():
     if not user:
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'has_enough': user[1] >= amount})
-
 
 @app.route('/get_prize', methods=['POST'])
 def get_prize_endpoint():
@@ -881,7 +846,6 @@ def get_prize_endpoint():
         return jsonify({'error': 'Invalid case type'}), 400
     prize = get_prize(case_type, uid)
     return jsonify({'prize': prize})
-
 
 @app.route('/open_case', methods=['POST'])
 def open_case():
@@ -926,7 +890,6 @@ def open_case():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/open_10_cases', methods=['POST'])
 def open_10_cases():
     data = request.get_json()
@@ -964,7 +927,6 @@ def open_10_cases():
             'new_balance': new_bal
         })
 
-
 @app.route('/get_levels_data', methods=['POST'])
 def get_levels_data():
     data = request.get_json()
@@ -985,7 +947,6 @@ def get_levels_data():
         'level_wins': level_wins,
         'level_progress': level_progress
     })
-
 
 @app.route('/start_bot_battle', methods=['POST'])
 def start_bot_battle():
@@ -1046,7 +1007,6 @@ def start_bot_battle():
             'needed_wins': WINS_TO_UNLOCK
         })
 
-
 @app.route('/get_quests_data', methods=['POST'])
 def get_quests_data():
     data = request.get_json()
@@ -1068,7 +1028,6 @@ def get_quests_data():
         'claimed_friends': [quest for quest in claimed_quests if quest.startswith('friends_')]
     })
 
-
 @app.route('/claim_quest', methods=['POST'])
 def claim_quest():
     data = request.get_json()
@@ -1087,7 +1046,6 @@ def claim_quest():
         qw("INSERT INTO completed_quests (user_id, quest_id, completed_at) VALUES (?, ?, ?)",
            (uid, quest_id, int(time.time())))
         return jsonify({'success': True, 'reward': reward})
-
 
 def get_quest_reward(uid, quest_id):
     user = get_user(uid)
@@ -1130,7 +1088,6 @@ def get_quest_reward(uid, quest_id):
             return rewards.get(quest_id, 0)
     return None
 
-
 @app.route('/apply_promo', methods=['POST'])
 def apply_promo():
     data = request.get_json()
@@ -1151,7 +1108,6 @@ def apply_promo():
         update_user(uid, balance=user[1] + reward, promo_used=1, promo_code=promo_code)
         qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=?", (promo_code,))
         return jsonify({'success': True, 'reward': reward})
-
 
 # ===== MINES =====
 @app.route('/start_mines_game', methods=['POST'])
@@ -1194,7 +1150,6 @@ def start_mines_game():
             'game_id': game_id,
             'balance': user[1] - bet
         })
-
 
 @app.route('/open_mines_cell', methods=['POST'])
 def open_mines_cell():
@@ -1267,7 +1222,6 @@ def open_mines_cell():
                 'balance': user[1]
             })
 
-
 @app.route('/cashout_mines', methods=['POST'])
 def cashout_mines():
     data = request.get_json()
@@ -1301,7 +1255,6 @@ def cashout_mines():
                 'mines_positions': mines_positions
             })
 
-
 @app.route('/exit_mines', methods=['POST'])
 def exit_mines():
     data = request.get_json()
@@ -1315,7 +1268,6 @@ def exit_mines():
         })
     return jsonify({'success': True})
 
-
 @app.route('/get_mines_stats', methods=['POST'])
 def get_mines_stats():
     data = request.get_json()
@@ -1324,7 +1276,6 @@ def get_mines_stats():
     if not stats:
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
-
 
 # ===== CRASH =====
 @app.route('/make_crash_bet', methods=['POST'])
@@ -1354,7 +1305,6 @@ def make_crash_bet():
 
     return jsonify({'success': True})
 
-
 @app.route('/crash_status', methods=['POST'])
 def crash_status():
     global crash_data
@@ -1374,7 +1324,6 @@ def crash_status():
             'game_count': crash_data['game_count'],
             'my_bet': crash_data['bets'].get(uid, 0) if uid else 0
         })
-
 
 @app.route('/cashout_crash', methods=['POST'])
 def cashout_crash():
@@ -1404,7 +1353,6 @@ def cashout_crash():
         'multiplier': multiplier
     })
 
-
 @app.route('/get_crash_stats', methods=['POST'])
 def get_crash_stats():
     data = request.get_json()
@@ -1413,7 +1361,6 @@ def get_crash_stats():
     if not stats:
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
-
 
 # ===== UPGRADE =====
 @app.route('/upgrade_calculate', methods=['POST'])
@@ -1436,7 +1383,6 @@ def upgrade_calculate():
     raw_chance = (bet / target) * 100
     chance = min(max(raw_chance, 1.0), 70.0)
     return jsonify({'chance': round(chance, 2), 'bet': bet, 'target': target, 'balance': user[1]})
-
 
 @app.route('/upgrade_execute', methods=['POST'])
 def upgrade_execute():
@@ -1479,17 +1425,14 @@ def upgrade_execute():
             'message': message
         })
 
-
 # ===== СТАТИКА / WEBHOOK =====
 @app.route('/')
 def home():
     return send_from_directory('static', 'index.html')
 
-
 @app.route('/<path:path>')
 def static_files(path):
     return send_from_directory('static', path)
-
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -1500,11 +1443,9 @@ def webhook():
         return ''
     return '', 400
 
-
 # ===== ЗАПУСК =====
 _start_lock = threading.Lock()
 _threads_started = False
-
 
 def _telegram_call_with_retry(func, *args, retries=3, pause=5, **kwargs):
     """Сетевой вызов Telegram API с retry. Не бросает исключение наружу."""
@@ -1517,7 +1458,6 @@ def _telegram_call_with_retry(func, *args, retries=3, pause=5, **kwargs):
                 time.sleep(pause)
     return None
 
-
 def run_polling():
     """Polling в daemon-потоке: все сетевые вызовы внутри, с retry. Импорт модуля не зависит от Telegram API."""
     _telegram_call_with_retry(bot.remove_webhook)
@@ -1528,7 +1468,6 @@ def run_polling():
             print(f"Polling error: {e}")
             time.sleep(5)
 
-
 def run_webhook_setup():
     """Установка webhook в daemon-потоке: все сетевые вызовы внутри, с retry."""
     if _telegram_call_with_retry(bot.remove_webhook) is None:
@@ -1537,7 +1476,6 @@ def run_webhook_setup():
         print(f"✅ Webhook mode: {WEBAPP_URL}/webhook")
     else:
         print("❌ set_webhook не удался после 3 попыток (Flask продолжает работать)")
-
 
 def start_background_threads():
     """Защита от двойного запуска потоков (в т.ч. под gunicorn): флаг на уровне процесса.
@@ -1555,7 +1493,6 @@ def start_background_threads():
     else:
         threading.Thread(target=run_polling, daemon=True).start()
         print("✅ Polling mode (запуск в фоновом потоке)")
-
 
 start_background_threads()
 
