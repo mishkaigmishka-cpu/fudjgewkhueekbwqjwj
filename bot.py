@@ -196,6 +196,13 @@ def init_db():
             opened INTEGER DEFAULT 0,
             PRIMARY KEY (user_id, case_type)
         )''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS user_tracking (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            event_type TEXT,
+            event_data TEXT DEFAULT '',
+            created_at INTEGER
+        )''')
         cur.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_used_promos_user ON used_promos(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_promo_spend_user ON promo_spend(user_id)")
@@ -203,6 +210,8 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_completed_quests_user ON completed_quests(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_case_stats_user ON case_stats(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_level_progress_user ON level_progress(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_user_tracking_user ON user_tracking(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_user_tracking_event ON user_tracking(event_type)")
         conn.commit()
 
 init_db()
@@ -536,11 +545,16 @@ def start(msg):
     username = msg.from_user.username or ""
     args = msg.text.split()
     
+    # Создаём пользователя если его нет
+    qw("INSERT INTO users (id) VALUES (%s) ON CONFLICT (id) DO NOTHING", (uid,))
+    
+    # Обновляем username при каждом входе
+    update_user(uid, username=username)
+    
     # Отслеживание входа
     ref_source = args[1] if len(args) > 1 else 'direct'
     track_user(uid, 'start', f"ref:{ref_source}")
     
-    qw("INSERT INTO users (id) VALUES (%s) ON CONFLICT (id) DO NOTHING", (uid,))
     if len(args) > 1:
         try:
             inviter_id = int(args[1])
@@ -557,7 +571,6 @@ def start(msg):
                     update_user(uid, balance=user[1] + 5)
         except Exception:
             pass
-    update_user(uid, username=username)
     show_main_menu(msg.chat.id)
     try:
         bot.delete_message(msg.chat.id, msg.message_id)
