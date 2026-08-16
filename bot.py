@@ -102,6 +102,18 @@ def init_db():
     conn = get_conn()
     with write_lock:
         cur = conn.cursor()
+        
+        # ===== ЗАЩИТА: ПРОВЕРКА СУЩЕСТВОВАНИЯ ТАБЛИЦ =====
+        cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')")
+        users_exists = cur.fetchone()[0]
+        
+        if users_exists:
+            cur.execute("SELECT COUNT(*) FROM users")
+            user_count = cur.fetchone()[0]
+            print(f"✅ База данных цела. Пользователей: {user_count}")
+        else:
+            print("🆕 Создаём новую базу данных...")
+        
         cur.execute('''CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
             balance INTEGER DEFAULT 5,
