@@ -211,7 +211,6 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_case_stats_user ON case_stats(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_level_progress_user ON level_progress(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_user_tracking_user ON user_tracking(user_id)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_user_tracking_event ON user_tracking(event_type)")
         conn.commit()
 
 init_db()
@@ -221,8 +220,8 @@ def track_user(user_id, event_type, event_data=''):
     try:
         qw("INSERT INTO user_tracking (user_id, event_type, event_data, created_at) VALUES (%s, %s, %s, %s)",
            (user_id, event_type, event_data, int(time.time())))
-    except Exception as e:
-        print(f"Track error: {e}")
+    except Exception:
+        pass
 
 # ===== КЕЙСЫ =====
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
@@ -544,17 +543,8 @@ def start(msg):
     uid = msg.from_user.id
     username = msg.from_user.username or ""
     args = msg.text.split()
-    
-    # Создаём пользователя если его нет
     qw("INSERT INTO users (id) VALUES (%s) ON CONFLICT (id) DO NOTHING", (uid,))
-    
-    # Обновляем username при каждом входе
-    update_user(uid, username=username)
-    
-    # Отслеживание входа
-    ref_source = args[1] if len(args) > 1 else 'direct'
-    track_user(uid, 'start', f"ref:{ref_source}")
-    
+    track_user(uid, 'start', f"ref:{args[1] if len(args) > 1 else 'direct'}")
     if len(args) > 1:
         try:
             inviter_id = int(args[1])
@@ -571,6 +561,7 @@ def start(msg):
                     update_user(uid, balance=user[1] + 5)
         except Exception:
             pass
+    update_user(uid, username=username)
     show_main_menu(msg.chat.id)
     try:
         bot.delete_message(msg.chat.id, msg.message_id)
@@ -1603,7 +1594,6 @@ def start_background_threads():
         threading.Thread(target=run_polling, daemon=True).start()
         print("✅ Polling mode (запуск в фоновом потоке)")
 
-# ===== ФИКС 409 CONFLICT =====
 if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_SERVICE_NAME"):
     start_background_threads()
 elif __name__ == "__main__":
