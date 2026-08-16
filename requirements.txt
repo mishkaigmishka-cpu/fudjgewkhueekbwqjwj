@@ -1,5 +1,5 @@
-fastapi
-uvicorn
-pydantic
+flask
+gunicorn
+telebot
 psycopg2-binary
 flet
