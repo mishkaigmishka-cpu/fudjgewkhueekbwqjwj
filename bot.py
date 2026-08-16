@@ -1,9 +1,8 @@
 import telebot
 import random
-import sqlite3
+import psycopg2
 import time
 import os
-import shutil
 import threading
 from flask import Flask, request, jsonify, send_from_directory
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo, LabeledPrice
@@ -19,16 +18,9 @@ WEBAPP_URL = WEBAPP_URL.rstrip('/')
 
 ADMIN_ID = 7819642052
 
-# База хранится вне папки с кодом — не пропадёт при git pull или перезаливке
-_DB_DIR = os.path.expanduser("~/randevu_bot_data")
-DB_PATH = os.environ.get("DB_PATH", os.path.join(_DB_DIR, "cases.db"))
-
-# Сам создаёт папку и переносит старую базу при первом запуске
-os.makedirs(_DB_DIR, exist_ok=True)
-_old_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cases.db")
-if os.path.exists(_old_db) and not os.path.exists(DB_PATH):
-    shutil.copy2(_old_db, DB_PATH)
-    print(f"✅ База перенесена в {DB_PATH}")
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL не установлен!")
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
@@ -53,7 +45,7 @@ main_message_ids = {}
 
 # ===== БАНЫ =====
 def is_banned(uid):
-    row = q("SELECT banned FROM users WHERE id=?", (uid,)).fetchone()
+    row = q("SELECT banned FROM users WHERE id=%s", (uid,)).fetchone()
     return row and row[0] == 1
 
 def show_main_menu(chat_id):
@@ -89,26 +81,28 @@ write_lock = threading.RLock()
 
 def get_conn():
     conn = getattr(_db_local, 'conn', None)
-    if conn is None:
-        conn = sqlite3.connect(DB_PATH, timeout=30, check_same_thread=False)
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
+    if conn is None or conn.closed:
+        conn = psycopg2.connect(DATABASE_URL)
         _db_local.conn = conn
     return conn
 
 def q(sql, params=()):
-    return get_conn().execute(sql, params)
+    cur = get_conn().cursor()
+    cur.execute(sql, params)
+    return cur
 
 def qw(sql, params=()):
     with write_lock:
-        cur = get_conn().execute(sql, params)
+        cur = get_conn().cursor()
+        cur.execute(sql, params)
         get_conn().commit()
     return cur
 
 def init_db():
     conn = get_conn()
     with write_lock:
-        conn.execute('''CREATE TABLE IF NOT EXISTS users (
+        cur = conn.cursor()
+        cur.execute('''CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
             balance INTEGER DEFAULT 5,
             total_cases INTEGER DEFAULT 0,
@@ -126,12 +120,12 @@ def init_db():
             total_deposit INTEGER DEFAULT 0,
             claimed_deposit TEXT DEFAULT ''
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS invited (
+        cur.execute('''CREATE TABLE IF NOT EXISTS invited (
             inviter_id INTEGER,
             invited_id INTEGER,
             PRIMARY KEY (inviter_id, invited_id)
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS battle_stats (
+        cur.execute('''CREATE TABLE IF NOT EXISTS battle_stats (
             user_id INTEGER PRIMARY KEY,
             battles_played INTEGER DEFAULT 0,
             battles_won INTEGER DEFAULT 0,
@@ -140,7 +134,7 @@ def init_db():
             total_lost_stars INTEGER DEFAULT 0,
             commission_paid INTEGER DEFAULT 0
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS mines_stats (
+        cur.execute('''CREATE TABLE IF NOT EXISTS mines_stats (
             user_id INTEGER PRIMARY KEY,
             games INTEGER DEFAULT 0,
             wins INTEGER DEFAULT 0,
@@ -149,7 +143,7 @@ def init_db():
             total_won INTEGER DEFAULT 0,
             total_lost INTEGER DEFAULT 0
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS crash_stats (
+        cur.execute('''CREATE TABLE IF NOT EXISTS crash_stats (
             user_id INTEGER PRIMARY KEY,
             games INTEGER DEFAULT 0,
             wins INTEGER DEFAULT 0,
@@ -158,7 +152,7 @@ def init_db():
             total_won INTEGER DEFAULT 0,
             total_lost INTEGER DEFAULT 0
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS promo_codes (
+        cur.execute('''CREATE TABLE IF NOT EXISTS promo_codes (
             code TEXT PRIMARY KEY,
             reward INTEGER DEFAULT 20,
             created_by INTEGER,
@@ -166,53 +160,49 @@ def init_db():
             max_uses INTEGER DEFAULT 1,
             used_count INTEGER DEFAULT 0
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS used_promos (
+        cur.execute('''CREATE TABLE IF NOT EXISTS used_promos (
             user_id INTEGER,
             promo_code TEXT,
             used_at INTEGER,
             PRIMARY KEY (user_id, promo_code)
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS promo_spend (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cur.execute('''CREATE TABLE IF NOT EXISTS promo_spend (
+            id SERIAL PRIMARY KEY,
             user_id INTEGER,
             promo_code TEXT,
             spent INTEGER DEFAULT 0
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS level_wins (
+        cur.execute('''CREATE TABLE IF NOT EXISTS level_wins (
             user_id INTEGER,
             case_type TEXT,
             wins INTEGER DEFAULT 0,
             PRIMARY KEY (user_id, case_type)
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS completed_quests (
+        cur.execute('''CREATE TABLE IF NOT EXISTS completed_quests (
             user_id INTEGER,
             quest_id TEXT,
             completed_at INTEGER,
             PRIMARY KEY (user_id, quest_id)
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS case_stats (
+        cur.execute('''CREATE TABLE IF NOT EXISTS case_stats (
             user_id INTEGER,
             case_type TEXT,
             opened INTEGER DEFAULT 0,
             PRIMARY KEY (user_id, case_type)
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS level_progress (
+        cur.execute('''CREATE TABLE IF NOT EXISTS level_progress (
             user_id INTEGER,
             case_type TEXT,
             opened INTEGER DEFAULT 0,
             PRIMARY KEY (user_id, case_type)
         )''')
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_used_promos_user ON used_promos(user_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_promo_spend_user ON promo_spend(user_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_level_wins_user ON level_wins(user_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_completed_quests_user ON completed_quests(user_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_case_stats_user ON case_stats(user_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_level_progress_user ON level_progress(user_id)")
-        try: conn.execute("ALTER TABLE users ADD COLUMN total_deposit INTEGER DEFAULT 0")
-        except sqlite3.OperationalError: pass
-        try: conn.execute("ALTER TABLE users ADD COLUMN claimed_deposit TEXT DEFAULT ''")
-        except sqlite3.OperationalError: pass
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_used_promos_user ON used_promos(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_promo_spend_user ON promo_spend(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_level_wins_user ON level_wins(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_completed_quests_user ON completed_quests(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_case_stats_user ON case_stats(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_level_progress_user ON level_progress(user_id)")
         conn.commit()
 
 init_db()
@@ -263,7 +253,7 @@ def get_prize(case_type, user_id=None):
     j = data["jackpot_chance"]
 
     if user_id:
-        row = q("SELECT luck_boost FROM users WHERE id=?", (user_id,)).fetchone()
+        row = q("SELECT luck_boost FROM users WHERE id=%s", (user_id,)).fetchone()
         if row and row[0] > 1.0:
             c = max(0, c - 0.21)
             r = r + 0.07
@@ -312,17 +302,17 @@ def get_prize(case_type, user_id=None):
         return random.choice(data["epic"])
 
 def get_user(uid):
-    return q("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+    return q("SELECT * FROM users WHERE id=%s", (uid,)).fetchone()
 
 def get_user_by_username(username):
-    return q("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+    return q("SELECT * FROM users WHERE username=%s", (username,)).fetchone()
 
 def update_user(uid, **kwargs):
     if not kwargs:
         return
-    sets = ', '.join(f"{k}=?" for k in kwargs)
+    sets = ', '.join(f"{k}=%s" for k in kwargs)
     vals = list(kwargs.values()) + [uid]
-    qw(f"UPDATE users SET {sets} WHERE id=?", vals)
+    qw(f"UPDATE users SET {sets} WHERE id=%s", vals)
 
 def update_status(uid, total_cases):
     if total_cases >= 2500:
@@ -340,7 +330,7 @@ def update_status(uid, total_cases):
     update_user(uid, status=status)
 
 def get_level_wins(uid):
-    rows = q("SELECT case_type, wins FROM level_wins WHERE user_id=?", (uid,)).fetchall()
+    rows = q("SELECT case_type, wins FROM level_wins WHERE user_id=%s", (uid,)).fetchall()
     return {r[0]: r[1] for r in rows}
 
 def get_unlocked_levels(uid):
@@ -354,13 +344,13 @@ def get_unlocked_levels(uid):
     return unlocked
 
 def add_case_stats(uid, case_type, n=1):
-    qw("INSERT INTO case_stats (user_id, case_type, opened) VALUES (?, ?, ?) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + ?", (uid, case_type, n, n))
+    qw("INSERT INTO case_stats (user_id, case_type, opened) VALUES (%s, %s, %s) ON CONFLICT (user_id, case_type) DO UPDATE SET opened = case_stats.opened + %s", (uid, case_type, n, n))
 
 def add_level_progress(uid, case_type, n=1):
-    qw("INSERT INTO level_progress (user_id, case_type, opened) VALUES (?, ?, ?) ON CONFLICT(user_id, case_type) DO UPDATE SET opened = opened + ?", (uid, case_type, n, n))
+    qw("INSERT INTO level_progress (user_id, case_type, opened) VALUES (%s, %s, %s) ON CONFLICT (user_id, case_type) DO UPDATE SET opened = level_progress.opened + %s", (uid, case_type, n, n))
 
 def get_level_progress(uid, case_type):
-    row = q("SELECT opened FROM level_progress WHERE user_id=? AND case_type=?", (uid, case_type)).fetchone()
+    row = q("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type)).fetchone()
     return row[0] if row else 0
 
 def register_case_opening(uid, case_type, n=1):
@@ -372,14 +362,14 @@ def _update_game_stats(table, user_id, won, multiplier, stars):
     assert table in ('mines_stats', 'crash_stats')
     qw(f"""INSERT INTO {table}
             (user_id, games, wins, losses, best_multiplier, total_won, total_lost)
-            VALUES (?, 1, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-                games = games + 1,
-                wins = wins + ?,
-                losses = losses + ?,
-                best_multiplier = MAX(best_multiplier, ?),
-                total_won = total_won + ?,
-                total_lost = total_lost + ?""",
+            VALUES (%s, 1, %s, %s, %s, %s, %s)
+            ON CONFLICT (user_id) DO UPDATE SET
+                games = {table}.games + 1,
+                wins = {table}.wins + %s,
+                losses = {table}.losses + %s,
+                best_multiplier = GREATEST({table}.best_multiplier, %s),
+                total_won = {table}.total_won + %s,
+                total_lost = {table}.total_lost + %s""",
        (user_id, 1 if won else 0, 0 if won else 1, multiplier,
         stars if won else 0, 0 if won else stars,
         1 if won else 0, 0 if won else 1, multiplier,
@@ -394,19 +384,19 @@ def update_crash_stats(user_id, won, multiplier, stars):
 def update_battle_stats(user_id, won, stars, case_type=None):
     qw("""INSERT INTO battle_stats
             (user_id, battles_played, battles_won, battles_lost, total_won_stars, total_lost_stars, commission_paid)
-            VALUES (?, 1, ?, ?, ?, ?, 0)
-            ON CONFLICT(user_id) DO UPDATE SET
-                battles_played = battles_played + 1,
-                battles_won = battles_won + ?,
-                battles_lost = battles_lost + ?,
-                total_won_stars = total_won_stars + ?,
-                total_lost_stars = total_lost_stars + ?""",
+            VALUES (%s, 1, %s, %s, %s, %s, 0)
+            ON CONFLICT (user_id) DO UPDATE SET
+                battles_played = battle_stats.battles_played + 1,
+                battles_won = battle_stats.battles_won + %s,
+                battles_lost = battle_stats.battles_lost + %s,
+                total_won_stars = battle_stats.total_won_stars + %s,
+                total_lost_stars = battle_stats.total_lost_stars + %s""",
        (user_id, 1 if won else 0, 0 if won else 1,
         stars if won else 0, 0 if won else stars,
         1 if won else 0, 0 if won else 1,
         stars if won else 0, 0 if won else stars))
     if won and case_type:
-        qw("INSERT INTO level_wins (user_id, case_type, wins) VALUES (?, ?, 1) ON CONFLICT(user_id, case_type) DO UPDATE SET wins = wins + 1", (user_id, case_type))
+        qw("INSERT INTO level_wins (user_id, case_type, wins) VALUES (%s, %s, 1) ON CONFLICT (user_id, case_type) DO UPDATE SET wins = level_wins.wins + 1", (user_id, case_type))
 
 active_mines_games = {}
 mines_lock = threading.Lock()
@@ -537,13 +527,13 @@ def start(msg):
     uid = msg.from_user.id
     username = msg.from_user.username or ""
     args = msg.text.split()
-    qw("INSERT OR IGNORE INTO users (id) VALUES (?)", (uid,))
+    qw("INSERT INTO users (id) VALUES (%s) ON CONFLICT (id) DO NOTHING", (uid,))
     bonus_text = ""
     if len(args) > 1:
         try:
             inviter_id = int(args[1])
             if inviter_id != uid:
-                cur = qw("INSERT OR IGNORE INTO invited (inviter_id, invited_id) VALUES (?, ?)", (inviter_id, uid))
+                cur = qw("INSERT INTO invited (inviter_id, invited_id) VALUES (%s, %s) ON CONFLICT (inviter_id, invited_id) DO NOTHING", (inviter_id, uid))
                 inviter = get_user(inviter_id)
                 if cur.rowcount > 0 and inviter:
                     update_user(inviter_id, balance=inviter[1] + 10, refs=inviter[6] + 1)
@@ -713,16 +703,16 @@ def reset_user(msg):
         bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
         return
     update_user(user[0], balance=0, total_cases=0, streak=0, status="🟢 Новичок", refs=0, total_spent=0, total_deposit=0, claimed_deposit='')
-    qw("DELETE FROM level_wins WHERE user_id=?", (user[0],))
-    qw("DELETE FROM level_progress WHERE user_id=?", (user[0],))
-    qw("DELETE FROM completed_quests WHERE user_id=?", (user[0],))
-    qw("DELETE FROM case_stats WHERE user_id=?", (user[0],))
-    qw("DELETE FROM mines_stats WHERE user_id=?", (user[0],))
-    qw("DELETE FROM crash_stats WHERE user_id=?", (user[0],))
-    qw("DELETE FROM battle_stats WHERE user_id=?", (user[0],))
-    qw("DELETE FROM used_promos WHERE user_id=?", (user[0],))
-    qw("DELETE FROM promo_spend WHERE user_id=?", (user[0],))
-    qw("DELETE FROM invited WHERE inviter_id=? OR invited_id=?", (user[0], user[0]))
+    qw("DELETE FROM level_wins WHERE user_id=%s", (user[0],))
+    qw("DELETE FROM level_progress WHERE user_id=%s", (user[0],))
+    qw("DELETE FROM completed_quests WHERE user_id=%s", (user[0],))
+    qw("DELETE FROM case_stats WHERE user_id=%s", (user[0],))
+    qw("DELETE FROM mines_stats WHERE user_id=%s", (user[0],))
+    qw("DELETE FROM crash_stats WHERE user_id=%s", (user[0],))
+    qw("DELETE FROM battle_stats WHERE user_id=%s", (user[0],))
+    qw("DELETE FROM used_promos WHERE user_id=%s", (user[0],))
+    qw("DELETE FROM promo_spend WHERE user_id=%s", (user[0],))
+    qw("DELETE FROM invited WHERE inviter_id=%s OR invited_id=%s", (user[0], user[0]))
     bot.reply_to(msg, f"✅ @{username} сброшен!")
 
 @bot.message_handler(commands=['luck'])
@@ -760,7 +750,6 @@ def unluck_boost(msg):
     update_user(user[0], luck_boost=1.0)
     bot.reply_to(msg, f"✅ Шансы @{username} сброшены!")
 
-# ===== АДМИН-КОМАНДЫ =====
 @bot.message_handler(commands=['give'])
 def give_stars(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -825,7 +814,6 @@ def add_balance(msg):
     except Exception:
         pass
 
-# ===== ПРОМОКОДЫ =====
 @bot.message_handler(commands=['create_promo'])
 def create_promo(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -847,7 +835,7 @@ def create_promo(msg):
             max_uses = int(args[3])
         except ValueError:
             pass
-    qw("INSERT OR IGNORE INTO promo_codes (code, reward, created_by, created_at, max_uses) VALUES (?, ?, ?, ?, ?)",
+    qw("INSERT INTO promo_codes (code, reward, created_by, created_at, max_uses) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (code) DO NOTHING",
        (code, reward, ADMIN_ID, int(time.time()), max_uses))
     bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
 
@@ -860,12 +848,12 @@ def promo_stats(msg):
         bot.reply_to(msg, "❌ Формат: /promo_stats CODE")
         return
     code = args[1].upper()
-    promo = q("SELECT reward, max_uses, used_count, created_at FROM promo_codes WHERE code=?", (code,)).fetchone()
+    promo = q("SELECT reward, max_uses, used_count, created_at FROM promo_codes WHERE code=%s", (code,)).fetchone()
     if not promo:
         bot.reply_to(msg, "❌ Промокод не найден")
         return
     reward, max_uses, used_count, created_at = promo
-    spend_data = q("SELECT user_id, spent FROM promo_spend WHERE promo_code=?", (code,)).fetchall()
+    spend_data = q("SELECT user_id, spent FROM promo_spend WHERE promo_code=%s", (code,)).fetchall()
     total_spent = sum([s[1] for s in spend_data]) if spend_data else 0
     text = f"📊 СТАТИСТИКА ПРОМОКОДА {code}\n\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}\n✅ Использовано: {used_count}\n💰 Всего потрачено: {total_spent}⭐\n👥 Пользователей: {len(spend_data) if spend_data else 0}"
     bot.reply_to(msg, text)
@@ -1026,7 +1014,7 @@ def get_levels_data():
         return jsonify({'error': 'User not found'}), 404
     level_wins = get_level_wins(uid)
     unlocked_levels = get_unlocked_levels(uid)
-    rows = q("SELECT case_type, opened FROM level_progress WHERE user_id=?", (uid,)).fetchall()
+    rows = q("SELECT case_type, opened FROM level_progress WHERE user_id=%s", (uid,)).fetchall()
     progress_all = {r[0]: r[1] for r in rows}
     level_progress = {lvl: progress_all.get(lvl, 0) for lvl in unlocked_levels}
     return jsonify({'unlocked_levels': unlocked_levels, 'level_wins': level_wins, 'level_progress': level_progress})
@@ -1049,7 +1037,7 @@ def start_bot_battle():
         progress = get_level_progress(uid, case_type)
         if progress < BATTLE_PROGRESS_COST:
             return jsonify({'error': f'Нужно открыть {BATTLE_PROGRESS_COST} кейсов {case_type}! (открыто {progress})'}), 400
-        qw("UPDATE level_progress SET opened = opened - ? WHERE user_id=? AND case_type=?", (BATTLE_PROGRESS_COST, uid, case_type))
+        qw("UPDATE level_progress SET opened = opened - %s WHERE user_id=%s AND case_type=%s", (BATTLE_PROGRESS_COST, uid, case_type))
         player_prize = get_prize(case_type, uid)
         bot_prize = get_prize(case_type, None)
         total = player_prize + bot_prize
@@ -1071,7 +1059,7 @@ def start_bot_battle():
             update_battle_stats(uid, won=False, stars=0, case_type=case_type)
             result = 'draw'
             result_text = '🤝 Ничья!'
-        row = q("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type)).fetchone()
+        row = q("SELECT wins FROM level_wins WHERE user_id=%s AND case_type=%s", (uid, case_type)).fetchone()
         wins_after = row[0] if row else 0
         level_unlocked = wins_after >= WINS_TO_UNLOCK
         return jsonify({'result': result, 'result_text': result_text, 'player_prize': player_prize, 'bot_prize': bot_prize, 'wins': wins_after, 'level_unlocked': level_unlocked, 'needed_wins': WINS_TO_UNLOCK})
@@ -1088,7 +1076,7 @@ def get_quests_data():
     total_cases = user[2]
     refs = user[6]
     level_wins = get_level_wins(uid)
-    completed = q("SELECT quest_id FROM completed_quests WHERE user_id=?", (uid,)).fetchall()
+    completed = q("SELECT quest_id FROM completed_quests WHERE user_id=%s", (uid,)).fetchall()
     claimed_quests = [row[0] for row in completed]
     return jsonify({'total_cases': total_cases, 'refs': refs, 'level_wins': level_wins,
                     'claimed_statuses': [q for q in claimed_quests if q.startswith('status_')],
@@ -1106,13 +1094,13 @@ def claim_quest():
         user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
-        if q("SELECT * FROM completed_quests WHERE user_id=? AND quest_id=?", (uid, quest_id)).fetchone():
+        if q("SELECT * FROM completed_quests WHERE user_id=%s AND quest_id=%s", (uid, quest_id)).fetchone():
             return jsonify({'error': 'Задание уже выполнено'}), 400
         reward = get_quest_reward(uid, quest_id)
         if reward is None:
             return jsonify({'error': 'Условие не выполнено'}), 400
         update_user(uid, balance=user[1] + reward)
-        qw("INSERT INTO completed_quests (user_id, quest_id, completed_at) VALUES (?, ?, ?)", (uid, quest_id, int(time.time())))
+        qw("INSERT INTO completed_quests (user_id, quest_id, completed_at) VALUES (%s, %s, %s)", (uid, quest_id, int(time.time())))
         return jsonify({'success': True, 'reward': reward})
 
 def get_quest_reward(uid, quest_id):
@@ -1129,7 +1117,7 @@ def get_quest_reward(uid, quest_id):
         level_rewards = {'level_mud': 15, 'level_wood': 27, 'level_stone': 57, 'level_bronze': 147, 'level_silver': 297, 'level_gold': 747, 'level_diamond': 1497, 'level_netherite': 2997, 'level_obsidian': 7497, 'level_bedrock': 30000}
         case_type = level_map.get(quest_id)
         if case_type:
-            row = q("SELECT wins FROM level_wins WHERE user_id=? AND case_type=?", (uid, case_type)).fetchone()
+            row = q("SELECT wins FROM level_wins WHERE user_id=%s AND case_type=%s", (uid, case_type)).fetchone()
             wins = row[0] if row else 0
             if wins >= WINS_TO_UNLOCK:
                 return level_rewards.get(quest_id, 0)
@@ -1151,18 +1139,18 @@ def apply_promo():
         user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
-        promo = q("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=?", (promo_code,)).fetchone()
+        promo = q("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=%s", (promo_code,)).fetchone()
         if not promo:
             return jsonify({'error': 'Неверный промокод!'}), 400
         reward, max_uses, used_count = promo
         if max_uses > 0 and used_count >= max_uses:
             return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
-        used = q("SELECT * FROM used_promos WHERE user_id=? AND promo_code=?", (uid, promo_code)).fetchone()
+        used = q("SELECT * FROM used_promos WHERE user_id=%s AND promo_code=%s", (uid, promo_code)).fetchone()
         if used:
             return jsonify({'error': 'Ты уже использовал этот промокод!'}), 400
         update_user(uid, balance=user[1] + reward)
-        qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=?", (promo_code,))
-        qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (?, ?, ?)", (uid, promo_code, int(time.time())))
+        qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=%s", (promo_code,))
+        qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (%s, %s, %s)", (uid, promo_code, int(time.time())))
         return jsonify({'success': True, 'reward': reward})
 
 @app.route('/claim_promo_webapp', methods=['POST'])
@@ -1176,19 +1164,19 @@ def claim_promo_webapp():
         user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
-        promo = q("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=?", (code,)).fetchone()
+        promo = q("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=%s", (code,)).fetchone()
         if not promo:
             return jsonify({'error': 'Неверный промокод!'}), 400
         reward, max_uses, used_count = promo
         if max_uses > 0 and used_count >= max_uses:
             return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
-        used = q("SELECT * FROM used_promos WHERE user_id=? AND promo_code=?", (uid, code)).fetchone()
+        used = q("SELECT * FROM used_promos WHERE user_id=%s AND promo_code=%s", (uid, code)).fetchone()
         if used:
             return jsonify({'error': 'Ты уже использовал этот промокод!'}), 400
         update_user(uid, balance=user[1] + reward)
-        qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=?", (code,))
-        qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (?, ?, ?)", (uid, code, int(time.time())))
-        qw("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", (uid, code, 0))
+        qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=%s", (code,))
+        qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (%s, %s, %s)", (uid, code, int(time.time())))
+        qw("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING", (uid, code, 0))
         return jsonify({'success': True, 'reward': reward, 'message': f'✅ +{reward}⭐ за промокод!'})
 
 @app.route('/withdraw', methods=['POST'])
@@ -1388,7 +1376,7 @@ def get_mines_stats():
     uid = data.get('user_id')
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
-    stats = q("SELECT * FROM mines_stats WHERE user_id=?", (uid,)).fetchone()
+    stats = q("SELECT * FROM mines_stats WHERE user_id=%s", (uid,)).fetchone()
     if not stats:
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
@@ -1464,7 +1452,7 @@ def get_crash_stats():
     uid = data.get('user_id')
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
-    stats = q("SELECT * FROM crash_stats WHERE user_id=?", (uid,)).fetchone()
+    stats = q("SELECT * FROM crash_stats WHERE user_id=%s", (uid,)).fetchone()
     if not stats:
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
