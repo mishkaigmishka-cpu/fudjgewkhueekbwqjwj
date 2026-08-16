@@ -207,6 +207,14 @@ def init_db():
 
 init_db()
 
+# ===== ОТСЛЕЖИВАНИЕ ПОЛЬЗОВАТЕЛЕЙ =====
+def track_user(user_id, event_type, event_data=''):
+    try:
+        qw("INSERT INTO user_tracking (user_id, event_type, event_data, created_at) VALUES (%s, %s, %s, %s)",
+           (user_id, event_type, event_data, int(time.time())))
+    except Exception as e:
+        print(f"Track error: {e}")
+
 # ===== КЕЙСЫ =====
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
 
@@ -527,8 +535,12 @@ def start(msg):
     uid = msg.from_user.id
     username = msg.from_user.username or ""
     args = msg.text.split()
+    
+    # Отслеживание входа
+    ref_source = args[1] if len(args) > 1 else 'direct'
+    track_user(uid, 'start', f"ref:{ref_source}")
+    
     qw("INSERT INTO users (id) VALUES (%s) ON CONFLICT (id) DO NOTHING", (uid,))
-    bonus_text = ""
     if len(args) > 1:
         try:
             inviter_id = int(args[1])
@@ -543,7 +555,6 @@ def start(msg):
                         pass
                     user = get_user(uid)
                     update_user(uid, balance=user[1] + 5)
-                    bonus_text = "\n🎉 +5⭐ за регистрацию по ссылке!"
         except Exception:
             pass
     update_user(uid, username=username)
@@ -1579,9 +1590,11 @@ def start_background_threads():
         threading.Thread(target=run_polling, daemon=True).start()
         print("✅ Polling mode (запуск в фоновом потоке)")
 
-start_background_threads()
-
-if __name__ == "__main__":
+# ===== ФИКС 409 CONFLICT =====
+if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_SERVICE_NAME"):
+    start_background_threads()
+elif __name__ == "__main__":
+    start_background_threads()
     port = int(os.environ.get("PORT", 8080))
     print(f"✅ БОТ ЗАПУЩЕН на порту {port}")
     app.run(host="0.0.0.0", port=port)
