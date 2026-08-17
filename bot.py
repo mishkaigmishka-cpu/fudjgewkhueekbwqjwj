@@ -1,4 +1,4 @@
-import telebot
+
 import random
 import psycopg2
 import psycopg2.pool
@@ -1917,5 +1917,4 @@ if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_SERVICE_NAME
 elif __name__ == "__main__":
     start_background_threads()
     port = int(os.environ.get("PORT", 8080))
-    print(f"✅ БОТ ЗАПУЩЕН на порту {port}")
-    app.run(host="0.0.0.0", port=port)
+    print(f"✅ БОТ ЗАПУЩЕН на порту
