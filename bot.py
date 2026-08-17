@@ -914,7 +914,10 @@ def got_payment(msg):
         error_msg = bot.send_message(msg.chat.id, "❌ Ошибка при зачислении. Обратись в поддержку.")
         delete_message_after(msg.chat.id, error_msg.message_id, 60)
 
+
+# ===== АДМИН-КОМАНДЫ С ЛИМИТАМИ =====
 @bot.message_handler(commands=['ban'])
+@limiter.limit("10 per minute")
 def ban_user(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -932,6 +935,7 @@ def ban_user(msg):
     bot.reply_to(msg, f"✅ @{username} забанен!")
 
 @bot.message_handler(commands=['unban'])
+@limiter.limit("10 per minute")
 def unban_user(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -949,6 +953,7 @@ def unban_user(msg):
     bot.reply_to(msg, f"✅ @{username} разбанен!")
 
 @bot.message_handler(commands=['reset'])
+@limiter.limit("10 per minute")
 def reset_user(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -978,6 +983,7 @@ def reset_user(msg):
     bot.reply_to(msg, f"✅ @{username} сброшен!")
 
 @bot.message_handler(commands=['luck'])
+@limiter.limit("10 per minute")
 def luck_boost(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -998,6 +1004,7 @@ def luck_boost(msg):
     bot.reply_to(msg, f"✅ Шансы @{username} увеличены в 5x!")
 
 @bot.message_handler(commands=['unluck'])
+@limiter.limit("10 per minute")
 def unluck_boost(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1018,6 +1025,7 @@ def unluck_boost(msg):
     bot.reply_to(msg, f"✅ Шансы @{username} сброшены!")
 
 @bot.message_handler(commands=['give'])
+@limiter.limit("10 per minute")
 def give_stars(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1048,12 +1056,14 @@ def give_stars(msg):
         pass
 
 @bot.message_handler(commands=['bonus'])
+@limiter.limit("10 per minute")
 def bonus(msg):
     if msg.from_user.id != ADMIN_ID:
         return
     bot.reply_to(msg, f"✅ Ты ADMIN! Твой ID: {ADMIN_ID}")
 
 @bot.message_handler(commands=['addbalance'])
+@limiter.limit("10 per minute")
 def add_balance(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1083,6 +1093,7 @@ def add_balance(msg):
         pass
 
 @bot.message_handler(commands=['take'])
+@limiter.limit("10 per minute")
 def take_stars(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1119,6 +1130,7 @@ def take_stars(msg):
         pass
 
 @bot.message_handler(commands=['userinfo'])
+@limiter.limit("10 per minute")
 def user_info(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1161,6 +1173,7 @@ ID: {uid}
     bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['top'])
+@limiter.limit("10 per minute")
 def top_users(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1186,6 +1199,7 @@ def top_users(msg):
     bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['adminlogs'])
+@limiter.limit("10 per minute")
 def admin_logs_cmd(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1205,6 +1219,7 @@ def admin_logs_cmd(msg):
     bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['create_promo'])
+@limiter.limit("10 per minute")
 def create_promo(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1231,6 +1246,7 @@ def create_promo(msg):
     bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
 
 @bot.message_handler(commands=['promo_stats'])
+@limiter.limit("10 per minute")
 def promo_stats(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1250,6 +1266,7 @@ def promo_stats(msg):
     bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['list_promo'])
+@limiter.limit("10 per minute")
 def list_promo(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1264,6 +1281,7 @@ def list_promo(msg):
     bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['delete_promo'])
+@limiter.limit("10 per minute")
 def delete_promo_cmd(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1278,6 +1296,8 @@ def delete_promo_cmd(msg):
     admin_log('delete_promo', None, f"Удалён промокод {code}")
     bot.reply_to(msg, f"Промокод {code} удалён!")
 
+
+# ===== WEBHOOK / API =====
 @app.route('/health')
 def health():
     return 'ok'
