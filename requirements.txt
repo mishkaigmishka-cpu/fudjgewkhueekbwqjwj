@@ -1,5 +1,6 @@
-flask
-gunicorn
-telebot
-psycopg2-binary
-flet
+flask==3.0.3
+gunicorn==23.0.0
+pyTelegramBotAPI==4.22.1
+psycopg2-binary==2.9.9
+flask-limiter==3.8.0
+cachetools==5.4.0
