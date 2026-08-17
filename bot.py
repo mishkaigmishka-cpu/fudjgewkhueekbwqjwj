@@ -2,6 +2,9 @@ import telebot
 import random
 import psycopg2
 import psycopg2.pool
+import atexit
+import signal
+import sys
 import time
 import os
 import threading
@@ -209,7 +212,7 @@ def init_db():
     with write_lock:
         cur = conn.cursor()
         
-        # ===== МИГРАЦИЯ: INTEGER -> BIGINT для существующих таблиц =====
+        # Fix old tables: INTEGER -> BIGINT for Telegram IDs
         cur.execute("ALTER TABLE IF EXISTS users ALTER COLUMN id TYPE BIGINT")
         cur.execute("ALTER TABLE IF EXISTS invited ALTER COLUMN inviter_id TYPE BIGINT")
         cur.execute("ALTER TABLE IF EXISTS invited ALTER COLUMN invited_id TYPE BIGINT")
@@ -349,6 +352,19 @@ def init_db():
             created_at INTEGER,
             processed_at INTEGER
         )''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS active_mines_games (
+            game_id TEXT PRIMARY KEY,
+            user_id BIGINT,
+            bet INTEGER,
+            mines INTEGER,
+            board TEXT,
+            opened TEXT,
+            opened_count INTEGER DEFAULT 0,
+            multiplier REAL DEFAULT 1.0,
+            max_multiplier REAL,
+            status TEXT DEFAULT 'active',
+            created_at INTEGER
+        )''')
         cur.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_used_promos_user ON used_promos(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_promo_spend_user ON promo_spend(user_id)")
@@ -359,6 +375,7 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_user_tracking_user ON user_tracking(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_admin_logs_time ON admin_logs(created_at DESC)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_withdrawals_user ON withdrawals(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_active_mines_games_user ON active_mines_games(user_id)")
         conn.commit()
 
 init_db()
@@ -592,6 +609,47 @@ def update_battle_stats(user_id, won, stars, case_type=None):
         qw("INSERT INTO level_wins (user_id, case_type, wins) VALUES (%s, %s, 1) ON CONFLICT (user_id, case_type) DO UPDATE SET wins = level_wins.wins + 1", (user_id, case_type))
 
 active_mines_games = {}
+
+def save_mines_to_db():
+    try:
+        qw("DELETE FROM active_mines_games WHERE status = 'active'")
+        for game_id, game in active_mines_games.items():
+            if game.get('status') == 'active':
+                qw("""INSERT INTO active_mines_games 
+                    (game_id, user_id, bet, mines, board, opened, opened_count, multiplier, max_multiplier, status, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (game_id) DO UPDATE SET
+                    board = EXCLUDED.board, opened = EXCLUDED.opened, opened_count = EXCLUDED.opened_count,
+                    multiplier = EXCLUDED.multiplier, status = EXCLUDED.status""",
+                    (game_id, game['user_id'], game['bet'], game['mines'],
+                     json.dumps(game['board']), json.dumps(game['opened']), game['opened_count'],
+                     game['multiplier'], game['max_multiplier'], game['status'], int(game.get('created_at', time.time()))))
+    except Exception as e:
+        print("SAVE MINES ERROR:", e)
+
+def load_mines_from_db():
+    try:
+        rows = q("SELECT game_id, user_id, bet, mines, board, opened, opened_count, multiplier, max_multiplier, status, created_at FROM active_mines_games WHERE status = 'active'")
+        for row in rows:
+            active_mines_games[row[0]] = {
+                'user_id': row[1], 'bet': row[2], 'mines': row[3],
+                'board': json.loads(row[4]), 'opened': json.loads(row[5]),
+                'opened_count': row[6], 'multiplier': row[7],
+                'max_multiplier': row[8], 'status': row[9], 'created_at': row[10]
+            }
+        print("LOADED", len(rows), "MINES GAMES FROM DB")
+    except Exception as e:
+        print("LOAD MINES ERROR:", e)
+
+atexit.register(save_mines_to_db)
+
+def handle_shutdown(signum, frame):
+    save_mines_to_db()
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, handle_shutdown)
+signal.signal(signal.SIGINT, handle_shutdown)
+
 mines_lock = threading.Lock()
 crash_lock = threading.Lock()
 
@@ -1617,7 +1675,10 @@ def start_mines_game():
             for gid, game in active_mines_games.items():
                 if game['user_id'] == uid and game['status'] == 'active':
                     return jsonify({'error': 'У тебя уже есть активная игра!'}), 400
-            qwone("UPDATE users SET balance = balance - %s WHERE id = %s AND balance >= %s", (bet, uid, bet))
+            result = qwone("UPDATE users SET balance = balance - %s WHERE id = %s AND balance >= %s RETURNING balance",
+                         (bet, uid, bet))
+            if not result:
+                return jsonify({'error': 'Недостаточно звёзд'}), 400
             total_spent = user[11] + bet
             update_user(uid, total_spent=total_spent)
             board = [0] * 25
@@ -1626,7 +1687,7 @@ def start_mines_game():
                 board[pos] = 1
             game_id = str(uuid.uuid4())
             max_mult = get_mines_multiplier(3, mines)
-            active_mines_games[game_id] = {'user_id': uid, 'bet': bet, 'mines': mines, 'board': board, 'opened': [0] * 25, 'opened_count': 0, 'multiplier': 1.0, 'max_multiplier': max_mult, 'status': 'active'}
+            active_mines_games[game_id] = {'user_id': uid, 'bet': bet, 'mines': mines, 'board': board, 'opened': [0] * 25, 'opened_count': 0, 'multiplier': 1.0, 'max_multiplier': max_mult, 'status': 'active', 'created_at': int(time.time())}
         user_after = get_user(uid)
         return jsonify({'game_id': game_id, 'balance': user_after[1] if user_after else user[1] - bet})
 
@@ -1659,7 +1720,9 @@ def open_mines_cell():
                 update_mines_stats(uid, won=False, multiplier=0, stars=game['bet'])
                 user = get_user(uid)
                 mines_positions = [i for i, v in enumerate(game['board']) if v == 1]
-                del active_mines_games[game_id]
+                qw("UPDATE active_mines_games SET status = %s WHERE game_id = %s", (game['status'], game_id))
+                if game_id in active_mines_games:
+                    del active_mines_games[game_id]
                 return jsonify({'status': 'mine', 'cell': index, 'opened_count': game['opened_count'], 'multiplier': 0, 'game_over': True, 'won': False, 'bet': game['bet'], 'balance': user[1], 'mines_positions': mines_positions})
             opened = game['opened_count']
             game['multiplier'] = get_mines_multiplier(opened, game['mines'])
@@ -1674,7 +1737,9 @@ def open_mines_cell():
                 game['status'] = 'won'
                 update_mines_stats(uid, won=True, multiplier=game['multiplier'], stars=final_winnings)
                 mines_positions = [i for i, v in enumerate(game['board']) if v == 1]
-                del active_mines_games[game_id]
+                qw("UPDATE active_mines_games SET status = %s WHERE game_id = %s", (game['status'], game_id))
+                if game_id in active_mines_games:
+                    del active_mines_games[game_id]
                 return jsonify({'status': 'safe', 'cell': index, 'opened_count': game['opened_count'], 'multiplier': game['multiplier'], 'game_over': True, 'won': True, 'winnings': final_winnings, 'bet': game['bet'], 'balance': new_bal, 'mines_positions': mines_positions})
             user = get_user(uid)
             return jsonify({'status': 'safe', 'cell': index, 'opened_count': game['opened_count'], 'multiplier': game['multiplier'], 'game_over': False, 'won': False, 'balance': user[1]})
@@ -1707,7 +1772,9 @@ def cashout_mines():
             multiplier = game['multiplier']
             update_mines_stats(uid, won=True, multiplier=multiplier, stars=final_winnings)
             mines_positions = [i for i, v in enumerate(game['board']) if v == 1]
-            del active_mines_games[game_id]
+            qw("UPDATE active_mines_games SET status = 'cashed_out' WHERE game_id = %s", (game_id,))
+            if game_id in active_mines_games:
+                del active_mines_games[game_id]
             return jsonify({'win': final_winnings, 'balance': new_bal, 'multiplier': multiplier, 'game_over': True, 'won': True, 'mines_positions': mines_positions})
 
 @app.route('/exit_mines', methods=['POST'])
@@ -1865,7 +1932,8 @@ def upgrade_execute():
             return jsonify({'error': f'Цель должна быть от {bet + 1} до 2000⭐'}), 400
         if user[1] < bet:
             return jsonify({'error': 'Недостаточно звёзд'}), 400
-        raw_chance = (bet / target) * 100        chance = min(max(raw_chance, 1.0), 70.0)
+        raw_chance = (bet / target) * 100
+        chance = min(max(raw_chance, 1.0), 70.0)
         rand = random.random() * 100
         success = rand <= chance
         if success:
@@ -1948,10 +2016,14 @@ def start_background_threads():
         threading.Thread(target=run_polling, daemon=True).start()
         print("✅ Polling mode (запуск в фоновом потоке)")
 
-if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_SERVICE_NAME"):
-    start_background_threads()
-elif __name__ == "__main__":
-    start_background_threads()
-    port = int(os.environ.get("PORT", 8080))
-    print(f"✅ БОТ ЗАПУЩЕН на порту {port}")
+if __name__ == "__main__":
+    init_db()
+    load_mines_from_db()
+    port = int(os.environ.get("PORT", 5000))
+    
+    webhook_url = WEBAPP_URL + "/webhook"
+    bot.remove_webhook()
+    bot.set_webhook(url=webhook_url)
+    print("WEBHOOK SET TO:", webhook_url)
+    
     app.run(host="0.0.0.0", port=port)
