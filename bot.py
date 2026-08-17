@@ -462,11 +462,11 @@ def get_prize(case_type, user_id=None):
     if user_id:
         row = qone("SELECT luck_boost FROM users WHERE id=%s", (user_id,))
         if row and row[0] > 1.0:
-            c = max(0, c - 0.21)
-            r = r + 0.07
+            c = max(0, c - 0.185)
+            r = r + 0.10
             e = e + 0.05
-            l = l + 0.05
-            j = j + 0.01
+            l = l + 0.03
+            j = j + 0.005
             total = c + r + e + l + j
             if total > 1.0:
                 factor = 1.0 / total
@@ -958,18 +958,20 @@ def reset_user(msg):
     if not user:
         bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
         return
-    update_user(user[0], balance=0, total_cases=0, streak=0, status="🟢 Новичок", refs=0, total_spent=0, total_deposit=0, claimed_deposit='')
-    qw("DELETE FROM level_wins WHERE user_id=%s", (user[0],))
-    qw("DELETE FROM level_progress WHERE user_id=%s", (user[0],))
-    qw("DELETE FROM completed_quests WHERE user_id=%s", (user[0],))
-    qw("DELETE FROM case_stats WHERE user_id=%s", (user[0],))
-    qw("DELETE FROM mines_stats WHERE user_id=%s", (user[0],))
-    qw("DELETE FROM crash_stats WHERE user_id=%s", (user[0],))
-    qw("DELETE FROM battle_stats WHERE user_id=%s", (user[0],))
-    qw("DELETE FROM used_promos WHERE user_id=%s", (user[0],))
-    qw("DELETE FROM promo_spend WHERE user_id=%s", (user[0],))
-    qw("DELETE FROM invited WHERE inviter_id=%s OR invited_id=%s", (user[0], user[0]))
-    admin_log('reset', user[0], f"Сброшен @{username}")
+    uid = user[0]
+    update_user(uid, balance=0, total_cases=0, streak=0, status="🟢 Новичок", refs=0, total_spent=0, total_deposit=0, claimed_deposit='')
+    qw("DELETE FROM level_wins WHERE user_id=%s", (uid,))
+    qw("DELETE FROM level_progress WHERE user_id=%s", (uid,))
+    qw("DELETE FROM completed_quests WHERE user_id=%s", (uid,))
+    qw("DELETE FROM case_stats WHERE user_id=%s", (uid,))
+    qw("DELETE FROM mines_stats WHERE user_id=%s", (uid,))
+    qw("DELETE FROM crash_stats WHERE user_id=%s", (uid,))
+    qw("DELETE FROM battle_stats WHERE user_id=%s", (uid,))
+    qw("DELETE FROM used_promos WHERE user_id=%s", (uid,))
+    qw("DELETE FROM promo_spend WHERE user_id=%s", (uid,))
+    qw("DELETE FROM invited WHERE inviter_id=%s OR invited_id=%s", (uid, uid))
+    qw("DELETE FROM active_mines_games WHERE user_id=%s", (uid,))
+    admin_log('reset', uid, f"Сброшен @{username}")
     bot.reply_to(msg, f"✅ @{username} сброшен!")
 
 @bot.message_handler(commands=['luck'])
@@ -986,7 +988,7 @@ def luck_boost(msg):
         bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
         return
     if user[12] > 1.0:
-        bot.reply_to(msg, f"❌ У @{username} уже повышены шансы!")
+        bot.reply_to(msg, f"У @{username} уже активен luck boost! Сначала /unluck @{username}")
         return
     update_user(user[0], luck_boost=5.0)
     admin_log('luck', user[0], f"Шансы x5 для @{username}")
@@ -1004,6 +1006,9 @@ def unluck_boost(msg):
     user = get_user_by_username(username)
     if not user:
         bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        return
+    if user[12] == 1.0:
+        bot.reply_to(msg, f"У @{username} нет активного luck boost! Сначала /luck @{username}")
         return
     update_user(user[0], luck_boost=1.0)
     admin_log('unluck', user[0], f"Шансы сброшены для @{username}")
@@ -1066,12 +1071,11 @@ def add_balance(msg):
     if not user:
         bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
         return
-    new_balance = user[1] + amount
-    update_user(user[0], balance=new_balance)
-    admin_log('addbalance', user[0], f"Начислено {amount}⭐ @{username}")
-    bot.reply_to(msg, f"✅ Начислено {amount}⭐ @{username}!\nНовый баланс: {new_balance}⭐")
+    qw("UPDATE users SET balance = %s WHERE id = %s", (amount, user[0]))
+    admin_log('addbalance', user[0], f"Баланс установлен {amount}⭐ для @{username}")
+    bot.reply_to(msg, f"✅ Баланс @{username} установлен на {amount}⭐!")
     try:
-        bot.send_message(user[0], f"🎁 Администратор начислил тебе {amount}⭐!\nТекущий баланс: {new_balance}⭐")
+        bot.send_message(user[0], f"🎁 Администратор установил твой баланс на {amount}⭐!")
     except Exception:
         pass
 
@@ -1089,8 +1093,8 @@ def take_stars(msg):
     except ValueError:
         bot.reply_to(msg, "Сумма должна быть числом")
         return
-    if amount < 1:
-        bot.reply_to(msg, "Сумма должна быть положительной")
+    if amount < 1 or amount > 10000:
+        bot.reply_to(msg, "Сумма от 1 до 10000")
         return
     reason = ' '.join(args[3:]) if len(args) > 3 else 'Вывод средств'
     user = get_user_by_username(username)
@@ -1158,23 +1162,23 @@ def top_users(msg):
     if msg.from_user.id != ADMIN_ID:
         return
     args = msg.text.split()
-    limit = 10
+    limit = 100
     if len(args) >= 2:
         try:
-            limit = min(int(args[1]), 50)
+            limit = min(int(args[1]), 100)
         except ValueError:
             pass
     top_balance = q("SELECT username, balance, total_deposit, total_cases FROM users WHERE banned=0 ORDER BY balance DESC LIMIT %s", (limit,))
-    top_deposit = q("SELECT username, total_deposit, balance FROM users WHERE banned=0 ORDER BY total_deposit DESC LIMIT %s", (limit,))
     total_users = qone("SELECT COUNT(*) FROM users")[0]
     total_balance = qone("SELECT COALESCE(SUM(balance), 0) FROM users")[0]
     total_deposited = qone("SELECT COALESCE(SUM(total_deposit), 0) FROM users")[0]
-    text = f"СТАТИСТИКА:\nВсего пользователей: {total_users}\nОбщий баланс: {total_balance}⭐\nОбщие депозиты: {total_deposited}⭐\n\nТОП ПО БАЛАНСУ:\n"
+    text = f"PROJECT STATS:\n"
+    text += f"Total users: {total_users}\n"
+    text += f"Total balance: {total_balance}\n"
+    text += f"Total deposited: {total_deposited}\n\n"
+    text += f"TOP 100 BY CAPITAL (BALANCE):\n"
     for i, (uname, bal, dep, cases) in enumerate(top_balance, 1):
-        text += f"{i}. @{uname or 'N/A'} - {bal}⭐ (деп: {dep}⭐)\n"
-    text += "\nТОП ПО ДЕПОЗИТАМ:\n"
-    for i, (uname, dep, bal) in enumerate(top_deposit, 1):
-        text += f"{i}. @{uname or 'N/A'} - {dep}⭐ (бал: {bal}⭐)\n"
+        text += f"{i}. @{uname or 'N/A'} — {bal} stars\n"
     admin_log('top', None, f"Просмотр топ-{limit}")
     bot.reply_to(msg, text)
 
@@ -1255,6 +1259,21 @@ def list_promo(msg):
         status = "✅" if max_uses == 0 or used_count < max_uses else "❌"
         text += f"{status} {code} — {reward}⭐ (исп. {used_count}/{max_uses if max_uses > 0 else '∞'})\n"
     bot.reply_to(msg, text)
+
+@bot.message_handler(commands=['delete_promo'])
+def delete_promo_cmd(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "Формат: /delete_promo CODE")
+        return
+    code = args[1].upper()
+    qw("DELETE FROM promo_codes WHERE code=%s", (code,))
+    qw("DELETE FROM used_promos WHERE promo_code=%s", (code,))
+    qw("DELETE FROM promo_spend WHERE promo_code=%s", (code,))
+    admin_log('delete_promo', None, f"Удалён промокод {code}")
+    bot.reply_to(msg, f"Промокод {code} удалён!")
 
 @app.route('/health')
 def health():
