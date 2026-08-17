@@ -190,6 +190,20 @@ def qw(sql, params=()):
         finally:
             release_conn()
 
+def qwone(sql, params=()):
+    with write_lock:
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                conn.commit()
+                return cur.fetchone()
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            release_conn()
+
 def init_db():
     conn = get_conn()
     with write_lock:
@@ -791,25 +805,24 @@ def got_payment(msg):
     payload = msg.successful_payment.invoice_payload
     safe_delete(msg.chat.id, msg.message_id)
     try:
-        parts = payload.split("_")
-        if len(parts) != 3 or parts[0] != "deposit":
-            raise ValueError("Invalid payload")
-        _, payload_uid, amount = parts
+        _, payload_uid, amount = payload.split("_")
         amount = int(amount)
         payload_uid = int(payload_uid)
         if payload_uid != uid:
             return
-        result = qone("UPDATE users SET balance = balance + %s, total_deposit = total_deposit + %s WHERE id = %s RETURNING balance",
-                     (amount, amount, uid))
-        if not result:
-            return
-        new_balance = result[0]
-        confirm_msg = bot.send_message(msg.chat.id, "Balance topped up! +" + str(amount) + " stars. Current: " + str(new_balance), parse_mode="HTML")
-        delete_message_after(msg.chat.id, confirm_msg.message_id, 60)
-        show_main_menu(msg.chat.id)
+        user = get_user(uid)
+        if user:
+            qw("UPDATE users SET balance = balance + %s, total_deposit = total_deposit + %s WHERE id = %s", (amount, amount, uid))
+            confirm_msg = bot.send_message(
+                msg.chat.id,
+                f"✅ <b>Баланс пополнен!</b>\n\n+{amount}⭐\n💰 Текущий баланс: {user[1] + amount}⭐",
+                parse_mode="HTML"
+            )
+            delete_message_after(msg.chat.id, confirm_msg.message_id, 60)
+            show_main_menu(msg.chat.id)
     except Exception as e:
-        print("Payment error:", e)
-        error_msg = bot.send_message(msg.chat.id, "Deposit error. Contact support.")
+        print(f"Payment error: {e}")
+        error_msg = bot.send_message(msg.chat.id, "❌ Ошибка при зачислении. Обратись в поддержку.")
         delete_message_after(msg.chat.id, error_msg.message_id, 60)
 
 @bot.message_handler(commands=['ban'])
@@ -976,6 +989,128 @@ def add_balance(msg):
     except Exception:
         pass
 
+@bot.message_handler(commands=['take'])
+def take_stars(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "Формат: /take @username сумма [причина]")
+        return
+    username = args[1].replace('@', '')
+    try:
+        amount = int(args[2])
+    except ValueError:
+        bot.reply_to(msg, "Сумма должна быть числом")
+        return
+    if amount < 1:
+        bot.reply_to(msg, "Сумма должна быть положительной")
+        return
+    reason = ' '.join(args[3:]) if len(args) > 3 else 'Вывод средств'
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"Пользователь @{username} не найден")
+        return
+    uid = user[0]
+    current_balance = user[1]
+    if current_balance < amount:
+        bot.reply_to(msg, f"У @{username} недостаточно звёзд! Баланс: {current_balance}, требуется: {amount}")
+        return
+    new_balance = current_balance - amount
+    update_user(uid, balance=new_balance)
+    admin_log('take', uid, f"Списано {amount}⭐. Причина: {reason}. Было: {current_balance}, стало: {new_balance}")
+    bot.reply_to(msg, f"Списано {amount}⭐ у @{username}! Новый баланс: {new_balance}⭐")
+    try:
+        bot.send_message(uid, f"С вашего баланса списано {amount}⭐\nПричина: {reason}\nТекущий баланс: {new_balance}⭐")
+    except Exception:
+        pass
+
+@bot.message_handler(commands=['userinfo'])
+def user_info(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "Формат: /userinfo @username")
+        return
+    username = args[1].replace('@', '')
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"Пользователь @{username} не найден")
+        return
+    uid = user[0]
+    balance = user[1]
+    total_cases = user[2]
+    status = user[5]
+    refs = user[6]
+    total_spent = user[11]
+    total_deposit = user[14]
+    luck_boost = user[12]
+    banned = "ДА" if user[13] == 1 else "Нет"
+    mines = qone("SELECT games, wins, losses, best_multiplier, total_won, total_lost FROM mines_stats WHERE user_id=%s", (uid,))
+    crash = qone("SELECT games, wins, losses, best_multiplier, total_won, total_lost FROM crash_stats WHERE user_id=%s", (uid,))
+    battle = qone("SELECT battles_played, battles_won, battles_lost, total_won_stars, total_lost_stars FROM battle_stats WHERE user_id=%s", (uid,))
+    text = f"""ИНФОРМАЦИЯ: @{username}
+ID: {uid}
+Баланс: {balance}⭐
+Всего кейсов: {total_cases}
+Статус: {status}
+Рефералов: {refs}
+Потрачено: {total_spent}⭐
+Пополнено: {total_deposit}⭐
+Удача: x{luck_boost}
+Бан: {banned}
+
+МИНЁР: Игр: {mines[0] if mines else 0} | Побед: {mines[1] if mines else 0} | Поражений: {mines[2] if mines else 0}
+КРАШ: Игр: {crash[0] if crash else 0} | Побед: {crash[1] if crash else 0} | Поражений: {crash[2] if crash else 0}
+БИТВЫ: Игр: {battle[0] if battle else 0} | Побед: {battle[1] if battle else 0} | Поражений: {battle[2] if battle else 0}"""
+    admin_log('userinfo', uid, f"Просмотр инфо @{username}")
+    bot.reply_to(msg, text)
+
+@bot.message_handler(commands=['top'])
+def top_users(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    limit = 10
+    if len(args) >= 2:
+        try:
+            limit = min(int(args[1]), 50)
+        except ValueError:
+            pass
+    top_balance = q("SELECT username, balance, total_deposit, total_cases FROM users WHERE banned=0 ORDER BY balance DESC LIMIT %s", (limit,))
+    top_deposit = q("SELECT username, total_deposit, balance FROM users WHERE banned=0 ORDER BY total_deposit DESC LIMIT %s", (limit,))
+    total_users = qone("SELECT COUNT(*) FROM users")[0]
+    total_balance = qone("SELECT COALESCE(SUM(balance), 0) FROM users")[0]
+    total_deposited = qone("SELECT COALESCE(SUM(total_deposit), 0) FROM users")[0]
+    text = f"СТАТИСТИКА:\nВсего пользователей: {total_users}\nОбщий баланс: {total_balance}⭐\nОбщие депозиты: {total_deposited}⭐\n\nТОП ПО БАЛАНСУ:\n"
+    for i, (uname, bal, dep, cases) in enumerate(top_balance, 1):
+        text += f"{i}. @{uname or 'N/A'} - {bal}⭐ (деп: {dep}⭐)\n"
+    text += "\nТОП ПО ДЕПОЗИТАМ:\n"
+    for i, (uname, dep, bal) in enumerate(top_deposit, 1):
+        text += f"{i}. @{uname or 'N/A'} - {dep}⭐ (бал: {bal}⭐)\n"
+    admin_log('top', None, f"Просмотр топ-{limit}")
+    bot.reply_to(msg, text)
+
+@bot.message_handler(commands=['adminlogs'])
+def admin_logs_cmd(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    logs = q("SELECT action, target_id, details, created_at FROM admin_logs ORDER BY created_at DESC LIMIT 20")
+    if not logs:
+        bot.reply_to(msg, "Логов пока нет")
+        return
+    text = "ПОСЛЕДНИЕ ДЕЙСТВИЯ АДМИНА:\n\n"
+    for action, target_id, details, created_at in logs:
+        date_str = datetime.fromtimestamp(created_at).strftime('%d.%m %H:%M')
+        text += f"{date_str} | {action}"
+        if target_id:
+            text += f" | ID:{target_id}"
+        if details:
+            text += f" | {details}"
+        text += "\n"
+    bot.reply_to(msg, text)
+
 @bot.message_handler(commands=['create_promo'])
 def create_promo(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1107,7 +1242,7 @@ def open_case():
         with write_lock:
             if case_type == "free":
                 prize = get_prize(case_type, uid)
-                result = qone("""
+                result = qwone("""
                     UPDATE users SET balance = balance + %s, total_cases = total_cases + 1, last_free_case = %s
                     WHERE id = %s AND (last_free_case = 0 OR %s - last_free_case >= %s)
                     RETURNING balance, total_cases
@@ -1123,7 +1258,7 @@ def open_case():
             else:
                 price = CASE_PRICES.get(case_type, 0)
                 prize = get_prize(case_type, uid)
-                result = qone("""
+                result = qwone("""
                     UPDATE users SET balance = balance - %s + %s, total_cases = total_cases + 1, total_spent = total_spent + %s
                     WHERE id = %s AND balance >= %s
                     RETURNING balance, total_cases
@@ -1165,10 +1300,9 @@ def open_10_cases():
             prizes.append(prize)
             total_prize += prize
         register_case_opening(uid, case_type, 10)
-        result = qone("""
+        result = qwone("""
             UPDATE users SET balance = balance - %s + %s, total_cases = total_cases + 10, total_spent = total_spent + %s
-            WHERE id = %s
-            RETURNING balance, total_cases
+            WHERE id = %s            RETURNING balance, total_cases
         """, (total_price, total_prize, total_price, uid))
         update_status(uid, result[1] if result else user[2] + 10)
         return jsonify({'prizes': prizes, 'total_prize': total_prize, 'new_balance': result[0] if result else user[1] - total_price + total_prize})
@@ -1460,7 +1594,7 @@ def start_mines_game():
             for gid, game in active_mines_games.items():
                 if game['user_id'] == uid and game['status'] == 'active':
                     return jsonify({'error': 'У тебя уже есть активная игра!'}), 400
-            update_user(uid, balance=user[1] - bet)
+            qwone("UPDATE users SET balance = balance - %s WHERE id = %s AND balance >= %s", (bet, uid, bet))
             total_spent = user[11] + bet
             update_user(uid, total_spent=total_spent)
             board = [0] * 25
@@ -1470,7 +1604,8 @@ def start_mines_game():
             game_id = str(uuid.uuid4())
             max_mult = get_mines_multiplier(3, mines)
             active_mines_games[game_id] = {'user_id': uid, 'bet': bet, 'mines': mines, 'board': board, 'opened': [0] * 25, 'opened_count': 0, 'multiplier': 1.0, 'max_multiplier': max_mult, 'status': 'active'}
-        return jsonify({'game_id': game_id, 'balance': user[1] - bet})
+        user_after = get_user(uid)
+        return jsonify({'game_id': game_id, 'balance': user_after[1] if user_after else user[1] - bet})
 
 @app.route('/open_mines_cell', methods=['POST'])
 def open_mines_cell():
@@ -1748,149 +1883,6 @@ def webhook():
     except Exception:
         return '', 400
 
-# ===== КОМАНДЫ АДМИНА =====
-def admin_log(action, target_id=None, details=""):
-    try:
-        qw("INSERT INTO admin_logs (admin_id, action, target_id, details, created_at) VALUES (%s, %s, %s, %s, %s)",
-           (ADMIN_ID, action, target_id, details, int(time.time())))
-    except Exception as e:
-        print("[ADMIN LOG ERROR]", e)
-
-def get_user_by_username(username):
-    return qone("SELECT * FROM users WHERE username = %s", (username,))
-
-@bot.message_handler(commands=['take'])
-def take_stars(msg):
-    if msg.from_user.id != ADMIN_ID:
-        return
-    args = msg.text.split()
-    if len(args) < 3:
-        bot.reply_to(msg, "Format: /take @username amount [reason]")
-        return
-    username = args[1].replace('@', '')
-    try:
-        amount = int(args[2])
-    except ValueError:
-        bot.reply_to(msg, "Amount must be a number")
-        return
-    if amount < 1:
-        bot.reply_to(msg, "Amount must be positive")
-        return
-    reason = ' '.join(args[3:]) if len(args) > 3 else 'Withdrawal'
-    user = get_user_by_username(username)
-    if not user:
-        bot.reply_to(msg, "User @" + username + " not found")
-        return
-    uid = user[0]
-    current_balance = user[1]
-    if current_balance < amount:
-        bot.reply_to(msg, "@" + username + " has insufficient balance! Current: " + str(current_balance) + ", required: " + str(amount))
-        return
-    new_balance = current_balance - amount
-    update_user(uid, balance=new_balance)
-    admin_log('take', uid, "Deducted " + str(amount) + " stars. Reason: " + reason + ". Was: " + str(current_balance) + ", now: " + str(new_balance))
-    bot.reply_to(msg, "Deducted " + str(amount) + " stars from @" + username + "! New balance: " + str(new_balance))
-    try:
-        bot.send_message(uid, str(amount) + " stars deducted. Reason: " + reason + ". Current: " + str(new_balance))
-    except Exception:
-        pass
-
-@bot.message_handler(commands=['userinfo'])
-def user_info(msg):
-    if msg.from_user.id != ADMIN_ID:
-        return
-    args = msg.text.split()
-    if len(args) < 2:
-        bot.reply_to(msg, "Format: /userinfo @username")
-        return
-    username = args[1].replace('@', '')
-    user = get_user_by_username(username)
-    if not user:
-        bot.reply_to(msg, "User @" + username + " not found")
-        return
-    uid = user[0]
-    balance = user[1]
-    total_cases = user[2]
-    status = user[5]
-    refs = user[6]
-    total_spent = user[11]
-    total_deposit = user[14]
-    luck_boost = user[12]
-    banned = "YES" if user[13] == 1 else "No"
-    mines = qone("SELECT games, wins, losses, best_multiplier, total_won, total_lost FROM mines_stats WHERE user_id=%s", (uid,))
-    crash = qone("SELECT games, wins, losses, best_multiplier, total_won, total_lost FROM crash_stats WHERE user_id=%s", (uid,))
-    battle = qone("SELECT battles_played, battles_won, battles_lost, total_won_stars, total_lost_stars FROM battle_stats WHERE user_id=%s", (uid,))
-    text = "USER INFO: @" + username + "\n"
-    text += "ID: " + str(uid) + "\n"
-    text += "Balance: " + str(balance) + "\n"
-    text += "Total cases: " + str(total_cases) + "\n"
-    text += "Status: " + str(status) + "\n"
-    text += "Refs: " + str(refs) + "\n"
-    text += "Spent: " + str(total_spent) + "\n"
-    text += "Deposited: " + str(total_deposit) + "\n"
-    text += "Luck: x" + str(luck_boost) + "\n"
-    text += "Banned: " + banned + "\n\n"
-    text += "MINES:\n"
-    text += "Games: " + str(mines[0] if mines else 0) + " | Wins: " + str(mines[1] if mines else 0) + " | Losses: " + str(mines[2] if mines else 0) + "\n"
-    text += "Best: x" + str(mines[3] if mines else 1.0) + " | Won: " + str(mines[4] if mines else 0) + " | Lost: " + str(mines[5] if mines else 0) + "\n\n"
-    text += "CRASH:\n"
-    text += "Games: " + str(crash[0] if crash else 0) + " | Wins: " + str(crash[1] if crash else 0) + " | Losses: " + str(crash[2] if crash else 0) + "\n"
-    text += "Best: x" + str(crash[3] if crash else 1.0) + " | Won: " + str(crash[4] if crash else 0) + " | Lost: " + str(crash[5] if crash else 0) + "\n\n"
-    text += "BATTLES:\n"
-    text += "Games: " + str(battle[0] if battle else 0) + " | Wins: " + str(battle[1] if battle else 0) + " | Losses: " + str(battle[2] if battle else 0) + "\n"
-    text += "Won: " + str(battle[3] if battle else 0) + " | Lost: " + str(battle[4] if battle else 0)
-    admin_log('userinfo', uid, "Viewed info for @" + username)
-    bot.reply_to(msg, text)
-
-@bot.message_handler(commands=['top'])
-def top_users(msg):
-    if msg.from_user.id != ADMIN_ID:
-        return
-    args = msg.text.split()
-    limit = 10
-    if len(args) >= 2:
-        try:
-            limit = min(int(args[1]), 50)
-        except ValueError:
-            pass
-    top_balance = q("SELECT username, balance, total_deposit, total_cases FROM users WHERE banned=0 ORDER BY balance DESC LIMIT %s", (limit,))
-    top_deposit = q("SELECT username, total_deposit, balance FROM users WHERE banned=0 ORDER BY total_deposit DESC LIMIT %s", (limit,))
-    total_users = qone("SELECT COUNT(*) FROM users")[0]
-    total_balance = qone("SELECT COALESCE(SUM(balance), 0) FROM users")[0]
-    total_deposited = qone("SELECT COALESCE(SUM(total_deposit), 0) FROM users")[0]
-    text = "PROJECT STATS:\n"
-    text += "Total users: " + str(total_users) + "\n"
-    text += "Total balance: " + str(total_balance) + "\n"
-    text += "Total deposited: " + str(total_deposited) + "\n\n"
-    text += "TOP BY BALANCE:\n"
-    for i, (uname, bal, dep, cases) in enumerate(top_balance, 1):
-        text += str(i) + ". @" + str(uname or 'N/A') + " - " + str(bal) + " stars (dep: " + str(dep) + ", cases: " + str(cases) + ")\n"
-    text += "\nTOP BY DEPOSIT:\n"
-    for i, (uname, dep, bal) in enumerate(top_deposit, 1):
-        text += str(i) + ". @" + str(uname or 'N/A') + " - " + str(dep) + " stars (bal: " + str(bal) + ")\n"
-    admin_log('top', None, "Viewed top-" + str(limit))
-    bot.reply_to(msg, text)
-
-@bot.message_handler(commands=['adminlogs'])
-def admin_logs_cmd(msg):
-    if msg.from_user.id != ADMIN_ID:
-        return
-    logs = q("SELECT action, target_id, details, created_at FROM admin_logs ORDER BY created_at DESC LIMIT 20")
-    if not logs:
-        bot.reply_to(msg, "No logs yet")
-        return
-    text = "RECENT ADMIN ACTIONS:\n\n"
-    for action, target_id, details, created_at in logs:
-        date_str = datetime.fromtimestamp(created_at).strftime('%d.%m %H:%M')
-        text += date_str + " | " + action
-        if target_id:
-            text += " | ID:" + str(target_id)
-        if details:
-            text += " | " + details
-        text += "\n"
-    bot.reply_to(msg, text)
-
-# ===== ЗАПУСК =====
 _start_lock = threading.Lock()
 _threads_started = False
 
@@ -1930,13 +1922,14 @@ def start_background_threads():
     threading.Thread(target=crash_timer, daemon=True).start()
     if os.environ.get("SET_WEBHOOK") == "1":
         threading.Thread(target=run_webhook_setup, daemon=True).start()
-        print("✅ Webhook mode (запуск в фоновом потоке)")
     else:
         threading.Thread(target=run_polling, daemon=True).start()
         print("✅ Polling mode (запуск в фоновом потоке)")
 
-if __name__ == "__main__":
-    init_db()
-    port = int(os.environ.get("PORT", 5000))
-    print("BOT STARTED port", port)
+if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_SERVICE_NAME"):
+    start_background_threads()
+elif __name__ == "__main__":
+    start_background_threads()
+    port = int(os.environ.get("PORT", 8080))
+    print(f"✅ БОТ ЗАПУЩЕН на порту {port}")
     app.run(host="0.0.0.0", port=port)
