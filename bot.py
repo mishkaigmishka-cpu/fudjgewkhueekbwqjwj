@@ -1,11 +1,22 @@
 import telebot
 import random
 import psycopg2
+import psycopg2.pool
 import time
 import os
 import threading
+import hmac
+import hashlib
+import urllib.parse
+import uuid
+import ipaddress
+import json
+from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo, LabeledPrice
+from cachetools import TTLCache
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 if not TOKEN:
@@ -16,14 +27,27 @@ if not WEBAPP_URL:
     raise ValueError("WEBAPP_URL не установлен!")
 WEBAPP_URL = WEBAPP_URL.rstrip('/')
 
-ADMIN_ID = 7819642052
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL не установлен!")
 
+WEBAPP_SECRET = hmac.new(b"WebAppData", TOKEN.encode(), hashlib.sha256).digest()
+
+TG_NETWORKS = [
+    ipaddress.ip_network("149.154.160.0/20"),
+    ipaddress.ip_network("91.108.4.0/22")
+]
+
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
+
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per minute"]
+)
 
 # ===== АВТОУДАЛЕНИЕ =====
 def delete_message_after(chat_id, message_id, delay=60):
@@ -41,11 +65,11 @@ def safe_delete(chat_id, message_id):
     except Exception:
         pass
 
-main_message_ids = {}
+main_message_ids = TTLCache(maxsize=10000, ttl=3600)
 
 # ===== БАНЫ =====
 def is_banned(uid):
-    row = q("SELECT banned FROM users WHERE id=%s", (uid,)).fetchone()
+    row = qone("SELECT banned FROM users WHERE id=%s", (uid,))
     return row and row[0] == 1
 
 def show_main_menu(chat_id):
@@ -75,35 +99,102 @@ def show_main_menu(chat_id):
 
     main_message_ids[chat_id] = msg.message_id
 
+# ===== ВЕРИФИКАЦИЯ TELEGRAM =====
+def verify_telegram_init_data(init_data_str: str) -> dict:
+    if not init_data_str:
+        return None
+    try:
+        parsed = dict(urllib.parse.parse_qsl(init_data_str, keep_blank_values=True))
+        received_hash = parsed.pop('hash', None)
+        if not received_hash:
+            return None
+        data_check_string = '\n'.join(f"{k}={v}" for k, v in sorted(parsed.items()))
+        expected_hash = hmac.new(WEBAPP_SECRET, data_check_string.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected_hash, received_hash):
+            return None
+        user_data = parsed.get('user', '{}')
+        if isinstance(user_data, str):
+            user_data = json.loads(user_data)
+        return {
+            'user_id': user_data.get('id'),
+            'username': user_data.get('username', ''),
+            'first_name': user_data.get('first_name', ''),
+            'auth_date': int(parsed.get('auth_date', 0))
+        }
+    except Exception:
+        return None
+
+def get_authenticated_user_id() -> int:
+    init_data = request.headers.get('X-Telegram-Init-Data', '')
+    if not init_data:
+        data = request.get_json(silent=True) or {}
+        init_data = data.get('init_data', '')
+    if not init_data:
+        return None
+    verified = verify_telegram_init_data(init_data)
+    if not verified:
+        return None
+    if time.time() - verified.get('auth_date', 0) > 86400:
+        return None
+    return verified.get('user_id')
+
 # ===== БД =====
+_db_pool = psycopg2.pool.ThreadedConnectionPool(
+    minconn=2, maxconn=20, dsn=DATABASE_URL
+)
 _db_local = threading.local()
 write_lock = threading.RLock()
 
 def get_conn():
     conn = getattr(_db_local, 'conn', None)
     if conn is None or conn.closed:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = _db_pool.getconn()
         _db_local.conn = conn
     return conn
 
+def release_conn():
+    conn = getattr(_db_local, 'conn', None)
+    if conn is not None:
+        _db_pool.putconn(conn)
+        _db_local.conn = None
+
 def q(sql, params=()):
-    cur = get_conn().cursor()
-    cur.execute(sql, params)
-    return cur
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            return cur.fetchall()
+    finally:
+        release_conn()
+
+def qone(sql, params=()):
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            return cur.fetchone()
+    finally:
+        release_conn()
 
 def qw(sql, params=()):
     with write_lock:
-        cur = get_conn().cursor()
-        cur.execute(sql, params)
-        get_conn().commit()
-    return cur
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                conn.commit()
+                return cur
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            release_conn()
 
 def init_db():
     conn = get_conn()
     with write_lock:
         cur = conn.cursor()
         
-        # ===== ЗАЩИТА: ПРОВЕРКА СУЩЕСТВОВАНИЯ ТАБЛИЦ =====
         cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')")
         users_exists = cur.fetchone()[0]
         
@@ -130,7 +221,8 @@ def init_db():
             luck_boost REAL DEFAULT 1.0,
             banned INTEGER DEFAULT 0,
             total_deposit INTEGER DEFAULT 0,
-            claimed_deposit TEXT DEFAULT ''
+            claimed_deposit TEXT DEFAULT '',
+            last_free_case INTEGER DEFAULT 0
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS invited (
             inviter_id INTEGER,
@@ -215,6 +307,14 @@ def init_db():
             event_data TEXT DEFAULT '',
             created_at INTEGER
         )''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS admin_logs (
+            id SERIAL PRIMARY KEY,
+            admin_id INTEGER,
+            action TEXT,
+            target_id INTEGER,
+            details TEXT,
+            created_at INTEGER
+        )''')
         cur.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_used_promos_user ON used_promos(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_promo_spend_user ON promo_spend(user_id)")
@@ -223,6 +323,7 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_case_stats_user ON case_stats(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_level_progress_user ON level_progress(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_user_tracking_user ON user_tracking(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_admin_logs_time ON admin_logs(created_at DESC)")
         conn.commit()
 
 init_db()
@@ -234,6 +335,13 @@ def track_user(user_id, event_type, event_data=''):
            (user_id, event_type, event_data, int(time.time())))
     except Exception:
         pass
+
+def admin_log(action: str, target_id: int = None, details: str = ""):
+    try:
+        qw("INSERT INTO admin_logs (admin_id, action, target_id, details, created_at) VALUES (%s, %s, %s, %s, %s)",
+           (ADMIN_ID, action, target_id, details, int(time.time())))
+    except Exception as e:
+        print(f"[ADMIN LOG ERROR] {e}")
 
 # ===== КЕЙСЫ =====
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
@@ -270,6 +378,18 @@ CASE_RANGES = {
     "bedrock": {"common": [5000], "rare": [10000, 25000], "epic": [50000, 100000], "legendary": [250000], "jackpot": [1000000], "common_chance": 0.999, "rare_chance": 0.0009, "epic_chance": 0.00009, "legendary_chance": 0.000009, "jackpot_chance": 0.000001}
 }
 
+# Нормализация шансов
+for case_type, data in CASE_RANGES.items():
+    total = (data['common_chance'] + data['rare_chance'] + 
+             data['epic_chance'] + data['legendary_chance'] + data['jackpot_chance'])
+    if abs(total - 1.0) > 1e-9:
+        factor = 1.0 / total
+        data['common_chance'] *= factor
+        data['rare_chance'] *= factor
+        data['epic_chance'] *= factor
+        data['legendary_chance'] *= factor
+        data['jackpot_chance'] *= factor
+
 def get_prize(case_type, user_id=None):
     data = CASE_RANGES[case_type]
     rnd = random.random()
@@ -281,7 +401,7 @@ def get_prize(case_type, user_id=None):
     j = data["jackpot_chance"]
 
     if user_id:
-        row = q("SELECT luck_boost FROM users WHERE id=%s", (user_id,)).fetchone()
+        row = qone("SELECT luck_boost FROM users WHERE id=%s", (user_id,))
         if row and row[0] > 1.0:
             c = max(0, c - 0.21)
             r = r + 0.07
@@ -330,16 +450,26 @@ def get_prize(case_type, user_id=None):
         return random.choice(data["epic"])
 
 def get_user(uid):
-    return q("SELECT * FROM users WHERE id=%s", (uid,)).fetchone()
+    return qone("SELECT * FROM users WHERE id=%s", (uid,))
 
 def get_user_by_username(username):
-    return q("SELECT * FROM users WHERE username=%s", (username,)).fetchone()
+    return qone("SELECT * FROM users WHERE username=%s", (username,))
+
+ALLOWED_USER_FIELDS = {
+    'balance', 'total_cases', 'streak', 'last_open', 'status',
+    'refs', 'daily_claimed', 'username', 'promo_used', 'promo_code',
+    'total_spent', 'luck_boost', 'banned', 'total_deposit',
+    'claimed_deposit', 'last_free_case'
+}
 
 def update_user(uid, **kwargs):
     if not kwargs:
         return
-    sets = ', '.join(f"{k}=%s" for k in kwargs)
-    vals = list(kwargs.values()) + [uid]
+    safe = {k: v for k, v in kwargs.items() if k in ALLOWED_USER_FIELDS}
+    if not safe:
+        return
+    sets = ', '.join(f"{k}=%s" for k in safe)
+    vals = list(safe.values()) + [uid]
     qw(f"UPDATE users SET {sets} WHERE id=%s", vals)
 
 def update_status(uid, total_cases):
@@ -358,7 +488,7 @@ def update_status(uid, total_cases):
     update_user(uid, status=status)
 
 def get_level_wins(uid):
-    rows = q("SELECT case_type, wins FROM level_wins WHERE user_id=%s", (uid,)).fetchall()
+    rows = q("SELECT case_type, wins FROM level_wins WHERE user_id=%s", (uid,))
     return {r[0]: r[1] for r in rows}
 
 def get_unlocked_levels(uid):
@@ -378,7 +508,7 @@ def add_level_progress(uid, case_type, n=1):
     qw("INSERT INTO level_progress (user_id, case_type, opened) VALUES (%s, %s, %s) ON CONFLICT (user_id, case_type) DO UPDATE SET opened = level_progress.opened + %s", (uid, case_type, n, n))
 
 def get_level_progress(uid, case_type):
-    row = q("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type)).fetchone()
+    row = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
     return row[0] if row else 0
 
 def register_case_opening(uid, case_type, n=1):
@@ -580,7 +710,7 @@ def start(msg):
     except Exception:
         pass
 
-deposit_state = {}
+deposit_state = TTLCache(maxsize=10000, ttl=300)
 
 @bot.callback_query_handler(func=lambda call: call.data == "deposit_menu")
 def deposit_menu(call):
@@ -668,13 +798,10 @@ def got_payment(msg):
             return
         user = get_user(uid)
         if user:
-            new_balance = user[1] + amount
-            total_deposit = user[14] + amount
-            total_spent = user[11] + amount
-            update_user(uid, balance=new_balance, total_deposit=total_deposit, total_spent=total_spent)
+            qw("UPDATE users SET balance = balance + %s, total_deposit = total_deposit + %s WHERE id = %s", (amount, amount, uid))
             confirm_msg = bot.send_message(
                 msg.chat.id,
-                f"✅ <b>Баланс пополнен!</b>\n\n+{amount}⭐\n💰 Текущий баланс: {new_balance}⭐",
+                f"✅ <b>Баланс пополнен!</b>\n\n+{amount}⭐\n💰 Текущий баланс: {user[1] + amount}⭐",
                 parse_mode="HTML"
             )
             delete_message_after(msg.chat.id, confirm_msg.message_id, 60)
@@ -698,6 +825,7 @@ def ban_user(msg):
         bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
         return
     update_user(user[0], banned=1)
+    admin_log('ban', user[0], f"Забанен @{username}")
     bot.reply_to(msg, f"✅ @{username} забанен!")
 
 @bot.message_handler(commands=['unban'])
@@ -714,6 +842,7 @@ def unban_user(msg):
         bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
         return
     update_user(user[0], banned=0)
+    admin_log('unban', user[0], f"Разбанен @{username}")
     bot.reply_to(msg, f"✅ @{username} разбанен!")
 
 @bot.message_handler(commands=['reset'])
@@ -740,6 +869,7 @@ def reset_user(msg):
     qw("DELETE FROM used_promos WHERE user_id=%s", (user[0],))
     qw("DELETE FROM promo_spend WHERE user_id=%s", (user[0],))
     qw("DELETE FROM invited WHERE inviter_id=%s OR invited_id=%s", (user[0], user[0]))
+    admin_log('reset', user[0], f"Сброшен @{username}")
     bot.reply_to(msg, f"✅ @{username} сброшен!")
 
 @bot.message_handler(commands=['luck'])
@@ -759,6 +889,7 @@ def luck_boost(msg):
         bot.reply_to(msg, f"❌ У @{username} уже повышены шансы!")
         return
     update_user(user[0], luck_boost=5.0)
+    admin_log('luck', user[0], f"Шансы x5 для @{username}")
     bot.reply_to(msg, f"✅ Шансы @{username} увеличены в 5x!")
 
 @bot.message_handler(commands=['unluck'])
@@ -775,6 +906,7 @@ def unluck_boost(msg):
         bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
         return
     update_user(user[0], luck_boost=1.0)
+    admin_log('unluck', user[0], f"Шансы сброшены для @{username}")
     bot.reply_to(msg, f"✅ Шансы @{username} сброшены!")
 
 @bot.message_handler(commands=['give'])
@@ -800,6 +932,7 @@ def give_stars(msg):
         return
     new_balance = user[1] + amount
     update_user(user[0], balance=new_balance)
+    admin_log('give', user[0], f"Начислено {amount}⭐ @{username}")
     bot.reply_to(msg, f"✅ Начислено {amount}⭐ @{username}!\nНовый баланс: {new_balance}⭐")
     try:
         bot.send_message(user[0], f"🎁 Администратор начислил тебе {amount}⭐!\nТекущий баланс: {new_balance}⭐")
@@ -835,11 +968,134 @@ def add_balance(msg):
         return
     new_balance = user[1] + amount
     update_user(user[0], balance=new_balance)
+    admin_log('addbalance', user[0], f"Начислено {amount}⭐ @{username}")
     bot.reply_to(msg, f"✅ Начислено {amount}⭐ @{username}!\nНовый баланс: {new_balance}⭐")
     try:
         bot.send_message(user[0], f"🎁 Администратор начислил тебе {amount}⭐!\nТекущий баланс: {new_balance}⭐")
     except Exception:
         pass
+
+@bot.message_handler(commands=['take'])
+def take_stars(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "Формат: /take @username сумма [причина]")
+        return
+    username = args[1].replace('@', '')
+    try:
+        amount = int(args[2])
+    except ValueError:
+        bot.reply_to(msg, "Сумма должна быть числом")
+        return
+    if amount < 1:
+        bot.reply_to(msg, "Сумма должна быть положительной")
+        return
+    reason = ' '.join(args[3:]) if len(args) > 3 else 'Вывод средств'
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"Пользователь @{username} не найден")
+        return
+    uid = user[0]
+    current_balance = user[1]
+    if current_balance < amount:
+        bot.reply_to(msg, f"У @{username} недостаточно звёзд! Баланс: {current_balance}, требуется: {amount}")
+        return
+    new_balance = current_balance - amount
+    update_user(uid, balance=new_balance)
+    admin_log('take', uid, f"Списано {amount}⭐. Причина: {reason}. Было: {current_balance}, стало: {new_balance}")
+    bot.reply_to(msg, f"Списано {amount}⭐ у @{username}! Новый баланс: {new_balance}⭐")
+    try:
+        bot.send_message(uid, f"С вашего баланса списано {amount}⭐\nПричина: {reason}\nТекущий баланс: {new_balance}⭐")
+    except Exception:
+        pass
+
+@bot.message_handler(commands=['userinfo'])
+def user_info(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "Формат: /userinfo @username")
+        return
+    username = args[1].replace('@', '')
+    user = get_user_by_username(username)
+    if not user:
+        bot.reply_to(msg, f"Пользователь @{username} не найден")
+        return
+    uid = user[0]
+    balance = user[1]
+    total_cases = user[2]
+    status = user[5]
+    refs = user[6]
+    total_spent = user[11]
+    total_deposit = user[14]
+    luck_boost = user[12]
+    banned = "ДА" if user[13] == 1 else "Нет"
+    mines = qone("SELECT games, wins, losses, best_multiplier, total_won, total_lost FROM mines_stats WHERE user_id=%s", (uid,))
+    crash = qone("SELECT games, wins, losses, best_multiplier, total_won, total_lost FROM crash_stats WHERE user_id=%s", (uid,))
+    battle = qone("SELECT battles_played, battles_won, battles_lost, total_won_stars, total_lost_stars FROM battle_stats WHERE user_id=%s", (uid,))
+    text = f"""ИНФОРМАЦИЯ: @{username}
+ID: {uid}
+Баланс: {balance}⭐
+Всего кейсов: {total_cases}
+Статус: {status}
+Рефералов: {refs}
+Потрачено: {total_spent}⭐
+Пополнено: {total_deposit}⭐
+Удача: x{luck_boost}
+Бан: {banned}
+
+МИНЁР: Игр: {mines[0] if mines else 0} | Побед: {mines[1] if mines else 0} | Поражений: {mines[2] if mines else 0}
+КРАШ: Игр: {crash[0] if crash else 0} | Побед: {crash[1] if crash else 0} | Поражений: {crash[2] if crash else 0}
+БИТВЫ: Игр: {battle[0] if battle else 0} | Побед: {battle[1] if battle else 0} | Поражений: {battle[2] if battle else 0}"""
+    admin_log('userinfo', uid, f"Просмотр инфо @{username}")
+    bot.reply_to(msg, text)
+
+@bot.message_handler(commands=['top'])
+def top_users(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    args = msg.text.split()
+    limit = 10
+    if len(args) >= 2:
+        try:
+            limit = min(int(args[1]), 50)
+        except ValueError:
+            pass
+    top_balance = q("SELECT username, balance, total_deposit, total_cases FROM users WHERE banned=0 ORDER BY balance DESC LIMIT %s", (limit,))
+    top_deposit = q("SELECT username, total_deposit, balance FROM users WHERE banned=0 ORDER BY total_deposit DESC LIMIT %s", (limit,))
+    total_users = qone("SELECT COUNT(*) FROM users")[0]
+    total_balance = qone("SELECT COALESCE(SUM(balance), 0) FROM users")[0]
+    total_deposited = qone("SELECT COALESCE(SUM(total_deposit), 0) FROM users")[0]
+    text = f"СТАТИСТИКА:\nВсего пользователей: {total_users}\nОбщий баланс: {total_balance}⭐\nОбщие депозиты: {total_deposited}⭐\n\nТОП ПО БАЛАНСУ:\n"
+    for i, (uname, bal, dep, cases) in enumerate(top_balance, 1):
+        text += f"{i}. @{uname or 'N/A'} - {bal}⭐ (деп: {dep}⭐)\n"
+    text += "\nТОП ПО ДЕПОЗИТАМ:\n"
+    for i, (uname, dep, bal) in enumerate(top_deposit, 1):
+        text += f"{i}. @{uname or 'N/A'} - {dep}⭐ (бал: {bal}⭐)\n"
+    admin_log('top', None, f"Просмотр топ-{limit}")
+    bot.reply_to(msg, text)
+
+@bot.message_handler(commands=['adminlogs'])
+def admin_logs_cmd(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    logs = q("SELECT action, target_id, details, created_at FROM admin_logs ORDER BY created_at DESC LIMIT 20")
+    if not logs:
+        bot.reply_to(msg, "Логов пока нет")
+        return
+    text = "ПОСЛЕДНИЕ ДЕЙСТВИЯ АДМИНА:\n\n"
+    for action, target_id, details, created_at in logs:
+        date_str = datetime.fromtimestamp(created_at).strftime('%d.%m %H:%M')
+        text += f"{date_str} | {action}"
+        if target_id:
+            text += f" | ID:{target_id}"
+        if details:
+            text += f" | {details}"
+        text += "\n"
+    bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['create_promo'])
 def create_promo(msg):
@@ -864,6 +1120,7 @@ def create_promo(msg):
             pass
     qw("INSERT INTO promo_codes (code, reward, created_by, created_at, max_uses) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (code) DO NOTHING",
        (code, reward, ADMIN_ID, int(time.time()), max_uses))
+    admin_log('create_promo', None, f"Создан промокод {code} на {reward}⭐, макс. {max_uses} использований")
     bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
 
 @bot.message_handler(commands=['promo_stats'])
@@ -875,12 +1132,12 @@ def promo_stats(msg):
         bot.reply_to(msg, "❌ Формат: /promo_stats CODE")
         return
     code = args[1].upper()
-    promo = q("SELECT reward, max_uses, used_count, created_at FROM promo_codes WHERE code=%s", (code,)).fetchone()
+    promo = qone("SELECT reward, max_uses, used_count, created_at FROM promo_codes WHERE code=%s", (code,))
     if not promo:
         bot.reply_to(msg, "❌ Промокод не найден")
         return
     reward, max_uses, used_count, created_at = promo
-    spend_data = q("SELECT user_id, spent FROM promo_spend WHERE promo_code=%s", (code,)).fetchall()
+    spend_data = q("SELECT user_id, spent FROM promo_spend WHERE promo_code=%s", (code,))
     total_spent = sum([s[1] for s in spend_data]) if spend_data else 0
     text = f"📊 СТАТИСТИКА ПРОМОКОДА {code}\n\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}\n✅ Использовано: {used_count}\n💰 Всего потрачено: {total_spent}⭐\n👥 Пользователей: {len(spend_data) if spend_data else 0}"
     bot.reply_to(msg, text)
@@ -889,7 +1146,7 @@ def promo_stats(msg):
 def list_promo(msg):
     if msg.from_user.id != ADMIN_ID:
         return
-    promos = q("SELECT code, reward, max_uses, used_count FROM promo_codes ORDER BY created_at DESC").fetchall()
+    promos = q("SELECT code, reward, max_uses, used_count FROM promo_codes ORDER BY created_at DESC")
     if not promos:
         bot.reply_to(msg, "❌ Нет созданных промокодов")
         return
@@ -904,9 +1161,11 @@ def health():
     return 'ok'
 
 @app.route('/get_balance', methods=['POST'])
+@limiter.limit("30 per minute")
 def get_balance():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     user = get_user(uid)
@@ -915,11 +1174,14 @@ def get_balance():
     return jsonify({'balance': user[1], 'total_cases': user[2], 'status': user[5], 'refs': user[6]})
 
 @app.route('/check_balance', methods=['POST'])
+@limiter.limit("30 per minute")
 def check_balance():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!', 'can_open': False}), 403
+    data = request.get_json(silent=True) or {}
     case_type = data.get('case_type')
     user = get_user(uid)
     if not user:
@@ -927,89 +1189,90 @@ def check_balance():
     price = CASE_PRICES.get(case_type, 0)
     if user[1] < price:
         return jsonify({'error': 'Недостаточно звёзд!', 'can_open': False}), 400
-    if case_type == "free" and time.time() - user[4] < FREE_CASE_COOLDOWN:
-        wait = int((FREE_CASE_COOLDOWN - (time.time() - user[4])) // 60)
-        return jsonify({'error': f'Жди {wait} мин', 'can_open': False}), 400
+    if case_type == "free":
+        last_free = user[16] if len(user) > 16 else 0
+        if time.time() - last_free < FREE_CASE_COOLDOWN:
+            wait = int((FREE_CASE_COOLDOWN - (time.time() - last_free)) // 60)
+            return jsonify({'error': f'Жди {wait} мин', 'can_open': False}), 400
     return jsonify({'can_open': True})
 
 @app.route('/check_balance_simple', methods=['POST'])
+@limiter.limit("30 per minute")
 def check_balance_simple():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     amount = data.get('amount', 0)
     user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'has_enough': user[1] >= amount})
 
-@app.route('/get_prize', methods=['POST'])
-def get_prize_endpoint():
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-    case_type = data.get('case_type')
-    uid = data.get('user_id')
-    if is_banned(uid):
-        return jsonify({'error': 'Ты забанен!'}), 403
-    if case_type not in CASE_RANGES:
-        return jsonify({'error': 'Invalid case type'}), 400
-    prize = get_prize(case_type, uid)
-    return jsonify({'prize': prize})
-
 @app.route('/open_case', methods=['POST'])
+@limiter.limit("20 per minute")
 def open_case():
     try:
-        data = request.get_json()
-        user_id = data.get('user_id')
-        if is_banned(user_id):
+        uid = get_authenticated_user_id()
+        if not uid:
+            return jsonify({'error': 'Unauthorized'}), 401
+        if is_banned(uid):
             return jsonify({'error': 'Ты забанен!'}), 403
+        data = request.get_json(silent=True) or {}
         case_type = data.get('case_type')
         if case_type not in CASE_RANGES:
             return jsonify({'error': 'Invalid case type'}), 400
+        
         with write_lock:
-            user = get_user(user_id)
-            if not user:
-                return jsonify({'error': 'User not found'}), 404
             if case_type == "free":
-                if time.time() - user[4] < FREE_CASE_COOLDOWN:
-                    wait = int((FREE_CASE_COOLDOWN - (time.time() - user[4])) // 60)
+                prize = get_prize(case_type, uid)
+                result = qone("""
+                    UPDATE users SET balance = balance + %s, total_cases = total_cases + 1, last_free_case = %s
+                    WHERE id = %s AND (last_free_case = 0 OR %s - last_free_case >= %s)
+                    RETURNING balance, total_cases
+                """, (prize, int(time.time()), uid, int(time.time()), FREE_CASE_COOLDOWN))
+                if not result:
+                    user = get_user(uid)
+                    last_free = user[16] if len(user) > 16 else 0
+                    wait = int((FREE_CASE_COOLDOWN - (time.time() - last_free)) // 60)
                     return jsonify({'error': f'Жди {wait} мин'}), 400
-                prize = get_prize(case_type, user_id)
-                new_bal = user[1] + prize
-                new_total = user[2] + 1
-                register_case_opening(user_id, case_type, 1)
-                update_user(user_id, balance=new_bal, total_cases=new_total, last_open=int(time.time()))
-                update_status(user_id, new_total)
-                return jsonify({'prize': prize, 'new_balance': new_bal})
-            price = CASE_PRICES.get(case_type, 0)
-            if user[1] < price:
-                return jsonify({'error': 'Недостаточно звёзд!'}), 400
-            prize = get_prize(case_type, user_id)
-            new_bal = user[1] - price + prize
-            new_total = user[2] + 1
-            total_spent = user[11] + price
-            register_case_opening(user_id, case_type, 1)
-            update_user(user_id, balance=new_bal, total_cases=new_total, total_spent=total_spent)
-            update_status(user_id, new_total)
-            return jsonify({'prize': prize, 'new_balance': new_bal})
+                register_case_opening(uid, case_type, 1)
+                update_status(uid, result[1])
+                return jsonify({'prize': prize, 'new_balance': result[0]})
+            else:
+                price = CASE_PRICES.get(case_type, 0)
+                prize = get_prize(case_type, uid)
+                result = qone("""
+                    UPDATE users SET balance = balance - %s + %s, total_cases = total_cases + 1, total_spent = total_spent + %s
+                    WHERE id = %s AND balance >= %s
+                    RETURNING balance, total_cases
+                """, (price, prize, price, uid, price))
+                if not result:
+                    return jsonify({'error': 'Недостаточно звёзд!'}), 400
+                register_case_opening(uid, case_type, 1)
+                update_status(uid, result[1])
+                return jsonify({'prize': prize, 'new_balance': result[0]})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal error'}), 500
 
 @app.route('/open_10_cases', methods=['POST'])
+@limiter.limit("10 per minute")
 def open_10_cases():
-    data = request.get_json()
-    user_id = data.get('user_id')
-    if is_banned(user_id):
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
+    if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     case_type = data.get('case_type')
     if case_type == "free":
         return jsonify({'error': 'Нельзя открыть 10 бесплатных кейсов'}), 400
     if case_type not in CASE_RANGES:
         return jsonify({'error': 'Invalid case type'}), 400
     with write_lock:
-        user = get_user(user_id)
+        user = get_user(uid)
         if not user:
             return jsonify({'error': 'User not found'}), 404
         price = CASE_PRICES.get(case_type, 0)
@@ -1019,21 +1282,23 @@ def open_10_cases():
         total_prize = 0
         prizes = []
         for i in range(10):
-            prize = get_prize(case_type, user_id)
+            prize = get_prize(case_type, uid)
             prizes.append(prize)
             total_prize += prize
-        register_case_opening(user_id, case_type, 10)
-        new_bal = user[1] - total_price + total_prize
-        new_total = user[2] + 10
-        total_spent = user[11] + total_price
-        update_user(user_id, balance=new_bal, total_cases=new_total, total_spent=total_spent)
-        update_status(user_id, new_total)
-        return jsonify({'prizes': prizes, 'total_prize': total_prize, 'new_balance': new_bal})
+        register_case_opening(uid, case_type, 10)
+        result = qone("""
+            UPDATE users SET balance = balance - %s + %s, total_cases = total_cases + 10, total_spent = total_spent + %s
+            WHERE id = %s
+            RETURNING balance, total_cases
+        """, (total_price, total_prize, total_price, uid))
+        update_status(uid, result[1] if result else user[2] + 10)
+        return jsonify({'prizes': prizes, 'total_prize': total_prize, 'new_balance': result[0] if result else user[1] - total_price + total_prize})
 
 @app.route('/get_levels_data', methods=['POST'])
 def get_levels_data():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     user = get_user(uid)
@@ -1041,17 +1306,19 @@ def get_levels_data():
         return jsonify({'error': 'User not found'}), 404
     level_wins = get_level_wins(uid)
     unlocked_levels = get_unlocked_levels(uid)
-    rows = q("SELECT case_type, opened FROM level_progress WHERE user_id=%s", (uid,)).fetchall()
+    rows = q("SELECT case_type, opened FROM level_progress WHERE user_id=%s", (uid,))
     progress_all = {r[0]: r[1] for r in rows}
     level_progress = {lvl: progress_all.get(lvl, 0) for lvl in unlocked_levels}
     return jsonify({'unlocked_levels': unlocked_levels, 'level_wins': level_wins, 'level_progress': level_progress})
 
 @app.route('/start_bot_battle', methods=['POST'])
 def start_bot_battle():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     case_type = data.get('case_type')
     with write_lock:
         user = get_user(uid)
@@ -1086,15 +1353,16 @@ def start_bot_battle():
             update_battle_stats(uid, won=False, stars=0, case_type=case_type)
             result = 'draw'
             result_text = '🤝 Ничья!'
-        row = q("SELECT wins FROM level_wins WHERE user_id=%s AND case_type=%s", (uid, case_type)).fetchone()
+        row = qone("SELECT wins FROM level_wins WHERE user_id=%s AND case_type=%s", (uid, case_type))
         wins_after = row[0] if row else 0
         level_unlocked = wins_after >= WINS_TO_UNLOCK
         return jsonify({'result': result, 'result_text': result_text, 'player_prize': player_prize, 'bot_prize': bot_prize, 'wins': wins_after, 'level_unlocked': level_unlocked, 'needed_wins': WINS_TO_UNLOCK})
 
 @app.route('/get_quests_data', methods=['POST'])
 def get_quests_data():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     user = get_user(uid)
@@ -1103,7 +1371,7 @@ def get_quests_data():
     total_cases = user[2]
     refs = user[6]
     level_wins = get_level_wins(uid)
-    completed = q("SELECT quest_id FROM completed_quests WHERE user_id=%s", (uid,)).fetchall()
+    completed = q("SELECT quest_id FROM completed_quests WHERE user_id=%s", (uid,))
     claimed_quests = [row[0] for row in completed]
     return jsonify({'total_cases': total_cases, 'refs': refs, 'level_wins': level_wins,
                     'claimed_statuses': [q for q in claimed_quests if q.startswith('status_')],
@@ -1112,16 +1380,18 @@ def get_quests_data():
 
 @app.route('/claim_quest', methods=['POST'])
 def claim_quest():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     quest_id = data.get('quest_id')
     with write_lock:
         user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
-        if q("SELECT * FROM completed_quests WHERE user_id=%s AND quest_id=%s", (uid, quest_id)).fetchone():
+        if qone("SELECT * FROM completed_quests WHERE user_id=%s AND quest_id=%s", (uid, quest_id)):
             return jsonify({'error': 'Задание уже выполнено'}), 400
         reward = get_quest_reward(uid, quest_id)
         if reward is None:
@@ -1144,7 +1414,7 @@ def get_quest_reward(uid, quest_id):
         level_rewards = {'level_mud': 15, 'level_wood': 27, 'level_stone': 57, 'level_bronze': 147, 'level_silver': 297, 'level_gold': 747, 'level_diamond': 1497, 'level_netherite': 2997, 'level_obsidian': 7497, 'level_bedrock': 30000}
         case_type = level_map.get(quest_id)
         if case_type:
-            row = q("SELECT wins FROM level_wins WHERE user_id=%s AND case_type=%s", (uid, case_type)).fetchone()
+            row = qone("SELECT wins FROM level_wins WHERE user_id=%s AND case_type=%s", (uid, case_type))
             wins = row[0] if row else 0
             if wins >= WINS_TO_UNLOCK:
                 return level_rewards.get(quest_id, 0)
@@ -1157,22 +1427,24 @@ def get_quest_reward(uid, quest_id):
 
 @app.route('/apply_promo', methods=['POST'])
 def apply_promo():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     promo_code = data.get('promo_code', '').upper()
     with write_lock:
         user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
-        promo = q("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=%s", (promo_code,)).fetchone()
+        promo = qone("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=%s", (promo_code,))
         if not promo:
             return jsonify({'error': 'Неверный промокод!'}), 400
         reward, max_uses, used_count = promo
         if max_uses > 0 and used_count >= max_uses:
             return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
-        used = q("SELECT * FROM used_promos WHERE user_id=%s AND promo_code=%s", (uid, promo_code)).fetchone()
+        used = qone("SELECT * FROM used_promos WHERE user_id=%s AND promo_code=%s", (uid, promo_code))
         if used:
             return jsonify({'error': 'Ты уже использовал этот промокод!'}), 400
         update_user(uid, balance=user[1] + reward)
@@ -1182,22 +1454,24 @@ def apply_promo():
 
 @app.route('/claim_promo_webapp', methods=['POST'])
 def claim_promo_webapp():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     code = data.get('code', '').upper()
     with write_lock:
         user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
-        promo = q("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=%s", (code,)).fetchone()
+        promo = qone("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=%s", (code,))
         if not promo:
             return jsonify({'error': 'Неверный промокод!'}), 400
         reward, max_uses, used_count = promo
         if max_uses > 0 and used_count >= max_uses:
             return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
-        used = q("SELECT * FROM used_promos WHERE user_id=%s AND promo_code=%s", (uid, code)).fetchone()
+        used = qone("SELECT * FROM used_promos WHERE user_id=%s AND promo_code=%s", (uid, code))
         if used:
             return jsonify({'error': 'Ты уже использовал этот промокод!'}), 400
         update_user(uid, balance=user[1] + reward)
@@ -1208,10 +1482,12 @@ def claim_promo_webapp():
 
 @app.route('/withdraw', methods=['POST'])
 def withdraw():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     amount = data.get('amount', 0)
     with write_lock:
         user = get_user(uid)
@@ -1226,12 +1502,14 @@ def withdraw():
             bot.send_message(ADMIN_ID, f"💸 ЗАЯВКА НА ВЫВОД\nПользователь: @{user[8]}\nСумма: {amount}⭐\nID: {uid}")
         except Exception:
             pass
+        admin_log('withdraw', uid, f"Заявка на вывод {amount}⭐")
         return jsonify({'success': True, 'message': f'✅ Заявка на вывод {amount}⭐ отправлена!'})
 
 @app.route('/get_deposit_rewards', methods=['POST'])
 def get_deposit_rewards():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     user = get_user(uid)
@@ -1254,10 +1532,12 @@ def get_deposit_rewards():
 
 @app.route('/claim_deposit_reward', methods=['POST'])
 def claim_deposit_reward():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     amount = data.get('amount', 0)
     with write_lock:
         user = get_user(uid)
@@ -1279,10 +1559,12 @@ def claim_deposit_reward():
 # ===== MINES =====
 @app.route('/start_mines_game', methods=['POST'])
 def start_mines_game():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     bet = data.get('bet')
     mines = data.get('mines')
     if not isinstance(bet, int) or not isinstance(mines, int):
@@ -1306,17 +1588,19 @@ def start_mines_game():
             positions = random.sample(range(25), mines)
             for pos in positions:
                 board[pos] = 1
-            game_id = int(time.time() * 1000)
+            game_id = str(uuid.uuid4())
             max_mult = get_mines_multiplier(3, mines)
             active_mines_games[game_id] = {'user_id': uid, 'bet': bet, 'mines': mines, 'board': board, 'opened': [0] * 25, 'opened_count': 0, 'multiplier': 1.0, 'max_multiplier': max_mult, 'status': 'active'}
         return jsonify({'game_id': game_id, 'balance': user[1] - bet})
 
 @app.route('/open_mines_cell', methods=['POST'])
 def open_mines_cell():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     game_id = data.get('game_id')
     index = data.get('cell', data.get('index'))
     if not isinstance(index, int) or index < 0 or index > 24:
@@ -1337,7 +1621,9 @@ def open_mines_cell():
                 update_user(uid, last_open=int(time.time()))
                 update_mines_stats(uid, won=False, multiplier=0, stars=game['bet'])
                 user = get_user(uid)
-                return jsonify({'status': 'mine', 'cell': index, 'opened_count': game['opened_count'], 'multiplier': 0, 'game_over': True, 'won': False, 'bet': game['bet'], 'balance': user[1], 'mines_positions': [i for i, v in enumerate(game['board']) if v == 1]})
+                mines_positions = [i for i, v in enumerate(game['board']) if v == 1]
+                del active_mines_games[game_id]
+                return jsonify({'status': 'mine', 'cell': index, 'opened_count': game['opened_count'], 'multiplier': 0, 'game_over': True, 'won': False, 'bet': game['bet'], 'balance': user[1], 'mines_positions': mines_positions})
             opened = game['opened_count']
             game['multiplier'] = get_mines_multiplier(opened, game['mines'])
             safe_cells = 25 - game['mines']
@@ -1350,16 +1636,20 @@ def open_mines_cell():
                 update_user(uid, balance=new_bal, last_open=int(time.time()))
                 game['status'] = 'won'
                 update_mines_stats(uid, won=True, multiplier=game['multiplier'], stars=final_winnings)
-                return jsonify({'status': 'safe', 'cell': index, 'opened_count': game['opened_count'], 'multiplier': game['multiplier'], 'game_over': True, 'won': True, 'winnings': final_winnings, 'bet': game['bet'], 'balance': new_bal, 'mines_positions': [i for i, v in enumerate(game['board']) if v == 1]})
+                mines_positions = [i for i, v in enumerate(game['board']) if v == 1]
+                del active_mines_games[game_id]
+                return jsonify({'status': 'safe', 'cell': index, 'opened_count': game['opened_count'], 'multiplier': game['multiplier'], 'game_over': True, 'won': True, 'winnings': final_winnings, 'bet': game['bet'], 'balance': new_bal, 'mines_positions': mines_positions})
             user = get_user(uid)
             return jsonify({'status': 'safe', 'cell': index, 'opened_count': game['opened_count'], 'multiplier': game['multiplier'], 'game_over': False, 'won': False, 'balance': user[1]})
 
 @app.route('/cashout_mines', methods=['POST'])
 def cashout_mines():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     game_id = data.get('game_id')
     with write_lock:
         with mines_lock:
@@ -1385,8 +1675,10 @@ def cashout_mines():
 
 @app.route('/exit_mines', methods=['POST'])
 def exit_mines():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
+    data = request.get_json(silent=True) or {}
     game_id = data.get('game_id')
     with mines_lock:
         game = active_mines_games.get(game_id)
@@ -1399,11 +1691,12 @@ def exit_mines():
 
 @app.route('/get_mines_stats', methods=['POST'])
 def get_mines_stats():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
-    stats = q("SELECT * FROM mines_stats WHERE user_id=%s", (uid,)).fetchone()
+    stats = qone("SELECT * FROM mines_stats WHERE user_id=%s", (uid,))
     if not stats:
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
@@ -1412,10 +1705,12 @@ def get_mines_stats():
 @app.route('/make_crash_bet', methods=['POST'])
 def make_crash_bet():
     global crash_data
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     bet = data.get('bet')
     if not isinstance(bet, int):
         return jsonify({'error': 'Некорректная ставка'}), 400
@@ -1440,8 +1735,7 @@ def make_crash_bet():
 @app.route('/crash_status', methods=['POST'])
 def crash_status():
     global crash_data
-    data = request.get_json(silent=True) or {}
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
     if uid and is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     with crash_lock:
@@ -1454,8 +1748,9 @@ def crash_status():
 @app.route('/cashout_crash', methods=['POST'])
 def cashout_crash():
     global crash_data
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     with crash_lock:
@@ -1475,11 +1770,12 @@ def cashout_crash():
 
 @app.route('/get_crash_stats', methods=['POST'])
 def get_crash_stats():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
-    stats = q("SELECT * FROM crash_stats WHERE user_id=%s", (uid,)).fetchone()
+    stats = qone("SELECT * FROM crash_stats WHERE user_id=%s", (uid,))
     if not stats:
         return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
@@ -1487,10 +1783,12 @@ def get_crash_stats():
 # ===== UPGRADE =====
 @app.route('/upgrade_calculate', methods=['POST'])
 def upgrade_calculate():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     bet = data.get('bet')
     target = data.get('target')
     user = get_user(uid)
@@ -1510,10 +1808,12 @@ def upgrade_calculate():
 
 @app.route('/upgrade_execute', methods=['POST'])
 def upgrade_execute():
-    data = request.get_json()
-    uid = data.get('user_id')
+    uid = get_authenticated_user_id()
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
+    data = request.get_json(silent=True) or {}
     bet = data.get('bet')
     target = data.get('target')
     with write_lock:
@@ -1556,12 +1856,18 @@ def static_files(path):
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    if request.headers.get('content-type') == 'application/json':
+    if request.headers.get('content-type') != 'application/json':
+        return '', 400
+    src_ip = ipaddress.ip_address(request.remote_addr)
+    if not any(src_ip in net for net in TG_NETWORKS):
+        return '', 403
+    try:
         json_string = request.get_data().decode('utf-8')
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
         return ''
-    return '', 400
+    except Exception:
+        return '', 400
 
 _start_lock = threading.Lock()
 _threads_started = False
