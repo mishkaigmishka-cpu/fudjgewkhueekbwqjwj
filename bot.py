@@ -573,7 +573,10 @@ def get_level_progress(uid, case_type):
 def register_case_opening(uid, case_type, n=1):
     add_case_stats(uid, case_type, n)
     if case_type in LEVEL_ORDER and case_type in get_unlocked_levels(uid):
-        add_level_progress(uid, case_type, n)
+        progress = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
+        current_opened = progress[0] if progress else 0
+        if current_opened < BATTLE_PROGRESS_COST:
+            add_level_progress(uid, case_type, n)
 
 def _update_game_stats(table, user_id, won, multiplier, stars):
     assert table in ('mines_stats', 'crash_stats')
