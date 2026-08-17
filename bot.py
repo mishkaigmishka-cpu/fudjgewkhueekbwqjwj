@@ -223,6 +223,13 @@ def init_db():
         cur.execute("ALTER TABLE IF EXISTS withdrawals ALTER COLUMN user_id TYPE BIGINT")
         cur.execute("ALTER TABLE IF EXISTS admin_logs ALTER COLUMN admin_id TYPE BIGINT")
         cur.execute("ALTER TABLE IF EXISTS admin_logs ALTER COLUMN target_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS case_stats ALTER COLUMN user_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS level_progress ALTER COLUMN user_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS user_tracking ALTER COLUMN user_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS used_promos ALTER COLUMN user_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS promo_spend ALTER COLUMN user_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS level_wins ALTER COLUMN user_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS promo_codes ALTER COLUMN created_by TYPE BIGINT")
         
         cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')")
         users_exists = cur.fetchone()[0]
@@ -2019,6 +2026,7 @@ def start_background_threads():
 if __name__ == "__main__":
     init_db()
     load_mines_from_db()
+    threading.Thread(target=crash_timer, daemon=True).start()
     port = int(os.environ.get("PORT", 5000))
     
     webhook_url = WEBAPP_URL + "/webhook"
