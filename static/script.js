@@ -1925,7 +1925,7 @@ function initCrash() {
     }
     loadCrashStats();
 
-    crash.phase = crash.firstVisit ? 'preview' : 'waiting';
+    crash.phase = 'waiting';
     crash.firstVisit = false;
     crash.crashedAt = 0;
     updateCrashBetPanel();
