@@ -1,1 +1,1 @@
-web: gunicorn -w 1 --timeout 120 bot:app
+web: gunicorn -w 1 --threads 4 --timeout 120 bot:app
