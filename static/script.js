@@ -1341,7 +1341,7 @@ function showBotBattleResult(data, case_type) {
     loadBalance();
     loadLevels();
 
-    if (data.level_unlocked) {
+    if (data.level_unlocked && data.wins === 1) {
         let unlockedCase = null;
         if (typeof data.level_unlocked === 'string') {
             unlockedCase = data.level_unlocked;
@@ -1351,7 +1351,11 @@ function showBotBattleResult(data, case_type) {
                 unlockedCase = LEVEL_ORDER[idx + 1];
             }
         }
-        setTimeout(() => showLevelUnlockAnimation(unlockedCase), 900);
+        const shownKey = 'unlock_shown_' + unlockedCase;
+        if (unlockedCase && !localStorage.getItem(shownKey)) {
+            localStorage.setItem(shownKey, '1');
+            setTimeout(() => showLevelUnlockAnimation(unlockedCase), 900);
+        }
     }
 }
 
@@ -2131,8 +2135,8 @@ function startCrashPolling() {
             if (!status || status.error) return;
 
             const prevPhase = crash.phase;
-            crash.phase = status.phase;
-            crash.multiplier = status.multiplier;
+            crash.phase = status.phase || 'waiting';
+            crash.multiplier = status.multiplier || 1.0;
 
             if (status.my_bet !== undefined && status.phase !== 'crashed' && status.phase !== 'crash') {
                 crash.hasBet = status.my_bet > 0;
