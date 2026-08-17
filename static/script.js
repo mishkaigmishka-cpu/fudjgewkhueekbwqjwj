@@ -72,7 +72,6 @@ const RARITY_META = {
     jackpot:   { cls: 'rarity-jackpot', label: 'JACKPOT',  color: '#ffffff' }
 };
 
-// Правка: Шансы грязи синхронизированы с сервером
 const CASE_RARITY = {
     free:      { common: [1, 2], rare: [3, 4], epic: [5, 6, 7, 8, 9, 10], legendary: [100], jackpot: [1000],
                  chances: { common: 0.599, rare: 0.299, epic: 0.0999, legendary: 0.0001, jackpot: 0.00000001 } },
@@ -170,23 +169,27 @@ function spawnConfetti(container, count = 36) {
     }
 }
 
+// ===== ИСПРАВЛЕННАЯ apiRequest С ЗАГОЛОВКОМ X-Telegram-Init-Data =====
 const apiRequest = async (endpoint, body = {}, retries = 3, timeout = 15000) => {
+    const tg = window.Telegram.WebApp;
+    const initData = tg.initData || '';
+    
     for (let attempt = 0; attempt < retries; attempt++) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
-
         try {
             const res = await fetch(endpoint, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id, ...body }),
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Telegram-Init-Data': initData
+                },
+                body: JSON.stringify(body),
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
-
             let data = null;
             try { data = await res.json(); } catch (e) { data = null; }
-
             if (!res.ok) {
                 const msg = (data && data.error) ? data.error : `Ошибка сервера (${res.status})`;
                 if (res.status >= 400 && res.status < 500) return { error: msg };
@@ -611,7 +614,6 @@ function openCaseDirect(type) {
 
             state.currentPrize = data.prize;
             state.currentNewBalance = data.new_balance;
-            // Реклама убрана
 
             closeAllOverlays();
             showTape(type, 'roulette');
@@ -784,7 +786,7 @@ function showResult(type, targetPrize, style, track, winPosition) {
             title: `Кейс «${getCaseName(type)}» — выигрыш!`,
             amount: targetPrize,
             subtitle: `<span class="rarity-badge ${rarity.cls}" style="font-size:11px;">${rarity.label}</span>`,
-            extraHTML: '', // Реклама убрана
+            extraHTML: '',
             buttons,
             confetti: isBig,
             confettiCount: rarity.cls === 'rarity-jackpot' ? 60 : 30,
@@ -1413,7 +1415,6 @@ function applyProfileStatus(statusText) {
     if (avatar && !avatar.querySelector('img') && !avatar.textContent.trim()) avatar.textContent = tier.icon;
 }
 
-// ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ЗАДАНИЙ =====
 function switchQuestTab(tab) {
     document.querySelectorAll('.quest-tab').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tab === tab);
@@ -1614,14 +1615,14 @@ async function claimQuest(questId, reward) {
     }
 }
 
-// ===== НАГРАДЫ ЗА ПОПОЛНЕНИЕ (единый стиль) =====
+// ===== НАГРАДЫ ЗА ПОПОЛНЕНИЕ =====
 async function loadDepositRewards() {
     if (!userId) return;
     try {
         const res = await fetch('/get_deposit_rewards', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId })
+            body: JSON.stringify({})
         });
         const data = await res.json();
         if (data.error) return;
@@ -1677,7 +1678,7 @@ async function claimDepositReward(amount) {
         const res = await fetch('/claim_deposit_reward', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, amount: amount })
+            body: JSON.stringify({ amount: amount })
         });
         const data = await res.json();
         if (data.success) {
@@ -1711,7 +1712,7 @@ async function submitPromoApp() {
         const res = await fetch('/claim_promo_webapp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, code: code })
+            body: JSON.stringify({ code: code })
         });
         const data = await res.json();
         if (data.success) {
@@ -1745,7 +1746,7 @@ async function submitWithdraw() {
         const res = await fetch('/withdraw', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, amount: amount })
+            body: JSON.stringify({ amount: amount })
         });
         const data = await res.json();
         if (data.success) {
