@@ -209,6 +209,18 @@ def init_db():
     with write_lock:
         cur = conn.cursor()
         
+        # ===== МИГРАЦИЯ: INTEGER -> BIGINT для существующих таблиц =====
+        cur.execute("ALTER TABLE IF EXISTS users ALTER COLUMN id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS invited ALTER COLUMN inviter_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS invited ALTER COLUMN invited_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS battle_stats ALTER COLUMN user_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS mines_stats ALTER COLUMN user_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS crash_stats ALTER COLUMN user_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS completed_quests ALTER COLUMN user_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS withdrawals ALTER COLUMN user_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS admin_logs ALTER COLUMN admin_id TYPE BIGINT")
+        cur.execute("ALTER TABLE IF EXISTS admin_logs ALTER COLUMN target_id TYPE BIGINT")
+        
         cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')")
         users_exists = cur.fetchone()[0]
         
@@ -329,6 +341,14 @@ def init_db():
             details TEXT,
             created_at INTEGER
         )''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS withdrawals (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT,
+            amount INTEGER,
+            status TEXT DEFAULT 'pending',
+            created_at INTEGER,
+            processed_at INTEGER
+        )''')
         cur.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_used_promos_user ON used_promos(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_promo_spend_user ON promo_spend(user_id)")
@@ -338,6 +358,7 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_level_progress_user ON level_progress(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_user_tracking_user ON user_tracking(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_admin_logs_time ON admin_logs(created_at DESC)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_withdrawals_user ON withdrawals(user_id)")
         conn.commit()
 
 init_db()
@@ -1512,6 +1533,7 @@ def withdraw():
         if user[1] < amount:
             return jsonify({'error': 'Недостаточно звёзд!'}), 400
         update_user(uid, balance=user[1] - amount)
+        qw("INSERT INTO withdrawals (user_id, amount, status, created_at) VALUES (%s, %s, 'pending', %s)", (uid, amount, int(time.time())))
         try:
             bot.send_message(ADMIN_ID, f"💸 ЗАЯВКА НА ВЫВОД\nПользователь: @{user[8]}\nСумма: {amount}⭐\nID: {uid}")
         except Exception:
@@ -1843,8 +1865,7 @@ def upgrade_execute():
             return jsonify({'error': f'Цель должна быть от {bet + 1} до 2000⭐'}), 400
         if user[1] < bet:
             return jsonify({'error': 'Недостаточно звёзд'}), 400
-        raw_chance = (bet / target) * 100
-        chance = min(max(raw_chance, 1.0), 70.0)
+        raw_chance = (bet / target) * 100        chance = min(max(raw_chance, 1.0), 70.0)
         rand = random.random() * 100
         success = rand <= chance
         if success:
