@@ -220,7 +220,7 @@ def init_db():
             print("🆕 Создаём новую базу данных...")
         
         cur.execute('''CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY,
+            id BIGINT PRIMARY KEY,
             balance INTEGER DEFAULT 5,
             total_cases INTEGER DEFAULT 0,
             streak INTEGER DEFAULT 0,
@@ -239,12 +239,12 @@ def init_db():
             last_free_case INTEGER DEFAULT 0
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS invited (
-            inviter_id INTEGER,
-            invited_id INTEGER,
+            inviter_id BIGINT,
+            invited_id BIGINT,
             PRIMARY KEY (inviter_id, invited_id)
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS battle_stats (
-            user_id INTEGER PRIMARY KEY,
+            user_id BIGINT PRIMARY KEY,
             battles_played INTEGER DEFAULT 0,
             battles_won INTEGER DEFAULT 0,
             battles_lost INTEGER DEFAULT 0,
@@ -253,7 +253,7 @@ def init_db():
             commission_paid INTEGER DEFAULT 0
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS mines_stats (
-            user_id INTEGER PRIMARY KEY,
+            user_id BIGINT PRIMARY KEY,
             games INTEGER DEFAULT 0,
             wins INTEGER DEFAULT 0,
             losses INTEGER DEFAULT 0,
@@ -262,7 +262,7 @@ def init_db():
             total_lost INTEGER DEFAULT 0
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS crash_stats (
-            user_id INTEGER PRIMARY KEY,
+            user_id BIGINT PRIMARY KEY,
             games INTEGER DEFAULT 0,
             wins INTEGER DEFAULT 0,
             losses INTEGER DEFAULT 0,
@@ -273,59 +273,59 @@ def init_db():
         cur.execute('''CREATE TABLE IF NOT EXISTS promo_codes (
             code TEXT PRIMARY KEY,
             reward INTEGER DEFAULT 20,
-            created_by INTEGER,
+            created_by BIGINT,
             created_at INTEGER,
             max_uses INTEGER DEFAULT 1,
             used_count INTEGER DEFAULT 0
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS used_promos (
-            user_id INTEGER,
+            user_id BIGINT,
             promo_code TEXT,
             used_at INTEGER,
             PRIMARY KEY (user_id, promo_code)
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS promo_spend (
             id SERIAL PRIMARY KEY,
-            user_id INTEGER,
+            user_id BIGINT,
             promo_code TEXT,
             spent INTEGER DEFAULT 0
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS level_wins (
-            user_id INTEGER,
+            user_id BIGINT,
             case_type TEXT,
             wins INTEGER DEFAULT 0,
             PRIMARY KEY (user_id, case_type)
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS completed_quests (
-            user_id INTEGER,
+            user_id BIGINT,
             quest_id TEXT,
             completed_at INTEGER,
             PRIMARY KEY (user_id, quest_id)
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS case_stats (
-            user_id INTEGER,
+            user_id BIGINT,
             case_type TEXT,
             opened INTEGER DEFAULT 0,
             PRIMARY KEY (user_id, case_type)
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS level_progress (
-            user_id INTEGER,
+            user_id BIGINT,
             case_type TEXT,
             opened INTEGER DEFAULT 0,
             PRIMARY KEY (user_id, case_type)
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS user_tracking (
             id SERIAL PRIMARY KEY,
-            user_id INTEGER,
+            user_id BIGINT,
             event_type TEXT,
             event_data TEXT DEFAULT '',
             created_at INTEGER
         )''')
         cur.execute('''CREATE TABLE IF NOT EXISTS admin_logs (
             id SERIAL PRIMARY KEY,
-            admin_id INTEGER,
+            admin_id BIGINT,
             action TEXT,
-            target_id INTEGER,
+            target_id BIGINT,
             details TEXT,
             created_at INTEGER
         )''')
@@ -1302,7 +1302,8 @@ def open_10_cases():
         register_case_opening(uid, case_type, 10)
         result = qwone("""
             UPDATE users SET balance = balance - %s + %s, total_cases = total_cases + 10, total_spent = total_spent + %s
-            WHERE id = %s            RETURNING balance, total_cases
+            WHERE id = %s
+            RETURNING balance, total_cases
         """, (total_price, total_prize, total_price, uid))
         update_status(uid, result[1] if result else user[2] + 10)
         return jsonify({'prizes': prizes, 'total_prize': total_prize, 'new_balance': result[0] if result else user[1] - total_price + total_prize})
