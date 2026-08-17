@@ -1377,20 +1377,20 @@ def open_10_cases():
             return jsonify({'error': 'User not found'}), 404
         price = CASE_PRICES.get(case_type, 0)
         total_price = price * 10
-        if user[1] < total_price:
-            return jsonify({'error': f'Недостаточно звёзд! Нужно {total_price}⭐'}), 400
         total_prize = 0
         prizes = []
         for i in range(10):
             prize = get_prize(case_type, uid)
             prizes.append(prize)
             total_prize += prize
-        register_case_opening(uid, case_type, 10)
         result = qwone("""
             UPDATE users SET balance = balance - %s + %s, total_cases = total_cases + 10, total_spent = total_spent + %s
-            WHERE id = %s
+            WHERE id = %s AND balance >= %s
             RETURNING balance, total_cases
-        """, (total_price, total_prize, total_price, uid))
+        """, (total_price, total_prize, total_price, uid, total_price))
+        if not result:
+            return jsonify({'error': f'Недостаточно звёзд! Нужно {total_price}⭐'}), 400
+        register_case_opening(uid, case_type, 10)
         update_status(uid, result[1] if result else user[2] + 10)
         return jsonify({'prizes': prizes, 'total_prize': total_prize, 'new_balance': result[0] if result else user[1] - total_price + total_prize})
 
@@ -1479,6 +1479,7 @@ def get_quests_data():
                     'claimed_friends': [q for q in claimed_quests if q.startswith('friends_')]})
 
 @app.route('/claim_quest', methods=['POST'])
+@limiter.limit("10 per minute")
 def claim_quest():
     uid = get_authenticated_user_id()
     if not uid:
@@ -1526,6 +1527,7 @@ def get_quest_reward(uid, quest_id):
     return None
 
 @app.route('/apply_promo', methods=['POST'])
+@limiter.limit("10 per minute")
 def apply_promo():
     uid = get_authenticated_user_id()
     if not uid:
@@ -1547,12 +1549,13 @@ def apply_promo():
         used = qone("SELECT * FROM used_promos WHERE user_id=%s AND promo_code=%s", (uid, promo_code))
         if used:
             return jsonify({'error': 'Ты уже использовал этот промокод!'}), 400
-        update_user(uid, balance=user[1] + reward)
+        qw("UPDATE users SET balance = balance + %s WHERE id = %s", (reward, uid))
         qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=%s", (promo_code,))
         qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (%s, %s, %s)", (uid, promo_code, int(time.time())))
         return jsonify({'success': True, 'reward': reward})
 
 @app.route('/claim_promo_webapp', methods=['POST'])
+@limiter.limit("10 per minute")
 def claim_promo_webapp():
     uid = get_authenticated_user_id()
     if not uid:
@@ -1595,9 +1598,9 @@ def withdraw():
             return jsonify({'error': 'Пользователь не найден'}), 404
         if amount < 1000:
             return jsonify({'error': 'Минимум 1000⭐ для вывода!'}), 400
-        if user[1] < amount:
+        result = qwone("UPDATE users SET balance = balance - %s WHERE id = %s AND balance >= %s RETURNING balance", (amount, uid, amount))
+        if not result:
             return jsonify({'error': 'Недостаточно звёзд!'}), 400
-        update_user(uid, balance=user[1] - amount)
         qw("INSERT INTO withdrawals (user_id, amount, status, created_at) VALUES (%s, %s, 'pending', %s)", (uid, amount, int(time.time())))
         try:
             bot.send_message(ADMIN_ID, f"💸 ЗАЯВКА НА ВЫВОД\nПользователь: @{user[8]}\nСумма: {amount}⭐\nID: {uid}")
@@ -1607,6 +1610,7 @@ def withdraw():
         return jsonify({'success': True, 'message': f'✅ Заявка на вывод {amount}⭐ отправлена!'})
 
 @app.route('/get_deposit_rewards', methods=['POST'])
+@limiter.limit("30 per minute")
 def get_deposit_rewards():
     uid = get_authenticated_user_id()
     if not uid:
@@ -1632,6 +1636,7 @@ def get_deposit_rewards():
     })
 
 @app.route('/claim_deposit_reward', methods=['POST'])
+@limiter.limit("10 per minute")
 def claim_deposit_reward():
     uid = get_authenticated_user_id()
     if not uid:
@@ -1723,13 +1728,11 @@ def open_mines_cell():
             game['opened_count'] += 1
             if game['board'][index] == 1:
                 game['status'] = 'lost'
-                update_user(uid, last_open=int(time.time()))
                 update_mines_stats(uid, won=False, multiplier=0, stars=game['bet'])
                 user = get_user(uid)
                 mines_positions = [i for i, v in enumerate(game['board']) if v == 1]
-                qw("UPDATE active_mines_games SET status = %s WHERE game_id = %s", (game['status'], game_id))
-                if game_id in active_mines_games:
-                    del active_mines_games[game_id]
+                qw("UPDATE active_mines_games SET status = 'completed' WHERE game_id = %s", (game_id,))
+                del active_mines_games[game_id]
                 return jsonify({'status': 'mine', 'cell': index, 'opened_count': game['opened_count'], 'multiplier': 0, 'game_over': True, 'won': False, 'bet': game['bet'], 'balance': user[1], 'mines_positions': mines_positions})
             opened = game['opened_count']
             game['multiplier'] = get_mines_multiplier(opened, game['mines'])
@@ -1740,13 +1743,12 @@ def open_mines_cell():
                 final_winnings = min(raw_winnings, capped, 5000)
                 user = get_user(uid)
                 new_bal = user[1] + final_winnings
-                update_user(uid, balance=new_bal, last_open=int(time.time()))
+                update_user(uid, balance=new_bal)
                 game['status'] = 'won'
                 update_mines_stats(uid, won=True, multiplier=game['multiplier'], stars=final_winnings)
                 mines_positions = [i for i, v in enumerate(game['board']) if v == 1]
-                qw("UPDATE active_mines_games SET status = %s WHERE game_id = %s", (game['status'], game_id))
-                if game_id in active_mines_games:
-                    del active_mines_games[game_id]
+                qw("UPDATE active_mines_games SET status = 'completed' WHERE game_id = %s", (game_id,))
+                del active_mines_games[game_id]
                 return jsonify({'status': 'safe', 'cell': index, 'opened_count': game['opened_count'], 'multiplier': game['multiplier'], 'game_over': True, 'won': True, 'winnings': final_winnings, 'bet': game['bet'], 'balance': new_bal, 'mines_positions': mines_positions})
             user = get_user(uid)
             return jsonify({'status': 'safe', 'cell': index, 'opened_count': game['opened_count'], 'multiplier': game['multiplier'], 'game_over': False, 'won': False, 'balance': user[1]})
@@ -1774,21 +1776,23 @@ def cashout_mines():
             final_winnings = min(raw_winnings, capped, 5000)
             user = get_user(uid)
             new_bal = user[1] + final_winnings
-            update_user(uid, balance=new_bal, last_open=int(time.time()))
+            update_user(uid, balance=new_bal)
             game['status'] = 'won'
             multiplier = game['multiplier']
             update_mines_stats(uid, won=True, multiplier=multiplier, stars=final_winnings)
             mines_positions = [i for i, v in enumerate(game['board']) if v == 1]
-            qw("UPDATE active_mines_games SET status = 'cashed_out' WHERE game_id = %s", (game_id,))
-            if game_id in active_mines_games:
-                del active_mines_games[game_id]
+            qw("UPDATE active_mines_games SET status = 'completed' WHERE game_id = %s", (game_id,))
+            del active_mines_games[game_id]
             return jsonify({'win': final_winnings, 'balance': new_bal, 'multiplier': multiplier, 'game_over': True, 'won': True, 'mines_positions': mines_positions})
 
 @app.route('/exit_mines', methods=['POST'])
+@limiter.limit("10 per minute")
 def exit_mines():
     uid = get_authenticated_user_id()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    if is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     game_id = data.get('game_id')
     with mines_lock:
@@ -1814,6 +1818,7 @@ def get_mines_stats():
 
 # ===== CRASH =====
 @app.route('/make_crash_bet', methods=['POST'])
+@limiter.limit("10 per minute")
 def make_crash_bet():
     global crash_data
     uid = get_authenticated_user_id()
@@ -1837,13 +1842,12 @@ def make_crash_bet():
             return jsonify({'error': 'Сейчас нельзя сделать ставку!'}), 400
         if uid in crash_data['bets']:
             return jsonify({'error': 'Ты уже сделал ставку'}), 400
+        qw("UPDATE users SET balance = balance - %s, total_spent = total_spent + %s WHERE id = %s AND balance >= %s", (bet, bet, uid, bet))
         crash_data['bets'][uid] = bet
-        update_user(uid, balance=user[1] - bet)
-        total_spent = user[11] + bet
-        update_user(uid, total_spent=total_spent)
     return jsonify({'success': True})
 
 @app.route('/crash_status', methods=['POST'])
+@limiter.limit("30 per minute")
 def crash_status():
     global crash_data
     uid = get_authenticated_user_id()
@@ -1857,6 +1861,7 @@ def crash_status():
         return jsonify({'phase': crash_data['phase'], 'multiplier': crash_data['multiplier'], 'waiting_time': round(waiting_time, 1), 'crash_multiplier_at_crash': crash_data.get('crash_multiplier_at_crash', 1.00), 'game_count': crash_data['game_count'], 'my_bet': crash_data['bets'].get(uid, 0) if uid else 0})
 
 @app.route('/cashout_crash', methods=['POST'])
+@limiter.limit("10 per minute")
 def cashout_crash():
     global crash_data
     uid = get_authenticated_user_id()
@@ -1874,7 +1879,7 @@ def cashout_crash():
         final_winnings = min(int(bet * multiplier), 5000)
         user = get_user(uid)
         new_bal = user[1] + final_winnings
-        update_user(uid, balance=new_bal, last_open=int(time.time()))
+        update_user(uid, balance=new_bal)
         update_crash_stats(uid, won=True, multiplier=multiplier, stars=final_winnings)
         del crash_data['bets'][uid]
     return jsonify({'win': final_winnings, 'balance': new_bal, 'multiplier': multiplier})
@@ -1893,6 +1898,7 @@ def get_crash_stats():
 
 # ===== UPGRADE =====
 @app.route('/upgrade_calculate', methods=['POST'])
+@limiter.limit("30 per minute")
 def upgrade_calculate():
     uid = get_authenticated_user_id()
     if not uid:
@@ -1972,13 +1978,10 @@ def webhook():
     src_ip = ipaddress.ip_address(request.remote_addr)
     if not any(src_ip in net for net in TG_NETWORKS):
         return '', 403
-    try:
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return ''
-    except Exception:
-        return '', 400
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
+    return ''
 
 _start_lock = threading.Lock()
 _threads_started = False
@@ -2026,12 +2029,7 @@ def start_background_threads():
 if __name__ == "__main__":
     init_db()
     load_mines_from_db()
-    threading.Thread(target=crash_timer, daemon=True).start()
+    start_background_threads()
     port = int(os.environ.get("PORT", 5000))
-    
-    webhook_url = WEBAPP_URL + "/webhook"
-    bot.remove_webhook()
-    bot.set_webhook(url=webhook_url)
-    print("WEBHOOK SET TO:", webhook_url)
-    
+    print("BOT STARTED on port", port)
     app.run(host="0.0.0.0", port=port)
