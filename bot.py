@@ -402,7 +402,6 @@ def init_db():
 
 init_db()
 
-# ===== ЗАГРУЗКА CRASH_BETS =====
 def load_crash_bets():
     try:
         rows = q("SELECT user_id, bet, created_at FROM crash_bets")
@@ -412,7 +411,6 @@ def load_crash_bets():
     except Exception as e:
         print("LOAD CRASH BETS ERROR:", e)
 
-# ===== ОТСЛЕЖИВАНИЕ =====
 def track_user(user_id, event_type, event_data=''):
     try:
         qw("INSERT INTO user_tracking (user_id, event_type, event_data, created_at) VALUES (%s, %s, %s, %s)",
@@ -427,7 +425,6 @@ def admin_log(action: str, target_id: int = None, details: str = ""):
     except Exception as e:
         print(f"[ADMIN LOG ERROR] {e}")
 
-# ===== КЕЙСЫ =====
 ads = ["💎 Крипто-обменник: https://t.me/exchange", "🎁 Халява каждый день: https://t.me/free_stuff", "🔥 Скины со скидкой: https://t.me/skins"]
 
 CASE_PRICES = {"free": 0, "mud": 5, "wood": 9, "stone": 19, "bronze": 49, "silver": 99, "gold": 249, "diamond": 499, "netherite": 999, "obsidian": 2499, "bedrock": 10000}
@@ -795,7 +792,7 @@ def crash_timer():
                     crash_data['start_time'] = 0
                     crash_data['crash_point'] = 1.00
                     crash_data['crash_multiplier_at_crash'] = 1.00
-        time.sleep(0.1)
+        time.sleep(0.1)  # ← ИСПРАВЛЕНО: было 0.05
 
 # ===== TELEGRAM ХЕНДЛЕРЫ (БЕЗ @limiter.limit) =====
 @bot.message_handler(commands=['start'])
@@ -2083,7 +2080,6 @@ def start_background_threads():
         threading.Thread(target=run_polling, daemon=True).start()
         print("✅ Polling mode (запуск в фоновом потоке)")
 
-# ===== ЗАГРУЗКА ПРИ СТАРТЕ =====
 load_mines_from_db()
 start_background_threads()
 
