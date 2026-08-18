@@ -2,6 +2,7 @@ import telebot
 import random
 import psycopg2
 import psycopg2.pool
+import psycopg2.extras
 import atexit
 import signal
 import sys
@@ -231,6 +232,16 @@ def init_db():
         cur.execute("ALTER TABLE IF EXISTS level_wins ALTER COLUMN user_id TYPE BIGINT")
         cur.execute("ALTER TABLE IF EXISTS promo_codes ALTER COLUMN created_by TYPE BIGINT")
         
+        # Добавляем недостающие колонки (п.5)
+        for col, ctype in [
+            ('luck_boost', 'REAL DEFAULT 1.0'),
+            ('banned', 'INTEGER DEFAULT 0'),
+            ('total_deposit', 'INTEGER DEFAULT 0'),
+            ('claimed_deposit', 'TEXT DEFAULT \'\''),
+            ('last_free_case', 'INTEGER DEFAULT 0')
+        ]:
+            cur.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {ctype}")
+        
         cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')")
         users_exists = cur.fetchone()[0]
         
@@ -372,6 +383,12 @@ def init_db():
             status TEXT DEFAULT 'active',
             created_at INTEGER
         )''')
+        # Таблица для сохранения ставок краша (п.18)
+        cur.execute('''CREATE TABLE IF NOT EXISTS crash_bets (
+            user_id BIGINT PRIMARY KEY,
+            bet INTEGER,
+            created_at INTEGER
+        )''')
         cur.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_used_promos_user ON used_promos(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_promo_spend_user ON promo_spend(user_id)")
@@ -416,7 +433,8 @@ WINS_TO_UNLOCK = 3
 CASE_RANGES = {
     "free": {"common": [1, 2], "rare": [3, 4], "epic": [5, 6, 7, 8, 9, 10], "legendary": [100], "jackpot": [1000], "common_chance": 0.599, "rare_chance": 0.299, "epic_chance": 0.0999, "legendary_chance": 0.0001, "jackpot_chance": 0.00000001},
 
-    "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.876, "rare_chance": 0.089, "epic_chance": 0.03, "legendary_chance": 0.005, "jackpot_chance": 0.000001},
+    # Исправлены шансы грязевого кейса (п.22)
+    "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.90, "rare_chance": 0.07, "epic_chance": 0.03, "legendary_chance": 0.0, "jackpot_chance": 0.0},
 
     "wood": {"common": [2, 4, 5, 6, 7, 8, 9, 10], "rare": [12, 13, 15], "epic": [20, 50], "legendary": [100, 500], "jackpot": [1000], "common_chance": 0.80, "rare_chance": 0.14, "epic_chance": 0.05, "legendary_chance": 0.01, "jackpot_chance": 0.000001},
 
@@ -560,6 +578,14 @@ def get_unlocked_levels(uid):
             break
     return unlocked
 
+# Новая функция для текущего уровня (п.4)
+def get_current_level(uid):
+    wins = get_level_wins(uid)
+    for lvl in LEVEL_ORDER:
+        if wins.get(lvl, 0) < WINS_TO_UNLOCK:
+            return lvl
+    return LEVEL_ORDER[-1]
+
 def add_case_stats(uid, case_type, n=1):
     qw("INSERT INTO case_stats (user_id, case_type, opened) VALUES (%s, %s, %s) ON CONFLICT (user_id, case_type) DO UPDATE SET opened = case_stats.opened + %s", (uid, case_type, n, n))
 
@@ -570,13 +596,15 @@ def get_level_progress(uid, case_type):
     row = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
     return row[0] if row else 0
 
+# Исправлена регистрация открытия с write_lock и get_current_level (п.4, п.17)
 def register_case_opening(uid, case_type, n=1):
-    add_case_stats(uid, case_type, n)
-    if case_type in LEVEL_ORDER and case_type in get_unlocked_levels(uid):
-        progress = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
-        current_opened = progress[0] if progress else 0
-        if current_opened < BATTLE_PROGRESS_COST:
-            add_level_progress(uid, case_type, n)
+    with write_lock:
+        add_case_stats(uid, case_type, n)
+        if case_type in LEVEL_ORDER and case_type == get_current_level(uid):
+            progress = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
+            current_opened = progress[0] if progress else 0
+            if current_opened < BATTLE_PROGRESS_COST:
+                add_level_progress(uid, case_type, n)
 
 def _update_game_stats(table, user_id, won, multiplier, stars):
     assert table in ('mines_stats', 'crash_stats')
@@ -663,33 +691,28 @@ signal.signal(signal.SIGINT, handle_shutdown)
 mines_lock = threading.Lock()
 crash_lock = threading.Lock()
 
+# Фаза краша теперь стартует с 'waiting' (п.1)
 crash_data = {
-    'phase': 'preview',
+    'phase': 'waiting',
     'multiplier': 1.00,
     'crash_point': 1.00,
     'start_time': 0,
     'crash_time': 0,
     'bets': {},
-    'waiting_time': 0,
+    'waiting_time': time.time() + 5,
     'game_count': 0,
     'preview_start': 0,
     'crash_multiplier_at_crash': 1.00,
     'crashed_until': 0,
-    'first_visit': True
+    'first_visit': False
 }
 
+# Исправлен generate_crash_point (п.21)
 def generate_crash_point():
-    rnd = random.random()
-    if rnd < 0.35:
-        return round(1.05 + rnd * 0.50, 2)
-    elif rnd < 0.70:
-        return round(1.50 + (rnd - 0.35) * 4.00, 2)
-    elif rnd < 0.90:
-        return round(3.00 + (rnd - 0.70) * 10.00, 2)
-    elif rnd < 0.98:
-        return round(6.00 + (rnd - 0.90) * 25.00, 2)
-    else:
-        return round(10.00 + (rnd - 0.98) * 60.00, 2)
+    r = random.random()
+    if r < 0.0001:
+        r = 0.0001
+    return round(1.00 + (r ** -1) * 0.06, 2)
 
 def get_crash_multiplier(elapsed):
     if elapsed < 1.0:
@@ -722,6 +745,7 @@ def get_crash_multiplier(elapsed):
         multiplier = 12.00
     return round(min(multiplier, 12.00), 2)
 
+# Исправлены множители минёра (п.16)
 def get_mines_multiplier(opened, mines):
     multipliers = {
         4: {1: 1.05, 2: 1.15, 3: 1.30, 4: 1.50, 5: 1.75, 6: 2.10, 7: 2.50, 8: 3.00, 9: 3.50, 10: 4.20, 11: 5.00, 12: 6.00},
@@ -731,27 +755,18 @@ def get_mines_multiplier(opened, mines):
         8: {1: 1.25, 2: 1.50, 3: 1.85, 4: 2.30, 5: 2.90, 6: 3.60, 7: 4.50, 8: 5.50, 9: 7.50, 10: 9.00, 11: 12.00, 12: 15.00},
         9: {1: 1.30, 2: 1.60, 3: 2.00, 4: 2.50, 5: 3.20, 6: 4.00, 7: 5.00, 8: 6.50, 9: 8.50, 10: 10.00, 11: 14.00, 12: 18.00}
     }
-    return multipliers.get(mines, {}).get(opened, 1.00)
+    base = multipliers.get(mines, {}).get(opened, None)
+    if base is not None:
+        return base
+    base_12 = multipliers.get(mines, {}).get(12, 1.0)
+    return round(base_12 + (opened - 12) * 0.5, 2)
 
 def crash_timer():
     global crash_data
     while True:
         with crash_lock:
             now = time.time()
-            if crash_data['phase'] == 'preview':
-                if not crash_data.get('preview_start'):
-                    crash_data['preview_start'] = now
-                    crash_data['multiplier'] = 1.00
-                    crash_data['crash_point'] = generate_crash_point()
-                elapsed = now - crash_data['preview_start']
-                crash_data['multiplier'] = get_crash_multiplier(elapsed)
-                if crash_data['multiplier'] >= crash_data['crash_point'] or crash_data['multiplier'] >= 12.00:
-                    crash_data['phase'] = 'waiting'
-                    crash_data['waiting_time'] = now + 10
-                    crash_data['multiplier'] = crash_data['crash_point']
-                    crash_data['crash_multiplier_at_crash'] = crash_data['multiplier']
-                    crash_data['first_visit'] = False
-            elif crash_data['phase'] == 'waiting':
+            if crash_data['phase'] == 'waiting':
                 if now >= crash_data['waiting_time']:
                     crash_data['phase'] = 'active'
                     crash_data['start_time'] = now
@@ -781,7 +796,7 @@ def crash_timer():
                     crash_data['phase'] = 'waiting'
                     crash_data['waiting_time'] = now + 10
                     crash_data['multiplier'] = 1.00
-        time.sleep(0.05)
+        time.sleep(0.1)  # п.35
 
 @bot.message_handler(commands=['start'])
 def start(msg):
@@ -1353,6 +1368,7 @@ def check_balance_simple():
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'has_enough': user[1] >= amount})
 
+# Исправлены проверки case_type (п.11, п.12)
 @app.route('/open_case', methods=['POST'])
 @limiter.limit("20 per minute")
 def open_case():
@@ -1364,8 +1380,8 @@ def open_case():
             return jsonify({'error': 'Ты забанен!'}), 403
         data = request.get_json(silent=True) or {}
         case_type = data.get('case_type')
-        if case_type not in CASE_RANGES:
-            return jsonify({'error': 'Invalid case type'}), 400
+        if not case_type or case_type not in CASE_PRICES:
+            return jsonify({'error': 'Некорректный тип кейса'}), 400
         
         with write_lock:
             if case_type == "free":
@@ -1409,10 +1425,10 @@ def open_10_cases():
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     case_type = data.get('case_type')
+    if not case_type or case_type not in CASE_PRICES:
+        return jsonify({'error': 'Некорректный тип кейса'}), 400
     if case_type == "free":
         return jsonify({'error': 'Нельзя открыть 10 бесплатных кейсов'}), 400
-    if case_type not in CASE_RANGES:
-        return jsonify({'error': 'Invalid case type'}), 400
     with write_lock:
         user = get_user(uid)
         if not user:
@@ -1453,7 +1469,9 @@ def get_levels_data():
     level_progress = {lvl: progress_all.get(lvl, 0) for lvl in unlocked_levels}
     return jsonify({'unlocked_levels': unlocked_levels, 'level_wins': level_wins, 'level_progress': level_progress})
 
+# Добавлен rate limit (п.20)
 @app.route('/start_bot_battle', methods=['POST'])
+@limiter.limit("30 per minute")
 def start_bot_battle():
     uid = get_authenticated_user_id()
     if not uid:
@@ -1520,6 +1538,7 @@ def get_quests_data():
                     'claimed_levels': [q for q in claimed_quests if q.startswith('level_')],
                     'claimed_friends': [q for q in claimed_quests if q.startswith('friends_')]})
 
+# Исправлен claim_quest (п.7)
 @app.route('/claim_quest', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_quest():
@@ -1529,7 +1548,9 @@ def claim_quest():
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
-    quest_id = data.get('quest_id')
+    quest_id = data.get('quest_id', '')
+    if not quest_id:
+        return jsonify({'error': 'Некорректный ID задания'}), 400
     with write_lock:
         user = get_user(uid)
         if not user:
@@ -1568,6 +1589,7 @@ def get_quest_reward(uid, quest_id):
             return rewards.get(quest_id, 0)
     return None
 
+# Исправлен apply_promo (п.9)
 @app.route('/apply_promo', methods=['POST'])
 @limiter.limit("10 per minute")
 def apply_promo():
@@ -1577,23 +1599,25 @@ def apply_promo():
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
-    promo_code = data.get('promo_code', '').upper()
+    promo = data.get('promo', '').strip().upper()
+    if not promo:
+        return jsonify({'error': 'Введите промокод'}), 400
     with write_lock:
         user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
-        promo = qone("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=%s", (promo_code,))
-        if not promo:
+        promo_row = qone("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=%s", (promo,))
+        if not promo_row:
             return jsonify({'error': 'Неверный промокод!'}), 400
-        reward, max_uses, used_count = promo
+        reward, max_uses, used_count = promo_row
         if max_uses > 0 and used_count >= max_uses:
             return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
-        used = qone("SELECT * FROM used_promos WHERE user_id=%s AND promo_code=%s", (uid, promo_code))
+        used = qone("SELECT * FROM used_promos WHERE user_id=%s AND promo_code=%s", (uid, promo))
         if used:
             return jsonify({'error': 'Ты уже использовал этот промокод!'}), 400
         qw("UPDATE users SET balance = balance + %s WHERE id = %s", (reward, uid))
-        qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=%s", (promo_code,))
-        qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (%s, %s, %s)", (uid, promo_code, int(time.time())))
+        qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=%s", (promo,))
+        qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (%s, %s, %s)", (uid, promo, int(time.time())))
         return jsonify({'success': True, 'reward': reward})
 
 @app.route('/claim_promo_webapp', methods=['POST'])
@@ -1606,6 +1630,8 @@ def claim_promo_webapp():
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     code = data.get('code', '').upper()
+    if not code:
+        return jsonify({'error': 'Введите промокод'}), 400
     with write_lock:
         user = get_user(uid)
         if not user:
@@ -1625,6 +1651,7 @@ def claim_promo_webapp():
         qw("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING", (uid, code, 0))
         return jsonify({'success': True, 'reward': reward, 'message': f'✅ +{reward}⭐ за промокод!'})
 
+# Исправлен withdraw (п.8)
 @app.route('/withdraw', methods=['POST'])
 def withdraw():
     uid = get_authenticated_user_id()
@@ -1634,6 +1661,8 @@ def withdraw():
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     amount = data.get('amount', 0)
+    if not isinstance(amount, int) or amount <= 0:
+        return jsonify({'error': 'Некорректная сумма'}), 400
     with write_lock:
         user = get_user(uid)
         if not user:
@@ -1677,6 +1706,7 @@ def get_deposit_rewards():
         'total_spent': user[14]
     })
 
+# Исправлен claim_deposit_reward (п.10)
 @app.route('/claim_deposit_reward', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_deposit_reward():
@@ -1694,8 +1724,8 @@ def claim_deposit_reward():
         tiers = {100: 10, 250: 25, 500: 50, 1000: 100, 2500: 250, 10000: 1000}
         if amount not in tiers:
             return jsonify({'error': 'Неверная награда'}), 400
-        claimed = [int(x) for x in user[15].split(',') if x] if user[15] else []
-        if amount in claimed:
+        claimed = [x.strip() for x in user[15].split(',') if x.strip()]
+        if str(amount) in claimed:
             return jsonify({'error': 'Награда уже получена'}), 400
         if user[14] < amount:
             return jsonify({'error': 'Недостаточно пополнений'}), 400
@@ -1705,7 +1735,9 @@ def claim_deposit_reward():
         return jsonify({'success': True, 'reward': reward})
 
 # ===== MINES =====
+# Добавлен rate limit (п.19)
 @app.route('/start_mines_game', methods=['POST'])
+@limiter.limit("20 per minute")
 def start_mines_game():
     uid = get_authenticated_user_id()
     if not uid:
@@ -1740,7 +1772,8 @@ def start_mines_game():
             for pos in positions:
                 board[pos] = 1
             game_id = str(uuid.uuid4())
-            max_mult = get_mines_multiplier(3, mines)
+            # Исправлен кап множителя на 12 клеток (п.13)
+            max_mult = get_mines_multiplier(12, mines)
             active_mines_games[game_id] = {'user_id': uid, 'bet': bet, 'mines': mines, 'board': board, 'opened': [0] * 25, 'opened_count': 0, 'multiplier': 1.0, 'max_multiplier': max_mult, 'status': 'active', 'created_at': int(time.time())}
         user_after = get_user(uid)
         return jsonify({'game_id': game_id, 'balance': user_after[1] if user_after else user[1] - bet})
@@ -1780,9 +1813,8 @@ def open_mines_cell():
             game['multiplier'] = get_mines_multiplier(opened, game['mines'])
             safe_cells = 25 - game['mines']
             if game['opened_count'] == safe_cells:
-                raw_winnings = int(game['bet'] * game['multiplier'])
-                capped = int(game['bet'] * game['max_multiplier'])
-                final_winnings = min(raw_winnings, capped, 5000)
+                # Исправлен расчёт выигрыша (п.14)
+                final_winnings = min(int(game['bet'] * game['multiplier']), 5000)
                 user = get_user(uid)
                 new_bal = user[1] + final_winnings
                 update_user(uid, balance=new_bal)
@@ -1813,9 +1845,8 @@ def cashout_mines():
                 return jsonify({'error': 'Не твоя игра'}), 403
             if game['opened_count'] < 3:
                 return jsonify({'error': 'Нужно открыть минимум 3 клетки!'}), 400
-            raw_winnings = int(game['bet'] * game['multiplier'])
-            capped = int(game['bet'] * game['max_multiplier'])
-            final_winnings = min(raw_winnings, capped, 5000)
+            # Исправлен расчёт выигрыша (п.15)
+            final_winnings = min(int(game['bet'] * game['multiplier']), 5000)
             user = get_user(uid)
             new_bal = user[1] + final_winnings
             update_user(uid, balance=new_bal)
@@ -1859,6 +1890,20 @@ def get_mines_stats():
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
 # ===== CRASH =====
+# Снят лимит с crash_status (п.2)
+@app.route('/crash_status', methods=['POST'])
+def crash_status():
+    global crash_data
+    uid = get_authenticated_user_id()
+    if uid and is_banned(uid):
+        return jsonify({'error': 'Ты забанен!'}), 403
+    with crash_lock:
+        now = time.time()
+        waiting_time = 0
+        if crash_data['phase'] == 'waiting':
+            waiting_time = max(0, crash_data['waiting_time'] - now)
+        return jsonify({'phase': crash_data['phase'], 'multiplier': crash_data['multiplier'], 'waiting_time': round(waiting_time, 1), 'crash_multiplier_at_crash': crash_data.get('crash_multiplier_at_crash', 1.00), 'game_count': crash_data['game_count'], 'my_bet': crash_data['bets'].get(uid, 0) if uid else 0})
+
 @app.route('/make_crash_bet', methods=['POST'])
 @limiter.limit("10 per minute")
 def make_crash_bet():
@@ -1886,21 +1931,9 @@ def make_crash_bet():
             return jsonify({'error': 'Ты уже сделал ставку'}), 400
         qw("UPDATE users SET balance = balance - %s, total_spent = total_spent + %s WHERE id = %s AND balance >= %s", (bet, bet, uid, bet))
         crash_data['bets'][uid] = bet
+        # Сохраняем ставку в БД (п.18)
+        qw("INSERT INTO crash_bets (user_id, bet, created_at) VALUES (%s, %s, %s) ON CONFLICT (user_id) DO UPDATE SET bet = EXCLUDED.bet, created_at = EXCLUDED.created_at", (uid, bet, int(time.time())))
     return jsonify({'success': True})
-
-@app.route('/crash_status', methods=['POST'])
-@limiter.limit("30 per minute")
-def crash_status():
-    global crash_data
-    uid = get_authenticated_user_id()
-    if uid and is_banned(uid):
-        return jsonify({'error': 'Ты забанен!'}), 403
-    with crash_lock:
-        now = time.time()
-        waiting_time = 0
-        if crash_data['phase'] == 'waiting':
-            waiting_time = max(0, crash_data['waiting_time'] - now)
-        return jsonify({'phase': crash_data['phase'], 'multiplier': crash_data['multiplier'], 'waiting_time': round(waiting_time, 1), 'crash_multiplier_at_crash': crash_data.get('crash_multiplier_at_crash', 1.00), 'game_count': crash_data['game_count'], 'my_bet': crash_data['bets'].get(uid, 0) if uid else 0})
 
 @app.route('/cashout_crash', methods=['POST'])
 @limiter.limit("10 per minute")
@@ -2069,8 +2102,7 @@ def start_background_threads():
         print("✅ Polling mode (запуск в фоновом потоке)")
 
 if __name__ == "__main__":
-    init_db()
-    load_mines_from_db()
+    load_mines_from_db()  # п.6 — убран дублирующий init_db()
     start_background_threads()
     port = int(os.environ.get("PORT", 5000))
     print("BOT STARTED on port", port)
