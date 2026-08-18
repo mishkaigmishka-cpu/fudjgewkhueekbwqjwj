@@ -1,5 +1,5 @@
 // ===============================
-// RANDEVU — FINAL SCRIPT v16.0
+// RANDEVU — FINAL SCRIPT v16.1
 // Виртуальная валюта, без платежей
 // ===============================
 
@@ -301,11 +301,18 @@ let state = {
     currentAd: null,
     isOpening: false,
     tapeContainer: null,
-    crashInterval: null
+    crashInterval: null,
+    activeTimers: []  // п.34
 };
 
-// ===== ЗАКРЫТИЕ ОВЕРЛЕЕВ =====
+// ===== ЗАКРЫТИЕ ОВЕРЛЕЕВ (с очисткой таймеров, п.34) =====
 function closeAllOverlays() {
+    // Очистка таймеров (п.34)
+    if (state.activeTimers) {
+        state.activeTimers.forEach(id => clearTimeout(id));
+        state.activeTimers = [];
+    }
+
     const ids = [
         'tapeContainer',
         'resultContainer',
@@ -616,6 +623,7 @@ function openCaseDirect(type) {
             state.currentNewBalance = data.new_balance;
 
             closeAllOverlays();
+            state.isOpening = true;  // п.29
             showTape(type, 'roulette');
             setTimeout(() => startFinalSpin(type), 300);
         });
@@ -674,7 +682,8 @@ function startFinalSpin(type) {
         track.style.transform = `translateX(-${finalShift}px)`;
         onFinish();
     };
-    setTimeout(onFinish, 5300);
+    const timerId = setTimeout(onFinish, 5300);
+    state.activeTimers.push(timerId);
 }
 
 function createResultOverlay(opts) {
@@ -759,7 +768,7 @@ function showResult(type, targetPrize, style, track, winPosition) {
     const winCard = cards[winPosition];
     if (winCard) winCard.classList.add('win-card');
 
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
         const newBalance = state.currentNewBalance;
         const rarity = getRarity(type, targetPrize);
         const isBig = rarity.cls === 'rarity-legend' || rarity.cls === 'rarity-jackpot';
@@ -799,6 +808,7 @@ function showResult(type, targetPrize, style, track, winPosition) {
             loadBalance();
         }
     }, 300);
+    state.activeTimers.push(timerId);
 }
 
 // ===== ОТКРЫТИЕ 10 КЕЙСОВ =====
@@ -815,7 +825,7 @@ async function open10Cases(type) {
 
     if (data.new_balance !== undefined) updateAllBalances(data.new_balance);
     show10CasesAnimation(type, data);
-    state.isOpening = false;
+    // state.isOpening = false;  // п.30 — перенесено в конец анимации
 }
 
 function show10CasesAnimation(type, data) {
@@ -854,16 +864,18 @@ function show10CasesAnimation(type, data) {
 
         const track = document.createElement('div');
         track.className = 'mini-track';
+        track.style.willChange = 'transform';  // п.25
         track.dataset.index = r;
         track.style.gap = cardGap + 'px';
-        track.style.width = (totalItems * 3 * (cardWidth + cardGap)) + 'px';
+        track.style.width = (totalItems * 2 * (cardWidth + cardGap)) + 'px';  // п.23
 
         const targetPrize = data.prizes[r] !== undefined ? data.prizes[r] : prizes[0];
         const targetIndex = Math.max(0, prizes.indexOf(targetPrize));
         const winPos = Math.floor(totalItems * 1.5) + targetIndex;
         winPositions.push(winPos);
 
-        for (let i = 0; i < totalItems * 3; i++) {
+        const fragment = document.createDocumentFragment();  // п.24
+        for (let i = 0; i < totalItems * 2; i++) {  // п.23
             const value = (i === winPos) ? targetPrize : prizes[Math.floor(Math.random() * prizes.length)];
             const isLarge = value > 1000;
             const rarity = getRarity(type, value);
@@ -872,8 +884,9 @@ function show10CasesAnimation(type, data) {
             card.style.width = cardWidth + 'px';
             card.style.fontSize = isLarge ? '10px' : '12px';
             card.innerHTML = value + starIcon(isLarge ? 9 : 11);
-            track.appendChild(card);
+            fragment.appendChild(card);
         }
+        track.appendChild(fragment);
 
         const marker = document.createElement('div');
         marker.className = 'x10-marker';
@@ -945,6 +958,7 @@ function show10CasesAnimation(type, data) {
             confettiCount: bestRarity >= 4 ? 60 : 30
         });
         loadBalance();
+        state.isOpening = false;  // п.31
     };
 
     const finishAll = (instant) => {
@@ -1195,7 +1209,7 @@ function showBotRouletteAnimationWithResult(data, case_type) {
 
     document.body.appendChild(overlay);
 
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
         const track1 = document.getElementById('botRouletteTrack1');
         const track2 = document.getElementById('botRouletteTrack2');
         if (!track1 || !track2) return;
@@ -1266,19 +1280,22 @@ function showBotRouletteAnimationWithResult(data, case_type) {
             track1.removeEventListener('transitionend', finishBattle);
             track2.removeEventListener('transitionend', finishBattle);
             highlightBattleWinner();
-            setTimeout(() => {
+            const timerId2 = setTimeout(() => {
                 const overlayEl = document.getElementById('botRouletteOverlay');
                 if (overlayEl) overlayEl.remove();
                 showBotBattleResult(data, case_type);
             }, 900);
+            state.activeTimers.push(timerId2);
         };
 
         track1.addEventListener('transitionend', finishBattle);
         track2.addEventListener('transitionend', finishBattle);
 
         overlay._skipBattle = finishBattle;
-        setTimeout(finishBattle, 11000);
+        const timerId3 = setTimeout(finishBattle, 11000);
+        state.activeTimers.push(timerId3);
     }, 300);
+    state.activeTimers.push(timerId);
 }
 
 function showBotBattleResult(data, case_type) {
@@ -1341,7 +1358,8 @@ function showBotBattleResult(data, case_type) {
     loadBalance();
     loadLevels();
 
-    if (data.level_unlocked && data.wins === 1) {
+    // Исправлено условие показа unlock (п.27)
+    if (data.level_unlocked && data.wins >= 3) {
         let unlockedCase = null;
         if (typeof data.level_unlocked === 'string') {
             unlockedCase = data.level_unlocked;
@@ -1354,7 +1372,8 @@ function showBotBattleResult(data, case_type) {
         const shownKey = 'unlock_shown_' + unlockedCase;
         if (unlockedCase && !localStorage.getItem(shownKey)) {
             localStorage.setItem(shownKey, '1');
-            setTimeout(() => showLevelUnlockAnimation(unlockedCase), 900);
+            const timerId = setTimeout(() => showLevelUnlockAnimation(unlockedCase), 900);
+            state.activeTimers.push(timerId);
         }
     }
 }
@@ -1382,7 +1401,7 @@ function showLevelUnlockAnimation(caseType) {
     overlay.onclick = () => overlay.remove();
     document.body.appendChild(overlay);
 
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
         const el = document.getElementById('levelUnlockOverlay');
         if (el) {
             el.style.transition = 'opacity 0.5s ease';
@@ -1390,6 +1409,7 @@ function showLevelUnlockAnimation(caseType) {
             setTimeout(() => el.remove(), 500);
         }
     }, 3200);
+    state.activeTimers.push(timerId);
 }
 
 // ===== ЗАДАНИЯ =====
@@ -1785,9 +1805,9 @@ function copyInvite() {
     });
 }
 
-// ===== КРАШ =====
+// ===== КРАШ (фаза исправлена на 'waiting', п.3) =====
 let crash = {
-    phase: 'preview',
+    phase: 'waiting',  // п.3 — исправлено с 'preview'
     multiplier: 1.00,
     bet: 0,
     hasBet: false,
@@ -1796,7 +1816,7 @@ let crash = {
     canvas: null,
     dom: {},
     interval: null,
-    firstVisit: true,
+    firstVisit: false,  // п.3
     crashedAt: 0
 };
 
@@ -1898,7 +1918,8 @@ function showCrashGame() {
     };
     container.appendChild(backBtn);
 
-    setTimeout(() => initCrash(), 50);
+    const timerId = setTimeout(() => initCrash(), 50);
+    state.activeTimers.push(timerId);
 }
 
 function initCrash() {
@@ -2236,7 +2257,7 @@ function startCrashPolling() {
                     loadCrashStats();
                     if (lostBet > 0 && justCrashed) {
                         const cp = (status.multiplier || 1).toFixed(2);
-                        setTimeout(() => {
+                        const timerId = setTimeout(() => {
                             const c = document.getElementById('crashGameContainer');
                             if (!c || c.style.display === 'none') return;
                             createResultOverlay({
@@ -2253,6 +2274,7 @@ function startCrashPolling() {
                                 ]
                             });
                         }, 3000);
+                        state.activeTimers.push(timerId);
                     }
                 }
                 if (d.cashoutBtn) d.cashoutBtn.style.display = 'none';
@@ -2377,7 +2399,8 @@ function showMinesGame() {
     };
     container.appendChild(backBtn);
 
-    setTimeout(() => initGameMines(), 50);
+    const timerId = setTimeout(() => initGameMines(), 50);
+    state.activeTimers.push(timerId);
 }
 
 function buildMinesBoard() {
@@ -2515,10 +2538,11 @@ function renderGameMinesBoard() {
     });
 }
 
+// Исправлена задержка раскрытия мин (п.26)
 function revealMinesBoard(minesPositions, done) {
     const finish = () => { if (done) done(); };
     if (!gameMinesData || !Array.isArray(minesPositions)) {
-        setTimeout(finish, 350);
+        setTimeout(finish, 150);
         return;
     }
     const board = document.getElementById('gm_board');
@@ -2541,9 +2565,9 @@ function revealMinesBoard(minesPositions, done) {
                 cell.innerHTML = icon('gem', 26, 'gm-cell-img', '💎');
                 cell.classList.add('gm-reveal-safe');
             }
-        }, 120 + i * 35);
+        }, i * 15);  // п.26
     });
-    setTimeout(finish, 120 + 25 * 35 + 450);
+    setTimeout(finish, 15 * 25 + 200);  // п.26
 }
 
 function openGameMinesCell(index) {
@@ -2575,8 +2599,12 @@ function openGameMinesCell(index) {
             void multEl.offsetWidth;
             multEl.classList.add('stat-pop');
 
-            renderGameMinesBoard();
-            if (cellEl) cellEl.classList.add('gm-cell-safe');
+            // п.33 — обновляем только одну клетку вместо полного ререндера
+            if (cellEl) {
+                cellEl.className = 'gm_cell gm-open gm-safe';
+                cellEl.innerHTML = icon('gem', 34, 'gm-cell-img', '💎');
+                cellEl.onclick = null;
+            }
             updateGameMinesCashout();
 
             if (data.game_over && data.won) {
@@ -2597,15 +2625,17 @@ function openGameMinesCell(index) {
             gameMinesData.game_over = true;
             document.getElementById('gm_cashout_btn').style.display = 'none';
 
-            if (cellEl) cellEl.classList.add('gm-cell-mine');
+            if (cellEl) {
+                cellEl.className = 'gm_cell gm-open gm-mine';
+                cellEl.innerHTML = icon('mine', 34, 'gm-cell-img', '💣');
+                cellEl.onclick = null;
+            }
             const board = document.getElementById('gm_board');
             if (board) {
                 board.classList.remove('gm-board-shake');
                 void board.offsetWidth;
                 board.classList.add('gm-board-shake');
             }
-
-            renderGameMinesBoard();
 
             if (data.balance !== undefined) updateAllBalances(data.balance);
             else loadBalance();
@@ -2634,7 +2664,6 @@ function cashoutGameMines() {
         gameMinesData.active = false;
         gameMinesData.game_over = true;
         document.getElementById('gm_cashout_btn').style.display = 'none';
-        renderGameMinesBoard();
 
         if (data.balance !== undefined) updateAllBalances(data.balance);
         else loadBalance();
@@ -2767,7 +2796,8 @@ function showUpgradeGame() {
     };
     container.appendChild(backBtn);
 
-    setTimeout(() => initGameUpgrade(), 50);
+    const timerId = setTimeout(() => initGameUpgrade(), 50);
+    state.activeTimers.push(timerId);
 }
 
 function initGameUpgrade() {
@@ -3056,9 +3086,10 @@ function startGameUpgradeAnimation(data) {
         const againBtn = document.getElementById('gu_again_btn');
         if (againBtn) againBtn.style.display = 'block';
 
-        setTimeout(() => {
+        const timerId = setTimeout(() => {
             showGameUpgradeResult(data.result, data.message, data.new_balance);
         }, 700);
+        state.activeTimers.push(timerId);
     }
 
     skipBtn.onclick = finishUpgrade;
@@ -3083,9 +3114,10 @@ function startGameUpgradeAnimation(data) {
     }
 
     drawWheel(0);
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
         animationId = requestAnimationFrame(spin);
     }, 400);
+    state.activeTimers.push(timerId);
 }
 
 function showGameUpgradeResult(result, message, newBalance) {
