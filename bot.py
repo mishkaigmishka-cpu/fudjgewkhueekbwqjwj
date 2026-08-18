@@ -103,7 +103,7 @@ def show_main_menu(chat_id):
 
     main_message_ids[chat_id] = msg.message_id
 
-# ===== ВЕРИФИКАЦИЯ TELEGRAM (ПОЛНАЯ, с auth_date) =====
+# ===== ВЕРИФИКАЦИЯ TELEGRAM =====
 def verify_telegram_init_data(init_data_str: str) -> dict:
     if not init_data_str:
         return None
@@ -120,7 +120,6 @@ def verify_telegram_init_data(init_data_str: str) -> dict:
         if isinstance(user_data, str):
             user_data = json.loads(user_data)
         auth_date = int(parsed.get('auth_date', 0))
-        # Проверяем, что данные не старше 24 часов
         if time.time() - auth_date > 86400:
             return None
         return {
@@ -215,7 +214,6 @@ def init_db():
     with write_lock:
         cur = conn.cursor()
         
-        # Fix old tables: INTEGER -> BIGINT for Telegram IDs
         cur.execute("ALTER TABLE IF EXISTS users ALTER COLUMN id TYPE BIGINT")
         cur.execute("ALTER TABLE IF EXISTS invited ALTER COLUMN inviter_id TYPE BIGINT")
         cur.execute("ALTER TABLE IF EXISTS invited ALTER COLUMN invited_id TYPE BIGINT")
@@ -234,7 +232,6 @@ def init_db():
         cur.execute("ALTER TABLE IF EXISTS level_wins ALTER COLUMN user_id TYPE BIGINT")
         cur.execute("ALTER TABLE IF EXISTS promo_codes ALTER COLUMN created_by TYPE BIGINT")
         
-        # Добавляем недостающие колонки
         for col, ctype in [
             ('luck_boost', 'REAL DEFAULT 1.0'),
             ('banned', 'INTEGER DEFAULT 0'),
@@ -385,7 +382,6 @@ def init_db():
             status TEXT DEFAULT 'active',
             created_at INTEGER
         )''')
-        # Таблица для сохранения ставок краша (п.6)
         cur.execute('''CREATE TABLE IF NOT EXISTS crash_bets (
             user_id BIGINT PRIMARY KEY,
             bet INTEGER,
@@ -406,7 +402,7 @@ def init_db():
 
 init_db()
 
-# ===== ЗАГРУЗКА CRASH_BETS ПРИ СТАРТЕ (п.40) =====
+# ===== ЗАГРУЗКА CRASH_BETS =====
 def load_crash_bets():
     try:
         rows = q("SELECT user_id, bet, created_at FROM crash_bets")
@@ -416,7 +412,7 @@ def load_crash_bets():
     except Exception as e:
         print("LOAD CRASH BETS ERROR:", e)
 
-# ===== ОТСЛЕЖИВАНИЕ ПОЛЬЗОВАТЕЛЕЙ =====
+# ===== ОТСЛЕЖИВАНИЕ =====
 def track_user(user_id, event_type, event_data=''):
     try:
         qw("INSERT INTO user_tracking (user_id, event_type, event_data, created_at) VALUES (%s, %s, %s, %s)",
@@ -456,7 +452,6 @@ CASE_RANGES = {
     "bedrock": {"common": [5000], "rare": [10000, 25000], "epic": [50000, 100000], "legendary": [250000], "jackpot": [1000000], "common_chance": 0.999, "rare_chance": 0.0009, "epic_chance": 0.00009, "legendary_chance": 0.000009, "jackpot_chance": 0.000001}
 }
 
-# Нормализация шансов
 for case_type, data in CASE_RANGES.items():
     total = (data['common_chance'] + data['rare_chance'] + 
              data['epic_chance'] + data['legendary_chance'] + data['jackpot_chance'])
@@ -543,7 +538,6 @@ ALLOWED_USER_FIELDS = {
 def update_user(uid, **kwargs):
     if not kwargs:
         return
-    # Жёсткая валидация полей (п.15)
     safe = {k: v for k, v in kwargs.items() if k in ALLOWED_USER_FIELDS}
     if not safe:
         return
@@ -580,7 +574,6 @@ def get_unlocked_levels(uid):
             break
     return unlocked
 
-# Новая функция для текущего уровня
 def get_current_level(uid):
     wins = get_level_wins(uid)
     for lvl in LEVEL_ORDER:
@@ -598,12 +591,10 @@ def get_level_progress(uid, case_type):
     row = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
     return row[0] if row else 0
 
-# Исправлена регистрация открытия — можно открывать ЛЮБОЙ разблокированный уровень (п.8)
 def register_case_opening(uid, case_type, n=1):
     with write_lock:
         add_case_stats(uid, case_type, n)
         if case_type in LEVEL_ORDER and case_type in get_unlocked_levels(uid):
-            # Прогресс копится только на текущем (непройденном) уровне
             if case_type == get_current_level(uid):
                 progress = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
                 current_opened = progress[0] if progress else 0
@@ -695,7 +686,6 @@ signal.signal(signal.SIGINT, handle_shutdown)
 mines_lock = threading.Lock()
 crash_lock = threading.Lock()
 
-# Фаза краша: waiting (п.5)
 crash_data = {
     'phase': 'waiting',
     'multiplier': 1.00,
@@ -711,10 +701,8 @@ crash_data = {
     'first_visit': False
 }
 
-# Загружаем ставки краша из БД (п.40)
 load_crash_bets()
 
-# Исправлен generate_crash_point (п.24)
 def generate_crash_point():
     r = random.random()
     if r < 0.0001:
@@ -752,7 +740,6 @@ def get_crash_multiplier(elapsed):
         multiplier = 12.00
     return round(min(multiplier, 12.00), 2)
 
-# Исправлены множители минёра (п.12)
 def get_mines_multiplier(opened, mines):
     multipliers = {
         4: {1: 1.05, 2: 1.15, 3: 1.30, 4: 1.50, 5: 1.75, 6: 2.10, 7: 2.50, 8: 3.00, 9: 3.50, 10: 4.20, 11: 5.00, 12: 6.00},
@@ -768,7 +755,6 @@ def get_mines_multiplier(opened, mines):
     base_12 = multipliers.get(mines, {}).get(12, 1.0)
     return round(base_12 + (opened - 12) * 0.5, 2)
 
-# Исправлен crash_timer — сброс start_time и crash_point (п.3)
 def crash_timer():
     global crash_data
     while True:
@@ -792,7 +778,6 @@ def crash_timer():
                     crash_data['crashed_until'] = now + 4
                     crash_data['crash_multiplier_at_crash'] = crash_multiplier
                     crash_data['game_count'] += 1
-                    # Сброс start_time и crash_point для нового раунда (п.3)
                     crash_data['start_time'] = 0
                     crash_data['crash_point'] = 1.00
                     lost_bets = list(crash_data['bets'].items())
@@ -807,12 +792,12 @@ def crash_timer():
                     crash_data['phase'] = 'waiting'
                     crash_data['waiting_time'] = now + 10
                     crash_data['multiplier'] = 1.00
-                    # Сброс для нового раунда (п.3)
                     crash_data['start_time'] = 0
                     crash_data['crash_point'] = 1.00
                     crash_data['crash_multiplier_at_crash'] = 1.00
         time.sleep(0.1)
 
+# ===== TELEGRAM ХЕНДЛЕРЫ (БЕЗ @limiter.limit) =====
 @bot.message_handler(commands=['start'])
 def start(msg):
     uid = msg.from_user.id
@@ -918,7 +903,6 @@ def process_deposit_amount(msg):
 def checkout(pre_checkout_query):
     bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
-# Исправлен got_payment — try/except вокруг bot.send_message (п.25)
 @bot.message_handler(content_types=['successful_payment'])
 def got_payment(msg):
     uid = msg.from_user.id
@@ -951,10 +935,7 @@ def got_payment(msg):
         except Exception:
             pass
 
-
-# ===== АДМИН-КОМАНДЫ С ЛИМИТАМИ =====
 @bot.message_handler(commands=['ban'])
-@limiter.limit("10 per minute")
 def ban_user(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -972,7 +953,6 @@ def ban_user(msg):
     bot.reply_to(msg, f"✅ @{username} забанен!")
 
 @bot.message_handler(commands=['unban'])
-@limiter.limit("10 per minute")
 def unban_user(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -990,7 +970,6 @@ def unban_user(msg):
     bot.reply_to(msg, f"✅ @{username} разбанен!")
 
 @bot.message_handler(commands=['reset'])
-@limiter.limit("10 per minute")
 def reset_user(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1020,7 +999,6 @@ def reset_user(msg):
     bot.reply_to(msg, f"✅ @{username} сброшен!")
 
 @bot.message_handler(commands=['luck'])
-@limiter.limit("10 per minute")
 def luck_boost(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1041,7 +1019,6 @@ def luck_boost(msg):
     bot.reply_to(msg, f"✅ Шансы @{username} увеличены в 5x!")
 
 @bot.message_handler(commands=['unluck'])
-@limiter.limit("10 per minute")
 def unluck_boost(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1062,7 +1039,6 @@ def unluck_boost(msg):
     bot.reply_to(msg, f"✅ Шансы @{username} сброшены!")
 
 @bot.message_handler(commands=['give'])
-@limiter.limit("10 per minute")
 def give_stars(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1093,14 +1069,12 @@ def give_stars(msg):
         pass
 
 @bot.message_handler(commands=['bonus'])
-@limiter.limit("10 per minute")
 def bonus(msg):
     if msg.from_user.id != ADMIN_ID:
         return
     bot.reply_to(msg, f"✅ Ты ADMIN! Твой ID: {ADMIN_ID}")
 
 @bot.message_handler(commands=['addbalance'])
-@limiter.limit("10 per minute")
 def add_balance(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1130,7 +1104,6 @@ def add_balance(msg):
         pass
 
 @bot.message_handler(commands=['take'])
-@limiter.limit("10 per minute")
 def take_stars(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1167,7 +1140,6 @@ def take_stars(msg):
         pass
 
 @bot.message_handler(commands=['userinfo'])
-@limiter.limit("10 per minute")
 def user_info(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1210,7 +1182,6 @@ ID: {uid}
     bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['top'])
-@limiter.limit("10 per minute")
 def top_users(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1236,7 +1207,6 @@ def top_users(msg):
     bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['adminlogs'])
-@limiter.limit("10 per minute")
 def admin_logs_cmd(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1256,7 +1226,6 @@ def admin_logs_cmd(msg):
     bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['create_promo'])
-@limiter.limit("10 per minute")
 def create_promo(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1283,7 +1252,6 @@ def create_promo(msg):
     bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
 
 @bot.message_handler(commands=['promo_stats'])
-@limiter.limit("10 per minute")
 def promo_stats(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1303,7 +1271,6 @@ def promo_stats(msg):
     bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['list_promo'])
-@limiter.limit("10 per minute")
 def list_promo(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1318,7 +1285,6 @@ def list_promo(msg):
     bot.reply_to(msg, text)
 
 @bot.message_handler(commands=['delete_promo'])
-@limiter.limit("10 per minute")
 def delete_promo_cmd(msg):
     if msg.from_user.id != ADMIN_ID:
         return
@@ -1333,8 +1299,7 @@ def delete_promo_cmd(msg):
     admin_log('delete_promo', None, f"Удалён промокод {code}")
     bot.reply_to(msg, f"Промокод {code} удалён!")
 
-
-# ===== WEBHOOK / API =====
+# ===== FLASK РОУТЫ (С @limiter.limit) =====
 @app.route('/health')
 def health():
     return 'ok'
@@ -1535,7 +1500,6 @@ def start_bot_battle():
             result_text = '🤝 Ничья!'
         row = qone("SELECT wins FROM level_wins WHERE user_id=%s AND case_type=%s", (uid, case_type))
         wins_after = row[0] if row else 0
-        # Исправлено: показываем unlock только когда wins_after == WINS_TO_UNLOCK (п.9)
         level_unlocked = (wins_after == WINS_TO_UNLOCK)
         return jsonify({'result': result, 'result_text': result_text, 'player_prize': player_prize, 'bot_prize': bot_prize, 'wins': wins_after, 'level_unlocked': level_unlocked, 'needed_wins': WINS_TO_UNLOCK})
 
@@ -1761,7 +1725,6 @@ def start_mines_game():
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     
-    # Удаляем старые зависшие игры пользователя (п.14)
     qw("DELETE FROM active_mines_games WHERE user_id=%s", (uid,))
     old_games = [gid for gid, g in active_mines_games.items() if g.get('user_id') == uid]
     for gid in old_games:
@@ -1975,7 +1938,6 @@ def cashout_crash():
         update_user(uid, balance=new_bal)
         update_crash_stats(uid, won=True, multiplier=multiplier, stars=final_winnings)
         del crash_data['bets'][uid]
-        # Удаляем из БД после вывода
         qw("DELETE FROM crash_bets WHERE user_id=%s", (uid,))
     return jsonify({'win': final_winnings, 'balance': new_bal, 'multiplier': multiplier})
 
@@ -2121,7 +2083,7 @@ def start_background_threads():
         threading.Thread(target=run_polling, daemon=True).start()
         print("✅ Polling mode (запуск в фоновом потоке)")
 
-# ===== ЗАГРУЗКА ПРИ СТАРТЕ МОДУЛЯ (п.1) =====
+# ===== ЗАГРУЗКА ПРИ СТАРТЕ =====
 load_mines_from_db()
 start_background_threads()
 
