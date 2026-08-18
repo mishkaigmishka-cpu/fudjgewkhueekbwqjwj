@@ -633,7 +633,6 @@ function openCaseDirect(type) {
             showTape(type, 'roulette');
             setTimeout(() => startFinalSpin(type), 300);
 
-            // Обновляем прогресс уровней
             if (typeof loadLevels === 'function') {
                 setTimeout(() => loadLevels().catch(() => {}), 500);
             }
@@ -837,7 +836,6 @@ async function open10Cases(type) {
     if (data.new_balance !== undefined) updateAllBalances(data.new_balance);
     show10CasesAnimation(type, data);
 
-    // Обновляем прогресс уровней
     if (typeof loadLevels === 'function') {
         setTimeout(() => loadLevels().catch(() => {}), 500);
     }
@@ -1741,27 +1739,19 @@ function closePromoAppModal() {
     document.getElementById('promoAppInput').value = '';
 }
 
+// ИСПРАВЛЕНО: fetch → apiRequest (п.1)
 async function submitPromoApp() {
     const code = document.getElementById('promoAppInput').value.trim().toUpperCase();
     if (!code) return showCustomAlert('❌ Введи промокод!');
     if (!userId) return;
 
-    try {
-        const res = await fetch('/claim_promo_webapp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: code })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showCustomAlert(data.message || `✅ +${data.reward}⭐ за промокод!`, true);
-            await loadBalance();
-            closePromoAppModal();
-        } else {
-            showCustomAlert('❌ ' + (data.error || 'Ошибка'));
-        }
-    } catch (e) {
-        showCustomAlert('❌ Ошибка сети');
+    const data = await apiRequest('/claim_promo_webapp', { code: code });
+    if (data.success) {
+        showCustomAlert(data.message || `✅ +${data.reward}⭐ за промокод!`, true);
+        await loadBalance();
+        closePromoAppModal();
+    } else {
+        showCustomAlert('❌ ' + (data.error || 'Ошибка'));
     }
 }
 
@@ -2015,11 +2005,12 @@ function initCrash() {
     startCrashPolling();
 }
 
+// ИСПРАВЛЕНО: отмена анимации ТОЛЬКО если не active (п.2)
 function updateCrashUI(data) {
     const d = crash.dom;
     if (!d) return;
 
-    if (crash.animFrame) {
+    if (crash.animFrame && data.phase !== 'active') {
         cancelAnimationFrame(crash.animFrame);
         crash.animFrame = null;
     }
@@ -2175,6 +2166,7 @@ function updateCrashUI(data) {
     }
 }
 
+// ИСПРАВЛЕНО: интервал 250 мс
 function startCrashPolling() {
     if (crash.interval) clearInterval(crash.interval);
 
@@ -2260,6 +2252,7 @@ function crashColor(v, alpha = 1) {
     return `hsla(${hue}, 85%, 62%, ${alpha})`;
 }
 
+// ИСПРАВЛЕНО: фиксированный масштаб + visibleData (п.3)
 function drawCrashChart() {
     crash.animFrame = null;
     const ctx = crash.ctx;
@@ -2295,24 +2288,31 @@ function drawCrashChart() {
 
     ctx.clearRect(0, 0, w, h);
 
-    const maxVal = Math.max(...data, 2);
+    // ФИКСИРОВАННЫЙ МАСШТАБ
+    const maxVal = Math.max(crash.crashPoint || 12.0, 2) * 1.2;
+    const maxPoints = 300;
     const topOffset = 16;
     const bottomOffset = 12;
     const availableHeight = h - topOffset - bottomOffset;
-    const maxLog = Math.log(maxVal * 1.15);
+    const maxLog = Math.log(maxVal);
     const scaleY = availableHeight / maxLog;
-    const scaleX = (w - 30) / Math.max(data.length - 1, 1);
+    const scaleX = (w - 30) / Math.max(maxPoints - 1, 1);
 
     const isCrashed = crash.phase === 'crashed' || crash.phase === 'crash';
     const displayVal = isCrashed ? data[data.length - 1] : currentMultiplier;
     const lineColor = isCrashed ? '#f87171' : crashColor(displayVal);
 
+    // ТОЛЬКО ПОСЛЕДНИЕ maxPoints ТОЧЕК
+    const visibleData = data.slice(-maxPoints);
+    const offsetIndex = Math.max(0, data.length - maxPoints);
+
     const pointXY = (val, i) => {
-        const x = 12 + i * scaleX;
-        const y = h - bottomOffset - (Math.log(Math.max(val, 1)) * scaleY);
+        const x = 12 + (i - offsetIndex) * scaleX;
+        const y = h - bottomOffset - (Math.log(Math.max(val, 1.0)) * scaleY);
         return [x, y];
     };
 
+    // Заливка
     const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
     if (isCrashed) {
         fillGrad.addColorStop(0, 'rgba(248,113,113,0.35)');
@@ -2324,12 +2324,12 @@ function drawCrashChart() {
     }
 
     ctx.beginPath();
-    data.forEach((val, i) => {
-        const [x, y] = pointXY(val, i);
+    visibleData.forEach((val, i) => {
+        const [x, y] = pointXY(val, i + offsetIndex);
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
     });
-    const [lastX, lastY] = pointXY(data[data.length - 1], data.length - 1);
+    const [lastX, lastY] = pointXY(visibleData[visibleData.length - 1], data.length - 1);
     ctx.save();
     ctx.lineTo(lastX, h - bottomOffset);
     ctx.lineTo(12, h - bottomOffset);
@@ -2338,6 +2338,7 @@ function drawCrashChart() {
     ctx.fill();
     ctx.restore();
 
+    // Линия
     ctx.beginPath();
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = 4;
@@ -2345,14 +2346,15 @@ function drawCrashChart() {
     ctx.lineCap = 'round';
     ctx.shadowColor = lineColor;
     ctx.shadowBlur = 14;
-    data.forEach((val, i) => {
-        const [x, y] = pointXY(val, i);
+    visibleData.forEach((val, i) => {
+        const [x, y] = pointXY(val, i + offsetIndex);
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
     });
     ctx.stroke();
     ctx.shadowBlur = 0;
 
+    // Ракета/точка
     if (isCrashed) {
         ctx.font = '26px sans-serif';
         ctx.textAlign = 'center';
@@ -2377,6 +2379,7 @@ function drawCrashChart() {
         ctx.shadowBlur = 0;
     }
 
+    // Обновление DOM
     if (d.multiplier) {
         d.multiplier.textContent = `x${displayVal.toFixed(2)}`;
         d.multiplier.style.color = lineColor;
