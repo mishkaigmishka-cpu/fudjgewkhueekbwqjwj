@@ -314,6 +314,11 @@ function closeAllOverlays() {
         crash.interval = null;
     }
 
+    if (crash.animFrame) {
+        cancelAnimationFrame(crash.animFrame);
+        crash.animFrame = null;
+    }
+
     const ids = [
         'tapeContainer',
         'resultContainer',
@@ -627,6 +632,11 @@ function openCaseDirect(type) {
             state.isOpening = true;
             showTape(type, 'roulette');
             setTimeout(() => startFinalSpin(type), 300);
+
+            // Обновляем прогресс уровней
+            if (typeof loadLevels === 'function') {
+                setTimeout(() => loadLevels().catch(() => {}), 500);
+            }
         });
     });
 }
@@ -826,6 +836,11 @@ async function open10Cases(type) {
 
     if (data.new_balance !== undefined) updateAllBalances(data.new_balance);
     show10CasesAnimation(type, data);
+
+    // Обновляем прогресс уровней
+    if (typeof loadLevels === 'function') {
+        setTimeout(() => loadLevels().catch(() => {}), 500);
+    }
 }
 
 function show10CasesAnimation(type, data) {
@@ -1819,7 +1834,12 @@ let crash = {
     crashedAt: 0,
     activeStarted: false,
     crashedProcessed: false,
-    startTime: 0
+    startTime: 0,
+    crashPoint: 12.0,
+    lastServerMultiplier: 1.0,
+    lastUpdateTime: 0,
+    lastChartPush: 0,
+    animFrame: null
 };
 
 function inCrashHold() {
@@ -1917,6 +1937,10 @@ function showCrashGame() {
             clearInterval(crash.interval);
             crash.interval = null;
         }
+        if (crash.animFrame) {
+            cancelAnimationFrame(crash.animFrame);
+            crash.animFrame = null;
+        }
     };
     container.appendChild(backBtn);
 
@@ -1947,7 +1971,7 @@ function initCrash() {
     if (d.canvas) {
         crash.ctx = d.canvas.getContext('2d');
         crash.chartData = [];
-        drawCrashChart();
+        crash.lastChartPush = 0;
     }
     loadCrashStats();
 
@@ -1957,6 +1981,10 @@ function initCrash() {
     crash.activeStarted = false;
     crash.crashedProcessed = false;
     crash.startTime = 0;
+    crash.crashPoint = 12.0;
+    crash.lastServerMultiplier = 1.0;
+    crash.lastUpdateTime = 0;
+    crash.animFrame = null;
     updateCrashBetPanel();
 
     if (d.startBtn) {
@@ -1990,6 +2018,11 @@ function initCrash() {
 function updateCrashUI(data) {
     const d = crash.dom;
     if (!d) return;
+
+    if (crash.animFrame) {
+        cancelAnimationFrame(crash.animFrame);
+        crash.animFrame = null;
+    }
 
     crash.phase = data.phase || 'waiting';
     crash.multiplier = data.multiplier || 1.0;
@@ -2049,10 +2082,21 @@ function updateCrashUI(data) {
         if (!crash.activeStarted || crash.startTime !== data.start_time) {
             crash.activeStarted = true;
             crash.crashedProcessed = false;
-            resetCrashChart();
+            crash.startTime = data.start_time;
+            crash.crashPoint = data.crash_point || 12.0;
+            crash.lastServerMultiplier = data.multiplier || 1.0;
+            crash.lastUpdateTime = performance.now();
+            crash.canvas = document.getElementById('gc_canvas');
+            if (crash.canvas) {
+                crash.ctx = crash.canvas.getContext('2d');
+                crash.chartData = [];
+                crash.lastChartPush = 0;
+            }
+        } else {
+            crash.lastServerMultiplier = data.multiplier || crash.lastServerMultiplier;
+            crash.lastUpdateTime = performance.now();
         }
         if (d.countdown) d.countdown.style.display = 'none';
-        updateCrashChart(data.multiplier);
         if (d.status) d.status.textContent = '🔥 ИГРА ИДЁТ';
         d.startBtn.style.display = 'none';
         if (crash.hasBet && d.cashoutBtn) {
@@ -2064,6 +2108,9 @@ function updateCrashUI(data) {
         }
         if (d.timer) d.timer.textContent = '';
         updateCrashBetPanel();
+        if (!crash.animFrame) {
+            crash.animFrame = requestAnimationFrame(drawCrashChart);
+        }
     }
 
     else if (data.phase === 'crashed' || data.phase === 'crash') {
@@ -2136,7 +2183,7 @@ function startCrashPolling() {
             if (!status || status.error) return;
             updateCrashUI(status);
         });
-    }, 150);
+    }, 250);
 }
 
 async function placeCrashBet(bet) {
@@ -2214,19 +2261,39 @@ function crashColor(v, alpha = 1) {
 }
 
 function drawCrashChart() {
+    crash.animFrame = null;
     const ctx = crash.ctx;
     const canvas = crash.canvas;
-    const data = crash.chartData || [];
-    const d = crash.dom;
-
     if (!ctx || !canvas) return;
 
+    let currentMultiplier = crash.lastServerMultiplier || 1.0;
+    if (crash.phase === 'active' && crash.startTime) {
+        const elapsed = (performance.now() - crash.lastUpdateTime) / 1000;
+        currentMultiplier = Math.min(
+            crash.lastServerMultiplier * Math.pow(1.06, elapsed),
+            crash.crashPoint || 12.0
+        );
+    }
+
+    if (crash.phase === 'active') {
+        const now = performance.now();
+        if (!crash.lastChartPush || now - crash.lastChartPush > 80) {
+            crash.chartData.push(currentMultiplier);
+            if (crash.chartData.length > 300) crash.chartData.shift();
+            crash.lastChartPush = now;
+        } else {
+            crash.chartData[crash.chartData.length - 1] = currentMultiplier;
+        }
+    }
+
+    const data = crash.chartData;
+    if (data.length < 1) data.push(1.00);
+
+    const d = crash.dom;
     const w = canvas.width;
     const h = canvas.height;
 
     ctx.clearRect(0, 0, w, h);
-
-    if (data.length < 1) data.push(1.00);
 
     const maxVal = Math.max(...data, 2);
     const topOffset = 16;
@@ -2237,8 +2304,8 @@ function drawCrashChart() {
     const scaleX = (w - 30) / Math.max(data.length - 1, 1);
 
     const isCrashed = crash.phase === 'crashed' || crash.phase === 'crash';
-    const currentVal = data[data.length - 1] || 1.00;
-    const lineColor = isCrashed ? '#f87171' : crashColor(currentVal);
+    const displayVal = isCrashed ? data[data.length - 1] : currentMultiplier;
+    const lineColor = isCrashed ? '#f87171' : crashColor(displayVal);
 
     const pointXY = (val, i) => {
         const x = 12 + i * scaleX;
@@ -2251,8 +2318,8 @@ function drawCrashChart() {
         fillGrad.addColorStop(0, 'rgba(248,113,113,0.35)');
         fillGrad.addColorStop(1, 'rgba(248,113,113,0.02)');
     } else {
-        fillGrad.addColorStop(0, crashColor(Math.max(currentVal, 4), 0.30));
-        fillGrad.addColorStop(0.5, crashColor(Math.max(currentVal, 2), 0.18));
+        fillGrad.addColorStop(0, crashColor(Math.max(displayVal, 4), 0.30));
+        fillGrad.addColorStop(0.5, crashColor(Math.max(displayVal, 2), 0.18));
         fillGrad.addColorStop(1, crashColor(1, 0.03));
     }
 
@@ -2311,33 +2378,36 @@ function drawCrashChart() {
     }
 
     if (d.multiplier) {
-        d.multiplier.textContent = `x${currentVal.toFixed(2)}`;
+        d.multiplier.textContent = `x${displayVal.toFixed(2)}`;
         d.multiplier.style.color = lineColor;
-        d.multiplier.style.textShadow = `0 0 30px ${isCrashed ? 'rgba(248,113,113,0.5)' : crashColor(currentVal, 0.45)}`;
-        d.multiplier.style.transform = 'scale(1)';
-        d.multiplier.style.transition = 'none';
+        d.multiplier.style.textShadow = `0 0 30px ${isCrashed ? 'rgba(248,113,113,0.5)' : crashColor(displayVal, 0.45)}`;
     }
     if (d.multiplierDisplay) {
-        d.multiplierDisplay.textContent = `x${currentVal.toFixed(2)}`;
+        d.multiplierDisplay.textContent = `x${displayVal.toFixed(2)}`;
     }
     if (d.progress) {
-        d.progress.style.width = Math.min((currentVal / 12) * 100, 100) + '%';
+        d.progress.style.width = Math.min((displayVal / 12) * 100, 100) + '%';
     }
-    if (d.potential && crash.bet > 0) {
-        const potential = Math.floor(crash.bet * currentVal * 0.95);
+    if (d.potential && crash.bet > 0 && !isCrashed) {
+        const potential = Math.floor(crash.bet * displayVal * 0.95);
         d.potential.innerHTML = potential + ' ' + starIcon(13);
         d.potential.style.color = potential > crash.bet * 2 ? '#4ade80' : '#e8c76a';
+    }
+
+    if (crash.phase === 'active') {
+        crash.animFrame = requestAnimationFrame(drawCrashChart);
     }
 }
 
 function updateCrashChart(multiplier) {
     crash.chartData.push(multiplier);
-    if (crash.chartData.length > 200) crash.chartData.shift();
+    if (crash.chartData.length > 300) crash.chartData.shift();
     drawCrashChart();
 }
 
 function resetCrashChart() {
     crash.chartData = [];
+    crash.lastChartPush = 0;
     drawCrashChart();
     const d = crash.dom;
     if (d.multiplier) {
@@ -2367,6 +2437,10 @@ function showMinesGame() {
     if (crash.interval) {
         clearInterval(crash.interval);
         crash.interval = null;
+    }
+    if (crash.animFrame) {
+        cancelAnimationFrame(crash.animFrame);
+        crash.animFrame = null;
     }
 
     menu.style.display = 'none';
@@ -2414,6 +2488,14 @@ function showMinesGame() {
         exitMinesIfActive();
         container.style.display = 'none';
         menu.style.display = 'flex';
+        if (crash.interval) {
+            clearInterval(crash.interval);
+            crash.interval = null;
+        }
+        if (crash.animFrame) {
+            cancelAnimationFrame(crash.animFrame);
+            crash.animFrame = null;
+        }
     };
     container.appendChild(backBtn);
 
@@ -2766,6 +2848,10 @@ function showUpgradeGame() {
         clearInterval(crash.interval);
         crash.interval = null;
     }
+    if (crash.animFrame) {
+        cancelAnimationFrame(crash.animFrame);
+        crash.animFrame = null;
+    }
 
     menu.style.display = 'none';
     container.style.display = 'block';
@@ -2806,6 +2892,14 @@ function showUpgradeGame() {
     backBtn.onclick = function() {
         container.style.display = 'none';
         menu.style.display = 'flex';
+        if (crash.interval) {
+            clearInterval(crash.interval);
+            crash.interval = null;
+        }
+        if (crash.animFrame) {
+            cancelAnimationFrame(crash.animFrame);
+            crash.animFrame = null;
+        }
     };
     container.appendChild(backBtn);
 
