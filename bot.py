@@ -1108,7 +1108,6 @@ def unluck_boost(msg):
     reply = bot.reply_to(msg, f"✅ Шансы @{username} сброшены!")
     auto_delete_command_and_reply(msg, reply)
 
-# === ИСПРАВЛЕНИЕ: уведомления пользователям удаляются ===
 @bot.message_handler(commands=['give'])
 def give_stars(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1275,6 +1274,7 @@ ID: {uid}
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
+# === ИСПРАВЛЕНИЕ 3: auto_delete для top_users ===
 @bot.message_handler(commands=['top'])
 def top_users(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1299,8 +1299,7 @@ def top_users(msg):
     for i, (uname, bal, dep, cases) in enumerate(top_balance, 1):
         top_text.append(f"{i}. @{uname or 'N/A'} — {bal} stars")
     reply = bot.reply_to(msg, "🏆 Топ-100 игроков:\n\n" + "\n".join(top_text), parse_mode="HTML")
-    admin_log('top', None, f"Просмотр топ-{limit}")
-    auto_delete_command_and_reply(msg, reply, 60)
+    auto_delete_command_and_reply(msg, reply, 30)
 
 @bot.message_handler(commands=['adminlogs'])
 def admin_logs_cmd(msg):
@@ -1462,7 +1461,6 @@ def check_balance_simple():
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'has_enough': user[1] >= amount})
 
-# === ИСПРАВЛЕНИЕ: register_case_opening в open_case ===
 @app.route('/open_case', methods=['POST'])
 @limiter.limit("20 per minute")
 def open_case():
@@ -1510,7 +1508,6 @@ def open_case():
     except Exception as e:
         return jsonify({'error': 'Internal error'}), 500
 
-# === ИСПРАВЛЕНИЕ: register_case_opening в open_10_cases ===
 @app.route('/open_10_cases', methods=['POST'])
 @limiter.limit("10 per minute")
 def open_10_cases():
