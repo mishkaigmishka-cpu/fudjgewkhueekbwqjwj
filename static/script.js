@@ -98,10 +98,6 @@ const RARITY_PRIORITY = ['jackpot', 'legendary', 'epic', 'rare', 'common'];
 
 // === НАСТРОЙКИ КРАША ===
 const CRASH_CONFIG = {
-    pixelsPerSecond: 120,
-    maxVisibleTime: 8,
-    minYRange: 2.0,
-    smoothY: 0.08,
     pointInterval: 50
 };
 
@@ -1829,11 +1825,12 @@ let crash = {
     crashedProcessed: false,
     startTime: 0,
     crashPoint: 12.0,
-    lastServerMultiplier: 1.0,
+    serverMultiplier: 1.0,
     lastUpdateTime: 0,
     lastChartPush: 0,
     animFrame: null,
-    _smoothMaxVal: null
+    _smoothMaxVal: null,
+    clientRoundStart: 0
 };
 
 function inCrashHold() {
@@ -1977,7 +1974,8 @@ function initCrash() {
     crash.startTime = 0;
     crash.crashPoint = 12.0;
     crash._smoothMaxVal = null;
-    crash.lastServerMultiplier = 1.0;
+    crash.clientRoundStart = 0;
+    crash.serverMultiplier = 1.0;
     crash.lastUpdateTime = 0;
     crash.animFrame = null;
     updateCrashBetPanel();
@@ -2010,6 +2008,7 @@ function initCrash() {
     startCrashPolling();
 }
 
+// === ИСПРАВЛЕНИЕ 2.3: ИСПРАВЛЕННАЯ updateCrashUI ===
 function updateCrashUI(data) {
     const d = crash.dom;
     if (!d) return;
@@ -2078,17 +2077,22 @@ function updateCrashUI(data) {
             crash.crashedProcessed = false;
             crash.startTime = data.start_time;
             crash.crashPoint = data.crash_point || 12.0;
-            crash.lastServerMultiplier = data.multiplier || 1.0;
+            crash.serverMultiplier = data.multiplier || 1.0;
             crash.lastUpdateTime = performance.now();
+            
+            // === КЛЮЧЕВОЕ: синхронизируем время с сервером ===
+            const serverElapsed = (data.elapsed || 0) * 1000;
+            crash.clientRoundStart = performance.now() - serverElapsed;
+            
             crash.canvas = document.getElementById('gc_canvas');
             if (crash.canvas) {
                 crash.ctx = crash.canvas.getContext('2d');
                 crash.chartData = [];
                 crash.lastChartPush = 0;
+                crash._smoothMaxVal = null;
             }
         } else {
-            // === ИСПРАВЛЕНИЕ 2.6: ОБНОВЛЯЕМ lastUpdateTime ===
-            crash.lastServerMultiplier = data.multiplier || crash.lastServerMultiplier;
+            crash.serverMultiplier = data.multiplier || crash.serverMultiplier;
             crash.lastUpdateTime = performance.now();
         }
         if (d.countdown) d.countdown.style.display = 'none';
@@ -2259,7 +2263,7 @@ function crashColor(v, alpha = 1) {
     return `hsla(${hue}, 85%, 62%, ${alpha})`;
 }
 
-// === ИСПРАВЛЕНИЕ 2.3: НОВАЯ drawCrashChart ===
+// === ИСПРАВЛЕНИЕ 2.4: НОВАЯ drawCrashChart ===
 function drawCrashChart() {
     crash.animFrame = null;
     const ctx = crash.ctx;
@@ -2271,64 +2275,81 @@ function drawCrashChart() {
     const w = canvas.width;
     const h = canvas.height;
 
+    // === ТЕКУЩИЙ МНОЖИТЕЛЬ: считаем от синхронизированного времени ===
     let currentMultiplier = 1.0;
-    let elapsed = 0;
-    if (crash.phase === 'active' && crash.startTime) {
-        elapsed = (now / 1000) - crash.startTime;
+    if (crash.phase === 'active' && crash.clientRoundStart) {
+        const elapsed = (now - crash.clientRoundStart) / 1000;
         currentMultiplier = Math.min(
-            1.0 * Math.pow(1.06, elapsed),
+            1.0 + elapsed * 0.08,
             crash.crashPoint || 12.0
         );
+        // Корректируем по серверу, если есть данные
+        if (crash.serverMultiplier && crash.lastUpdateTime) {
+            const delta = (now - crash.lastUpdateTime) / 1000;
+            const predicted = crash.serverMultiplier + delta * 0.08;
+            currentMultiplier = Math.min(predicted, crash.crashPoint || 12.0);
+        }
     } else {
         currentMultiplier = crash.multiplier || 1.0;
     }
 
+    // === ДОБАВЛЯЕМ ТОЧКИ ===
     if (crash.phase === 'active') {
         if (!crash.lastChartPush || now - crash.lastChartPush > CRASH_CONFIG.pointInterval) {
-            crash.chartData.push({ t: now / 1000, v: currentMultiplier });
+            crash.chartData.push({ t: now, v: currentMultiplier });
             crash.lastChartPush = now;
-        } else {
-            if (crash.chartData.length > 0) {
-                crash.chartData[crash.chartData.length - 1].v = currentMultiplier;
-            }
+        } else if (crash.chartData.length > 0) {
+            crash.chartData[crash.chartData.length - 1].v = currentMultiplier;
         }
     }
 
     if (crash.chartData.length === 0) {
-        crash.chartData.push({ t: (now / 1000) - 0.05, v: 1.0 });
-        crash.chartData.push({ t: now / 1000, v: 1.0 });
+        crash.chartData.push({ t: now - 50, v: 1.0 });
+        crash.chartData.push({ t: now, v: 1.0 });
     }
 
-    const currentTime = now / 1000;
-    const windowStart = currentTime - CRASH_CONFIG.maxVisibleTime;
-    const visibleData = crash.chartData.filter(p => p.t > windowStart - 1);
-    const startTime = crash.phase === 'active' ? windowStart : (visibleData[0]?.t || currentTime - 1);
-    const timeSpan = Math.max(currentTime - startTime, 0.1);
+    // === ОСЬ X: слева направо от начала раунда ===
+    const elapsed = crash.phase === 'active' && crash.clientRoundStart
+        ? (now - crash.clientRoundStart) / 1000
+        : 0;
+    const maxTime = Math.max(elapsed, 3.0);
+    const leftOffset = 15;
+    const rightOffset = 15;
+    const availW = w - leftOffset - rightOffset;
 
-    const maxVisibleVal = Math.max(...visibleData.map(p => p.v), 1.5);
-    const targetMaxVal = Math.max(maxVisibleVal * 1.25, CRASH_CONFIG.minYRange);
-    if (!crash._smoothMaxVal) crash._smoothMaxVal = targetMaxVal;
-    crash._smoothMaxVal += (targetMaxVal - crash._smoothMaxVal) * CRASH_CONFIG.smoothY;
-    const maxVal = crash._smoothMaxVal;
-    const topOffset = 20;
-    const bottomOffset = 15;
-    const availableHeight = h - topOffset - bottomOffset;
-    const maxLog = Math.log(maxVal);
-    const scaleY = (val) => {
-        return h - bottomOffset - (Math.log(Math.max(val, 1.0)) / maxLog) * availableHeight;
-    };
     const scaleX = (t) => {
-        const relTime = t - currentTime;
-        return w - 15 + (relTime / CRASH_CONFIG.maxVisibleTime) * (w - 30);
+        if (!crash.clientRoundStart) return leftOffset;
+        const rel = (t - crash.clientRoundStart) / 1000;
+        return leftOffset + (rel / maxTime) * availW;
+    };
+
+    // === ОСЬ Y: логарифмическая, расширенный диапазон ===
+    const maxVisibleVal = Math.max(...crash.chartData.map(p => p.v), 1.01);
+    const targetMaxVal = Math.max(maxVisibleVal * 1.3, 1.3);
+    if (!crash._smoothMaxVal) crash._smoothMaxVal = targetMaxVal;
+    crash._smoothMaxVal += (targetMaxVal - crash._smoothMaxVal) * 0.1;
+    const maxVal = crash._smoothMaxVal;
+
+    const topOffset = 25;
+    const bottomOffset = 20;
+    const availH = h - topOffset - bottomOffset;
+
+    const scaleY = (val) => {
+        const v = Math.max(val, 1.0);
+        const norm = Math.log(v) / Math.log(maxVal);
+        return h - bottomOffset - norm * availH;
     };
 
     const isCrashed = crash.phase === 'crashed' || crash.phase === 'crash';
-    const displayVal = isCrashed ? visibleData[visibleData.length - 1]?.v : currentMultiplier;
+    const displayVal = isCrashed
+        ? crash.chartData[crash.chartData.length - 1]?.v
+        : currentMultiplier;
     const lineColor = isCrashed ? '#f87171' : crashColor(displayVal);
 
     ctx.clearRect(0, 0, w, h);
 
-    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    // Сетка
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
     ctx.lineWidth = 1;
     for (let i = 1; i <= 4; i++) {
         const gridVal = 1 + (maxVal - 1) * (i / 4);
@@ -2339,112 +2360,99 @@ function drawCrashChart() {
         ctx.stroke();
     }
 
-    const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
+    // Заливка под графиком
+    const fillGrad = ctx.createLinearGradient(0, scaleY(maxVal), 0, h - bottomOffset);
     if (isCrashed) {
-        fillGrad.addColorStop(0, 'rgba(248,113,113,0.35)');
+        fillGrad.addColorStop(0, 'rgba(248,113,113,0.25)');
         fillGrad.addColorStop(1, 'rgba(248,113,113,0.02)');
     } else {
-        fillGrad.addColorStop(0, crashColor(Math.max(displayVal, 4), 0.30));
-        fillGrad.addColorStop(0.5, crashColor(Math.max(displayVal, 2), 0.18));
-        fillGrad.addColorStop(1, crashColor(1, 0.03));
+        fillGrad.addColorStop(0, crashColor(Math.max(displayVal, 2), 0.25));
+        fillGrad.addColorStop(1, crashColor(1, 0.02));
     }
 
-    ctx.beginPath();
-    let firstPoint = true;
+    // Рисуем линию и собираем координаты
     let lastX = 0, lastY = 0;
-    for (let i = 0; i < visibleData.length; i++) {
-        const p = visibleData[i];
+    let first = true;
+
+    ctx.beginPath();
+    for (let i = 0; i < crash.chartData.length; i++) {
+        const p = crash.chartData[i];
         const x = scaleX(p.t);
         const y = scaleY(p.v);
-        if (firstPoint) {
+        if (first) {
             ctx.moveTo(x, y);
-            firstPoint = false;
+            first = false;
         } else {
-            const prev = visibleData[i - 1];
-            const prevX = scaleX(prev.t);
-            const prevY = scaleY(prev.v);
-            const cpX = (prevX + x) / 2;
-            ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
-            if (i === visibleData.length - 1) {
-                ctx.lineTo(x, y);
-            }
+            ctx.lineTo(x, y);
         }
         lastX = x;
         lastY = y;
     }
+
+    // Заливка
     ctx.save();
     ctx.lineTo(lastX, h - bottomOffset);
-    ctx.lineTo(scaleX(visibleData[0].t), h - bottomOffset);
+    ctx.lineTo(scaleX(crash.chartData[0].t), h - bottomOffset);
     ctx.closePath();
     ctx.fillStyle = fillGrad;
     ctx.fill();
     ctx.restore();
 
+    // Линия графика
     ctx.beginPath();
+    first = true;
+    for (let i = 0; i < crash.chartData.length; i++) {
+        const p = crash.chartData[i];
+        const x = scaleX(p.t);
+        const y = scaleY(p.v);
+        if (first) {
+            ctx.moveTo(x, y);
+            first = false;
+        } else {
+            ctx.lineTo(x, y);
+        }
+    }
     ctx.strokeStyle = lineColor;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.shadowColor = lineColor;
-    ctx.shadowBlur = 14;
-    firstPoint = true;
-    for (let i = 0; i < visibleData.length; i++) {
-        const p = visibleData[i];
-        const x = scaleX(p.t);
-        const y = scaleY(p.v);
-        if (firstPoint) {
-            ctx.moveTo(x, y);
-            firstPoint = false;
-        } else {
-            const prev = visibleData[i - 1];
-            const prevX = scaleX(prev.t);
-            const prevY = scaleY(prev.v);
-            const cpX = (prevX + x) / 2;
-            ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + y) / 2);
-            if (i === visibleData.length - 1) {
-                ctx.lineTo(x, y);
-            }
-        }
-    }
+    ctx.shadowBlur = 12;
     ctx.stroke();
     ctx.shadowBlur = 0;
 
+    // === РАКЕТКА: без лагов, фиксированный угол ===
     if (isCrashed) {
-        ctx.font = '26px sans-serif';
+        ctx.font = '24px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('💥', lastX, lastY);
     } else if (crashRocketImg.complete && crashRocketImg.naturalWidth > 0) {
-        const size = 30;
+        const size = 28;
         ctx.save();
         ctx.translate(lastX, lastY);
-        if (visibleData.length >= 2) {
-            const prev = visibleData[visibleData.length - 2];
-            const prevX = scaleX(prev.t);
-            const prevY = scaleY(prev.v);
-            const angle = Math.atan2(lastY - prevY, lastX - prevX);
-            ctx.rotate(angle);
-        } else {
-            ctx.rotate(Math.PI / 4);
-        }
+        // Фиксированный угол 35° вверх-вправо
+        ctx.rotate(-Math.PI / 5);
         ctx.shadowColor = lineColor;
-        ctx.shadowBlur = 16;
+        ctx.shadowBlur = 14;
         ctx.drawImage(crashRocketImg, -size / 2, -size / 2, size, size);
         ctx.restore();
     } else {
         ctx.beginPath();
-        ctx.arc(lastX, lastY, 6, 0, Math.PI * 2);
+        ctx.arc(lastX, lastY, 5, 0, Math.PI * 2);
         ctx.fillStyle = lineColor;
         ctx.shadowColor = lineColor;
-        ctx.shadowBlur = 18;
+        ctx.shadowBlur = 15;
         ctx.fill();
         ctx.shadowBlur = 0;
     }
 
+    // === ОБНОВЛЕНИЕ ЧИСЕЛ НА ЭКРАНЕ ===
     if (d.multiplier) {
         d.multiplier.textContent = `x${displayVal.toFixed(2)}`;
         d.multiplier.style.color = lineColor;
-        d.multiplier.style.textShadow = `0 0 30px ${isCrashed ? 'rgba(248,113,113,0.5)' : crashColor(displayVal, 0.45)}`;
+        const glow = isCrashed ? 'rgba(248,113,113,0.5)' : crashColor(displayVal, 0.5);
+        d.multiplier.style.textShadow = `0 0 25px ${glow}`;
     }
     if (d.multiplierDisplay) {
         d.multiplierDisplay.textContent = `x${displayVal.toFixed(2)}`;
@@ -2469,7 +2477,7 @@ function drawCrashChart() {
 
 // === ИСПРАВЛЕНИЕ 2.4: updateCrashChart ===
 function updateCrashChart(multiplier) {
-    const now = performance.now() / 1000;
+    const now = performance.now();
     crash.chartData.push({ t: now, v: multiplier });
     if (crash.chartData.length > 300) crash.chartData.shift();
     drawCrashChart();
@@ -2480,6 +2488,7 @@ function resetCrashChart() {
     crash.chartData = [];
     crash.lastChartPush = 0;
     crash._smoothMaxVal = null;
+    crash.clientRoundStart = 0;
     drawCrashChart();
     const d = crash.dom;
     if (d.multiplier) {
