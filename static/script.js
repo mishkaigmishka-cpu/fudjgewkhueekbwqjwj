@@ -633,6 +633,7 @@ function openCaseDirect(type) {
             showTape(type, 'roulette');
             setTimeout(() => startFinalSpin(type), 300);
 
+            // ОБНОВЛЕНИЕ УРОВНЕЙ (п.6)
             if (typeof loadLevels === 'function') {
                 setTimeout(() => loadLevels().catch(() => {}), 500);
             }
@@ -836,6 +837,7 @@ async function open10Cases(type) {
     if (data.new_balance !== undefined) updateAllBalances(data.new_balance);
     show10CasesAnimation(type, data);
 
+    // ОБНОВЛЕНИЕ УРОВНЕЙ (п.6)
     if (typeof loadLevels === 'function') {
         setTimeout(() => loadLevels().catch(() => {}), 500);
     }
@@ -1739,7 +1741,7 @@ function closePromoAppModal() {
     document.getElementById('promoAppInput').value = '';
 }
 
-// ИСПРАВЛЕНО: fetch → apiRequest (п.1)
+// ИСПРАВЛЕНО: fetch → apiRequest
 async function submitPromoApp() {
     const code = document.getElementById('promoAppInput').value.trim().toUpperCase();
     if (!code) return showCustomAlert('❌ Введи промокод!');
@@ -2005,7 +2007,7 @@ function initCrash() {
     startCrashPolling();
 }
 
-// ИСПРАВЛЕНО: отмена анимации ТОЛЬКО если не active (п.2)
+// ИСПРАВЛЕНО: cancelAnimationFrame только если не active
 function updateCrashUI(data) {
     const d = crash.dom;
     if (!d) return;
@@ -2166,7 +2168,6 @@ function updateCrashUI(data) {
     }
 }
 
-// ИСПРАВЛЕНО: интервал 250 мс
 function startCrashPolling() {
     if (crash.interval) clearInterval(crash.interval);
 
@@ -2252,7 +2253,7 @@ function crashColor(v, alpha = 1) {
     return `hsla(${hue}, 85%, 62%, ${alpha})`;
 }
 
-// ИСПРАВЛЕНО: фиксированный масштаб + visibleData (п.3)
+// ИСПРАВЛЕНО: фиксированный масштаб + visibleData
 function drawCrashChart() {
     crash.animFrame = null;
     const ctx = crash.ctx;
@@ -2288,8 +2289,8 @@ function drawCrashChart() {
 
     ctx.clearRect(0, 0, w, h);
 
-    // ФИКСИРОВАННЫЙ МАСШТАБ
-    const maxVal = Math.max(crash.crashPoint || 12.0, 2) * 1.2;
+    // ФИКСИРОВАННЫЙ МАСШТАБ (исправлено: crashPoint || 8.0, 5.0)
+    const maxVal = Math.max(crash.crashPoint || 8.0, 5.0) * 1.2;
     const maxPoints = 300;
     const topOffset = 16;
     const bottomOffset = 12;
