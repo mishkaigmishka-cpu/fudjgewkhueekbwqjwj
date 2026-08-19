@@ -2898,3 +2898,14 @@ nav {
 .promo-panel .btn-game + .btn-game {
     margin-top: 8px;
 }
+
+/* ===== ДОБАВЛЕНО В КОНЕЦ ФАЙЛА ===== */
+
+/* Зелёная полоска прогресса для краша */
+#crashProgressBar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #4ade80, #22c55e);
+    transition: width 0.05s linear;
+    border-radius: 2px;
+}
