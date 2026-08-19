@@ -111,9 +111,7 @@ def is_banned(uid):
     row = qone("SELECT banned FROM users WHERE id=%s", (uid,))
     return row and row[0] == 1
 
-# === ИСПРАВЛЕНИЕ 1: ЧАТ ЧИСТИТСЯ ===
 def show_main_menu(chat_id):
-    # Удаляем старое меню перед отправкой нового
     if chat_id in main_message_ids:
         try:
             bot.delete_message(chat_id, main_message_ids[chat_id])
@@ -633,12 +631,10 @@ def get_level_progress(uid, case_type):
     row = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
     return row[0] if row else 0
 
-# === ИСПРАВЛЕНИЕ 3: ПРОГРЕСС КОПИТСЯ НА ЛЮБОМ УРОВНЕ ===
 def register_case_opening(uid, case_type, n=1):
     with write_lock:
         add_case_stats(uid, case_type, n)
         if case_type in LEVEL_ORDER and case_type in get_unlocked_levels(uid):
-            # Прогресс копится на ЛЮБОМ разблокированном уровне, но не больше 10
             progress = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
             current_opened = progress[0] if progress else 0
             if current_opened < BATTLE_PROGRESS_COST:
@@ -991,7 +987,7 @@ def got_payment(msg):
         except Exception:
             pass
 
-# ===== АДМИН-КОМАНДЫ (С АВТОУДАЛЕНИЕМ) =====
+# ===== АДМИН-КОМАНДЫ =====
 @bot.message_handler(commands=['ban'])
 def ban_user(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1112,6 +1108,7 @@ def unluck_boost(msg):
     reply = bot.reply_to(msg, f"✅ Шансы @{username} сброшены!")
     auto_delete_command_and_reply(msg, reply)
 
+# === ИСПРАВЛЕНИЕ: уведомления пользователям удаляются ===
 @bot.message_handler(commands=['give'])
 def give_stars(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1143,7 +1140,8 @@ def give_stars(msg):
     reply = bot.reply_to(msg, f"✅ Начислено {amount}⭐ @{username}!\nНовый баланс: {new_balance}⭐")
     auto_delete_command_and_reply(msg, reply)
     try:
-        bot.send_message(user[0], f"🎁 Администратор начислил тебе {amount}⭐!\nТекущий баланс: {new_balance}⭐")
+        notify = bot.send_message(user[0], f"🎁 Администратор начислил тебе {amount}⭐!\nТекущий баланс: {new_balance}⭐")
+        auto_delete_command_and_reply(msg, notify, 60)
     except Exception:
         pass
 
@@ -1184,7 +1182,8 @@ def add_balance(msg):
     reply = bot.reply_to(msg, f"✅ Баланс @{username} установлен на {amount}⭐!")
     auto_delete_command_and_reply(msg, reply)
     try:
-        bot.send_message(user[0], f"🎁 Администратор установил твой баланс на {amount}⭐!")
+        notify = bot.send_message(user[0], f"🎁 Администратор установил твой баланс на {amount}⭐!")
+        auto_delete_command_and_reply(msg, notify, 60)
     except Exception:
         pass
 
@@ -1226,7 +1225,8 @@ def take_stars(msg):
     reply = bot.reply_to(msg, f"Списано {amount}⭐ у @{username}! Новый баланс: {new_balance}⭐")
     auto_delete_command_and_reply(msg, reply)
     try:
-        bot.send_message(uid, f"С вашего баланса списано {amount}⭐\nПричина: {reason}\nТекущий баланс: {new_balance}⭐")
+        notify = bot.send_message(uid, f"С вашего баланса списано {amount}⭐\nПричина: {reason}\nТекущий баланс: {new_balance}⭐")
+        auto_delete_command_and_reply(msg, notify, 60)
     except Exception:
         pass
 
@@ -1275,7 +1275,6 @@ ID: {uid}
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
-# === ИСПРАВЛЕНИЕ 5: auto_delete для top_users ===
 @bot.message_handler(commands=['top'])
 def top_users(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1463,6 +1462,7 @@ def check_balance_simple():
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'has_enough': user[1] >= amount})
 
+# === ИСПРАВЛЕНИЕ: register_case_opening в open_case ===
 @app.route('/open_case', methods=['POST'])
 @limiter.limit("20 per minute")
 def open_case():
@@ -1510,6 +1510,7 @@ def open_case():
     except Exception as e:
         return jsonify({'error': 'Internal error'}), 500
 
+# === ИСПРАВЛЕНИЕ: register_case_opening в open_10_cases ===
 @app.route('/open_10_cases', methods=['POST'])
 @limiter.limit("10 per minute")
 def open_10_cases():
@@ -1712,7 +1713,6 @@ def apply_promo():
         qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (%s, %s, %s)", (uid, promo, int(time.time())))
         return jsonify({'success': True, 'reward': reward})
 
-# === ИСПРАВЛЕНИЕ 4: 1 пользователь = 1 промокод ===
 @app.route('/claim_promo_webapp', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_promo_webapp():
