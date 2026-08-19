@@ -610,7 +610,7 @@ function showTape(type, mode = 'preview') {
     document.body.appendChild(tapeContainer);
 }
 
-// === ИСПРАВЛЕНИЕ 6: обновление уровней после открытия кейса ===
+// === ИСПРАВЛЕНИЕ: УРОВНИ ПОСЛЕ ОТКРЫТИЯ ===
 function openCaseDirect(type) {
     if (state.isOpening) return;
     state.isOpening = true;
@@ -820,7 +820,7 @@ function showResult(type, targetPrize, style, track, winPosition) {
 }
 
 // ===== ОТКРЫТИЕ 10 КЕЙСОВ =====
-// === ИСПРАВЛЕНИЕ 7: обновление уровней после ×10 ===
+// === ИСПРАВЛЕНИЕ: УРОВНИ ПОСЛЕ ×10 ===
 async function open10Cases(type) {
     if (state.isOpening) return;
     state.isOpening = true;
@@ -2246,20 +2246,22 @@ function crashColor(v, alpha = 1) {
     return `hsla(${hue}, 85%, 62%, ${alpha})`;
 }
 
-// === ИСПРАВЛЕНИЕ 2: ГРАФИК "ТОН ВВЕРХ" ===
+// === ИСПРАВЛЕНИЕ: КРАШ — ПЛАВНЫЙ ГРАФИК ===
 function drawCrashChart() {
     crash.animFrame = null;
     const ctx = crash.ctx;
     const canvas = crash.canvas;
     if (!ctx || !canvas) return;
 
-    let currentMultiplier = crash.lastServerMultiplier || 1.0;
+    let currentMultiplier = 1.0;
     if (crash.phase === 'active' && crash.startTime) {
-        const elapsed = (performance.now() - crash.lastUpdateTime) / 1000;
+        const elapsed = (performance.now() / 1000) - crash.startTime;
         currentMultiplier = Math.min(
-            crash.lastServerMultiplier * Math.pow(1.06, elapsed),
+            1.0 * Math.pow(1.06, elapsed),
             crash.crashPoint || 12.0
         );
+    } else {
+        currentMultiplier = crash.multiplier || 1.0;
     }
 
     if (crash.phase === 'active') {
@@ -2384,7 +2386,7 @@ function drawCrashChart() {
     if (d.progress) {
         d.progress.style.width = Math.min((displayVal / 12) * 100, 100) + '%';
     }
-    // === ОБНОВЛЕНИЕ ЗЕЛЁНОЙ ПОЛОСКИ ===
+    // === ЗЕЛЁНАЯ ПОЛОСКА ===
     const progressBar = document.getElementById('crashProgressBar');
     if (progressBar) {
         progressBar.style.width = Math.min((displayVal / 5.0) * 100, 100) + '%';
