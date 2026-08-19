@@ -69,14 +69,40 @@ def safe_delete(chat_id, message_id):
     except Exception:
         pass
 
-# === АВТОУДАЛЕНИЕ ДЛЯ АДМИН-КОМАНД (п.5) ===
+# === НОВАЯ СИСТЕМА АВТООЧИСТКИ ===
+sent_message_ids = {}
+
+def track_sent_message(chat_id, msg_id):
+    if chat_id not in sent_message_ids:
+        sent_message_ids[chat_id] = []
+    sent_message_ids[chat_id].append(msg_id)
+    sent_message_ids[chat_id] = sent_message_ids[chat_id][-50:]
+
+def cleanup_chat(chat_id, keep_main=True):
+    keep = {main_message_ids.get(chat_id)} if keep_main and chat_id in main_message_ids else set()
+    to_delete = [mid for mid in sent_message_ids.get(chat_id, []) if mid not in keep]
+    for mid in to_delete:
+        try:
+            bot.delete_message(chat_id, mid)
+        except Exception:
+            pass
+    sent_message_ids[chat_id] = list(keep)
+
+def periodic_cleanup():
+    while True:
+        time.sleep(60)
+        for chat_id in list(sent_message_ids.keys()):
+            cleanup_chat(chat_id)
+
 def auto_delete_command_and_reply(msg, reply_msg, delay=30):
-    """Удаляет команду пользователя и ответ бота через delay секунд"""
-    try:
-        bot.delete_message(msg.chat.id, msg.message_id)
-    except Exception:
-        pass
-    delete_message_after(msg.chat.id, reply_msg.message_id, delay)
+    track_sent_message(msg.chat.id, reply_msg.message_id)
+    def delete():
+        try:
+            bot.delete_message(msg.chat.id, msg.message_id)
+            bot.delete_message(reply_msg.chat.id, reply_msg.message_id)
+        except Exception:
+            pass
+    threading.Timer(delay, delete).start()
 
 main_message_ids = TTLCache(maxsize=10000, ttl=3600)
 
@@ -110,6 +136,7 @@ def show_main_menu(chat_id):
     except Exception:
         msg = bot.send_message(chat_id, caption, reply_markup=kb, parse_mode="HTML")
 
+    track_sent_message(chat_id, msg.message_id)
     main_message_ids[chat_id] = msg.message_id
 
 # ===== ВЕРИФИКАЦИЯ TELEGRAM =====
@@ -140,17 +167,25 @@ def verify_telegram_init_data(init_data_str: str) -> dict:
     except Exception:
         return None
 
-def get_authenticated_user_id() -> int:
+# === НОВАЯ ФУНКЦИЯ: получение пользователя с автоматическим созданием ===
+def get_or_create_user(uid, username=''):
+    user = get_user(uid)
+    if not user:
+        qw("INSERT INTO users (id, username, balance, total_cases, streak, last_open, status, refs, daily_claimed, promo_used, promo_code, total_spent, luck_boost, banned, total_deposit, claimed_deposit, last_free_case) VALUES (%s, %s, 5, 0, 0, 0, '🟢 Новичок', 0, 0, 0, '', 0, 1.0, 0, 0, '', 0) ON CONFLICT (id) DO NOTHING", (uid, username))
+        user = get_user(uid)
+    return user
+
+def get_authenticated_user():
     init_data = request.headers.get('X-Telegram-Init-Data', '')
     if not init_data:
         data = request.get_json(silent=True) or {}
         init_data = data.get('init_data', '')
     if not init_data:
-        return None
+        return None, None
     verified = verify_telegram_init_data(init_data)
     if not verified:
-        return None
-    return verified.get('user_id')
+        return None, None
+    return verified.get('user_id'), verified.get('username', '')
 
 # ===== БД =====
 _db_pool = psycopg2.pool.ThreadedConnectionPool(
@@ -709,7 +744,7 @@ crash_data = {
 
 load_crash_bets()
 
-# === ИСПРАВЛЕНА ФОРМУЛА (п.1) ===
+# === НОВАЯ ФУНКЦИЯ ГЕНЕРАЦИИ ТОЧКИ КРАША ===
 def generate_crash_point():
     r = random.random()
     if r < 0.25:
@@ -811,7 +846,7 @@ def crash_timer():
                     crash_data['crash_multiplier_at_crash'] = 1.00
         time.sleep(0.1)
 
-# ===== TELEGRAM ХЕНДЛЕРЫ (БЕЗ @limiter.limit) =====
+# ===== TELEGRAM ХЕНДЛЕРЫ =====
 @bot.message_handler(commands=['start'])
 def start(msg):
     uid = msg.from_user.id
@@ -858,6 +893,7 @@ def deposit_menu(call):
         reply_markup=kb,
         parse_mode="HTML"
     )
+    track_sent_message(call.message.chat.id, msg.message_id)
     delete_message_after(call.message.chat.id, msg.message_id, 60)
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_deposit")
@@ -884,6 +920,7 @@ def process_deposit_amount(msg):
             reply_markup=kb,
             parse_mode="HTML"
         )
+        track_sent_message(msg.chat.id, error_msg.message_id)
         delete_message_after(msg.chat.id, error_msg.message_id, 60)
         return
 
@@ -896,6 +933,7 @@ def process_deposit_amount(msg):
             reply_markup=kb,
             parse_mode="HTML"
         )
+        track_sent_message(msg.chat.id, error_msg.message_id)
         delete_message_after(msg.chat.id, error_msg.message_id, 60)
         return
 
@@ -911,6 +949,7 @@ def process_deposit_amount(msg):
         prices=prices,
         start_parameter="deposit"
     )
+    track_sent_message(msg.chat.id, invoice_msg.message_id)
     delete_message_after(msg.chat.id, invoice_msg.message_id, 60)
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
@@ -937,6 +976,7 @@ def got_payment(msg):
                     f"✅ <b>Баланс пополнен!</b>\n\n+{amount}⭐\n💰 Текущий баланс: {user[1] + amount}⭐",
                     parse_mode="HTML"
                 )
+                track_sent_message(msg.chat.id, confirm_msg.message_id)
                 delete_message_after(msg.chat.id, confirm_msg.message_id, 60)
                 show_main_menu(msg.chat.id)
             except Exception as e:
@@ -945,6 +985,7 @@ def got_payment(msg):
         print(f"Payment error: {e}")
         try:
             error_msg = bot.send_message(msg.chat.id, "❌ Ошибка при зачислении. Обратись в поддержку.")
+            track_sent_message(msg.chat.id, error_msg.message_id)
             delete_message_after(msg.chat.id, error_msg.message_id, 60)
         except Exception:
             pass
@@ -1371,12 +1412,12 @@ def health():
 @app.route('/get_balance', methods=['POST'])
 @limiter.limit("30 per minute")
 def get_balance():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
-    user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'balance': user[1], 'total_cases': user[2], 'status': user[5], 'refs': user[6]})
@@ -1384,14 +1425,14 @@ def get_balance():
 @app.route('/check_balance', methods=['POST'])
 @limiter.limit("30 per minute")
 def check_balance():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!', 'can_open': False}), 403
     data = request.get_json(silent=True) or {}
     case_type = data.get('case_type')
-    user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     price = CASE_PRICES.get(case_type, 0)
@@ -1407,14 +1448,14 @@ def check_balance():
 @app.route('/check_balance_simple', methods=['POST'])
 @limiter.limit("30 per minute")
 def check_balance_simple():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     amount = data.get('amount', 0)
-    user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'has_enough': user[1] >= amount})
@@ -1423,9 +1464,10 @@ def check_balance_simple():
 @limiter.limit("20 per minute")
 def open_case():
     try:
-        uid = get_authenticated_user_id()
+        uid, username = get_authenticated_user()
         if not uid:
             return jsonify({'error': 'Unauthorized'}), 401
+        user = get_or_create_user(uid, username)
         if is_banned(uid):
             return jsonify({'error': 'Ты забанен!'}), 403
         data = request.get_json(silent=True) or {}
@@ -1468,9 +1510,10 @@ def open_case():
 @app.route('/open_10_cases', methods=['POST'])
 @limiter.limit("10 per minute")
 def open_10_cases():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
@@ -1480,7 +1523,6 @@ def open_10_cases():
     if case_type == "free":
         return jsonify({'error': 'Нельзя открыть 10 бесплатных кейсов'}), 400
     with write_lock:
-        user = get_user(uid)
         if not user:
             return jsonify({'error': 'User not found'}), 404
         price = CASE_PRICES.get(case_type, 0)
@@ -1504,12 +1546,12 @@ def open_10_cases():
 
 @app.route('/get_levels_data', methods=['POST'])
 def get_levels_data():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
-    user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     level_wins = get_level_wins(uid)
@@ -1522,15 +1564,15 @@ def get_levels_data():
 @app.route('/start_bot_battle', methods=['POST'])
 @limiter.limit("30 per minute")
 def start_bot_battle():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     case_type = data.get('case_type')
     with write_lock:
-        user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
         if case_type not in LEVEL_ORDER:
@@ -1569,12 +1611,12 @@ def start_bot_battle():
 
 @app.route('/get_quests_data', methods=['POST'])
 def get_quests_data():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
-    user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     total_cases = user[2]
@@ -1590,9 +1632,10 @@ def get_quests_data():
 @app.route('/claim_quest', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_quest():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
@@ -1600,7 +1643,6 @@ def claim_quest():
     if not quest_id:
         return jsonify({'error': 'Некорректный ID задания'}), 400
     with write_lock:
-        user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
         if qone("SELECT * FROM completed_quests WHERE user_id=%s AND quest_id=%s", (uid, quest_id)):
@@ -1640,9 +1682,10 @@ def get_quest_reward(uid, quest_id):
 @app.route('/apply_promo', methods=['POST'])
 @limiter.limit("10 per minute")
 def apply_promo():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
@@ -1650,7 +1693,6 @@ def apply_promo():
     if not promo:
         return jsonify({'error': 'Введите промокод'}), 400
     with write_lock:
-        user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
         promo_row = qone("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=%s", (promo,))
@@ -1670,18 +1712,17 @@ def apply_promo():
 @app.route('/claim_promo_webapp', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_promo_webapp():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
-    # ИСПРАВЛЕНО: добавлен .strip() (п.4)
     code = data.get('code', '').strip().upper()
     if not code:
         return jsonify({'error': 'Введите промокод'}), 400
     with write_lock:
-        user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
         promo = qone("SELECT reward, max_uses, used_count FROM promo_codes WHERE code=%s", (code,))
@@ -1690,9 +1731,10 @@ def claim_promo_webapp():
         reward, max_uses, used_count = promo
         if max_uses > 0 and used_count >= max_uses:
             return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
-        used = qone("SELECT * FROM used_promos WHERE user_id=%s AND promo_code=%s", (uid, code))
+        # === ИЗМЕНЕНИЕ: ОДИН ПРОМОКОД НА ПОЛЬЗОВАТЕЛЯ ===
+        used = qone("SELECT * FROM used_promos WHERE user_id=%s", (uid,))
         if used:
-            return jsonify({'error': 'Ты уже использовал этот промокод!'}), 400
+            return jsonify({'error': 'Ты уже использовал промокод!'}), 400
         update_user(uid, balance=user[1] + reward)
         qw("UPDATE promo_codes SET used_count = used_count + 1 WHERE code=%s", (code,))
         qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (%s, %s, %s)", (uid, code, int(time.time())))
@@ -1701,9 +1743,10 @@ def claim_promo_webapp():
 
 @app.route('/withdraw', methods=['POST'])
 def withdraw():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
@@ -1711,7 +1754,6 @@ def withdraw():
     if not isinstance(amount, int) or amount <= 0:
         return jsonify({'error': 'Некорректная сумма'}), 400
     with write_lock:
-        user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
         if amount < 1000:
@@ -1730,12 +1772,12 @@ def withdraw():
 @app.route('/get_deposit_rewards', methods=['POST'])
 @limiter.limit("30 per minute")
 def get_deposit_rewards():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
-    user = get_user(uid)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     tiers = [
@@ -1756,15 +1798,15 @@ def get_deposit_rewards():
 @app.route('/claim_deposit_reward', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_deposit_reward():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     amount = data.get('amount', 0)
     with write_lock:
-        user = get_user(uid)
         if not user:
             return jsonify({'error': 'User not found'}), 404
         tiers = {100: 10, 250: 25, 500: 50, 1000: 100, 2500: 250, 10000: 1000}
@@ -1784,9 +1826,10 @@ def claim_deposit_reward():
 @app.route('/start_mines_game', methods=['POST'])
 @limiter.limit("20 per minute")
 def start_mines_game():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     
@@ -1805,8 +1848,9 @@ def start_mines_game():
     if mines < 4 or mines > 9:
         return jsonify({'error': 'Мин от 4 до 9'}), 400
     with write_lock:
-        user = get_user(uid)
-        if not user or user[1] < bet:
+        if not user:
+            return jsonify({'error': 'Пользователь не найден'}), 404
+        if user[1] < bet:
             return jsonify({'error': 'Недостаточно звёзд'}), 400
         with mines_lock:
             for gid, game in active_mines_games.items():
@@ -1830,9 +1874,10 @@ def start_mines_game():
 
 @app.route('/open_mines_cell', methods=['POST'])
 def open_mines_cell():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
@@ -1878,9 +1923,10 @@ def open_mines_cell():
 
 @app.route('/cashout_mines', methods=['POST'])
 def cashout_mines():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
@@ -1909,9 +1955,10 @@ def cashout_mines():
 @app.route('/exit_mines', methods=['POST'])
 @limiter.limit("10 per minute")
 def exit_mines():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
@@ -1927,9 +1974,10 @@ def exit_mines():
 
 @app.route('/get_mines_stats', methods=['POST'])
 def get_mines_stats():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     stats = qone("SELECT * FROM mines_stats WHERE user_id=%s", (uid,))
@@ -1941,9 +1989,11 @@ def get_mines_stats():
 @app.route('/crash_status', methods=['POST'])
 def crash_status():
     global crash_data
-    uid = get_authenticated_user_id()
-    if uid and is_banned(uid):
-        return jsonify({'error': 'Ты забанен!'}), 403
+    uid, username = get_authenticated_user()
+    if uid:
+        user = get_or_create_user(uid, username)
+        if is_banned(uid):
+            return jsonify({'error': 'Ты забанен!'}), 403
     with crash_lock:
         now = time.time()
         waiting_time = 0
@@ -1955,16 +2005,16 @@ def crash_status():
 @limiter.limit("10 per minute")
 def make_crash_bet():
     global crash_data
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     bet = data.get('bet')
     if not isinstance(bet, int):
         return jsonify({'error': 'Некорректная ставка'}), 400
-    user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
     if bet < 1 or bet > 1000:
@@ -1985,9 +2035,10 @@ def make_crash_bet():
 @limiter.limit("10 per minute")
 def cashout_crash():
     global crash_data
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     with crash_lock:
@@ -2008,9 +2059,10 @@ def cashout_crash():
 
 @app.route('/get_crash_stats', methods=['POST'])
 def get_crash_stats():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     stats = qone("SELECT * FROM crash_stats WHERE user_id=%s", (uid,))
@@ -2022,15 +2074,15 @@ def get_crash_stats():
 @app.route('/upgrade_calculate', methods=['POST'])
 @limiter.limit("30 per minute")
 def upgrade_calculate():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     bet = data.get('bet')
     target = data.get('target')
-    user = get_user(uid)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
     if not isinstance(bet, int) or not isinstance(target, int):
@@ -2047,16 +2099,16 @@ def upgrade_calculate():
 
 @app.route('/upgrade_execute', methods=['POST'])
 def upgrade_execute():
-    uid = get_authenticated_user_id()
+    uid, username = get_authenticated_user()
     if not uid:
         return jsonify({'error': 'Unauthorized'}), 401
+    user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     bet = data.get('bet')
     target = data.get('target')
     with write_lock:
-        user = get_user(uid)
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
         if not isinstance(bet, int) or not isinstance(target, int):
@@ -2142,6 +2194,7 @@ def start_background_threads():
             return
         _threads_started = True
     threading.Thread(target=crash_timer, daemon=True).start()
+    threading.Thread(target=periodic_cleanup, daemon=True).start()  # ДОБАВЛЕНО
     if os.environ.get("SET_WEBHOOK") == "1":
         threading.Thread(target=run_webhook_setup, daemon=True).start()
     else:
