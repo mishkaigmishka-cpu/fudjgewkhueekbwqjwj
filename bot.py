@@ -94,7 +94,6 @@ def periodic_cleanup():
         for chat_id in list(sent_message_ids.keys()):
             cleanup_chat(chat_id)
 
-# === ИСПРАВЛЕНИЕ 3: ЛОГИРОВАНИЕ ОШИБОК УДАЛЕНИЯ ===
 def auto_delete_command_and_reply(msg, reply_msg, delay=30):
     track_sent_message(msg.chat.id, reply_msg.message_id)
     def delete():
@@ -191,6 +190,16 @@ def get_authenticated_user():
 _db_pool = psycopg2.pool.ThreadedConnectionPool(
     minconn=2, maxconn=20, dsn=DATABASE_URL
 )
+
+def _close_db_pool():
+    try:
+        _db_pool.closeall()
+        print("DB pool closed")
+    except Exception:
+        pass
+
+atexit.register(_close_db_pool)
+
 _db_local = threading.local()
 write_lock = threading.RLock()
 
@@ -479,9 +488,10 @@ FREE_CASE_COOLDOWN = 7200
 BATTLE_PROGRESS_COST = 10
 WINS_TO_UNLOCK = 3
 
+# === ИСПРАВЛЕНИЕ 1.2: ШАНСЫ В ГРЯЗЕВОМ КЕЙСЕ ===
 CASE_RANGES = {
     "free": {"common": [1, 2], "rare": [3, 4], "epic": [5, 6, 7, 8, 9, 10], "legendary": [100], "jackpot": [1000], "common_chance": 0.599, "rare_chance": 0.299, "epic_chance": 0.0999, "legendary_chance": 0.0001, "jackpot_chance": 0.00000001},
-    "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.90, "rare_chance": 0.07, "epic_chance": 0.03, "legendary_chance": 0.0, "jackpot_chance": 0.0},
+    "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.94999999, "rare_chance": 0.04, "epic_chance": 0.01, "legendary_chance": 0.00000005, "jackpot_chance": 0.00000005},
     "wood": {"common": [2, 4, 5, 6, 7, 8, 9, 10], "rare": [12, 13, 15], "epic": [20, 50], "legendary": [100, 500], "jackpot": [1000], "common_chance": 0.80, "rare_chance": 0.14, "epic_chance": 0.05, "legendary_chance": 0.01, "jackpot_chance": 0.000001},
     "stone": {"common": [11, 13, 15, 16, 17, 18, 19], "rare": [21, 23, 24, 25], "epic": [30, 50, 100], "legendary": [250, 500, 1000], "jackpot": [2500], "common_chance": 0.80, "rare_chance": 0.15, "epic_chance": 0.045, "legendary_chance": 0.005, "jackpot_chance": 0.000001},
     "bronze": {"common": [20, 25, 30], "rare": [35, 40, 45, 50], "epic": [55, 60, 65, 75, 100], "legendary": [222, 333, 444, 555, 1000, 1500, 2000], "jackpot": [5000], "common_chance": 0.89, "rare_chance": 0.10, "epic_chance": 0.009999, "legendary_chance": 0.000001, "jackpot_chance": 0.0000001},
@@ -504,6 +514,7 @@ for case_type, data in CASE_RANGES.items():
         data['legendary_chance'] *= factor
         data['jackpot_chance'] *= factor
 
+# === ИСПРАВЛЕНИЕ 1.3: УПРОЩЕНИЕ get_prize ===
 def get_prize(case_type, user_id=None):
     data = CASE_RANGES[case_type]
     rnd = random.random()
@@ -536,28 +547,7 @@ def get_prize(case_type, user_id=None):
     elif rnd < j + l:
         return random.choice(data["legendary"])
     elif rnd < j + l + c:
-        if case_type == "mud":
-            if random.random() < 0.39 / 0.70:
-                return random.choice([1, 2])
-            else:
-                return random.choice([3, 4, 5, 6, 7])
-        elif case_type == "wood":
-            if random.random() < 0.39 / 0.75:
-                return random.choice([2, 4, 5])
-            else:
-                return random.choice([6, 7, 8, 9, 10])
-        elif case_type == "stone":
-            if random.random() < 0.55 / 0.80:
-                return random.choice([11, 13, 15])
-            else:
-                return random.choice([16, 17, 18, 19])
-        elif case_type == "bronze":
-            if random.random() < 0.29 / 0.89:
-                return random.choice([20, 25, 30])
-            else:
-                return random.choice([35, 40, 45, 50])
-        else:
-            return random.choice(data["common"])
+        return random.choice(data["common"])
     elif rnd < j + l + c + r:
         return random.choice(data["rare"])
     else:
@@ -632,7 +622,6 @@ def get_level_progress(uid, case_type):
     row = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
     return row[0] if row else 0
 
-# === ИСПРАВЛЕНИЕ 2: 20 КЕЙСОВ = 1 БИТВА ===
 def register_case_opening(uid, case_type, n=1):
     with write_lock:
         add_case_stats(uid, case_type, n)
@@ -1984,6 +1973,7 @@ def get_mines_stats():
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
 # ===== CRASH =====
+# === ИСПРАВЛЕНИЕ 1.1: crash_status с дополнительными полями ===
 @app.route('/crash_status', methods=['POST'])
 def crash_status():
     global crash_data
@@ -1997,7 +1987,16 @@ def crash_status():
         waiting_time = 0
         if crash_data['phase'] == 'waiting':
             waiting_time = max(0, crash_data['waiting_time'] - now)
-        return jsonify({'phase': crash_data['phase'], 'multiplier': crash_data['multiplier'], 'waiting_time': round(waiting_time, 1), 'crash_multiplier_at_crash': crash_data.get('crash_multiplier_at_crash', 1.00), 'game_count': crash_data['game_count'], 'my_bet': crash_data['bets'].get(uid, 0) if uid else 0})
+        return jsonify({
+            'phase': crash_data['phase'],
+            'multiplier': crash_data['multiplier'],
+            'waiting_time': round(waiting_time, 1),
+            'crash_multiplier_at_crash': crash_data.get('crash_multiplier_at_crash', 1.00),
+            'game_count': crash_data['game_count'],
+            'my_bet': crash_data['bets'].get(uid, 0) if uid else 0,
+            'start_time': crash_data.get('start_time', 0),
+            'crash_point': crash_data.get('crash_point', 12.0)
+        })
 
 @app.route('/make_crash_bet', methods=['POST'])
 @limiter.limit("10 per minute")
