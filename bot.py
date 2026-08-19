@@ -1472,6 +1472,7 @@ def open_case():
             return jsonify({'error': 'Ты забанен!'}), 403
         data = request.get_json(silent=True) or {}
         case_type = data.get('case_type')
+        # === ИСПРАВЛЕНИЕ 2: проверка CASE_PRICES ===
         if not case_type or case_type not in CASE_PRICES:
             return jsonify({'error': 'Некорректный тип кейса'}), 400
         
@@ -1731,7 +1732,7 @@ def claim_promo_webapp():
         reward, max_uses, used_count = promo
         if max_uses > 0 and used_count >= max_uses:
             return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
-        # === ИЗМЕНЕНИЕ: ОДИН ПРОМОКОД НА ПОЛЬЗОВАТЕЛЯ ===
+        # === ИСПРАВЛЕНИЕ 1: один промокод на пользователя ===
         used = qone("SELECT * FROM used_promos WHERE user_id=%s", (uid,))
         if used:
             return jsonify({'error': 'Ты уже использовал промокод!'}), 400
@@ -1751,6 +1752,7 @@ def withdraw():
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     amount = data.get('amount', 0)
+    # === ИСПРАВЛЕНИЕ 3: проверка типа amount ===
     if not isinstance(amount, int) or amount <= 0:
         return jsonify({'error': 'Некорректная сумма'}), 400
     with write_lock:
@@ -2194,7 +2196,7 @@ def start_background_threads():
             return
         _threads_started = True
     threading.Thread(target=crash_timer, daemon=True).start()
-    threading.Thread(target=periodic_cleanup, daemon=True).start()  # ДОБАВЛЕНО
+    threading.Thread(target=periodic_cleanup, daemon=True).start()
     if os.environ.get("SET_WEBHOOK") == "1":
         threading.Thread(target=run_webhook_setup, daemon=True).start()
     else:
