@@ -1897,7 +1897,8 @@ def open_mines_cell():
                 return jsonify({'error': 'Не твоя игра'}), 403
             if game['opened'][index] == 1:
                 return jsonify({'error': 'Клетка уже открыта'}), 400
-            game['opened'][index] = 1            game['opened_count'] += 1
+            game['opened'][index] = 1
+            game['opened_count'] += 1
             if game['board'][index] == 1:
                 game['status'] = 'lost'
                 update_mines_stats(uid, won=False, multiplier=0, stars=game['bet'])
