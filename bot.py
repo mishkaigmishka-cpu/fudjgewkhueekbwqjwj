@@ -1274,7 +1274,7 @@ ID: {uid}
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
-# === ИСПРАВЛЕНИЕ 3: auto_delete для top_users ===
+# === ИСПРАВЛЕНИЕ 2: auto_delete для top_users ===
 @bot.message_handler(commands=['top'])
 def top_users(msg):
     if msg.from_user.id != ADMIN_ID:
