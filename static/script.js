@@ -610,7 +610,7 @@ function showTape(type, mode = 'preview') {
     document.body.appendChild(tapeContainer);
 }
 
-// === ИСПРАВЛЕНИЕ: УРОВНИ ПОСЛЕ ОТКРЫТИЯ ===
+// === ИСПРАВЛЕНИЕ 2: УРОВНИ ПОСЛЕ ОТКРЫТИЯ КЕЙСА ===
 function openCaseDirect(type) {
     if (state.isOpening) return;
     state.isOpening = true;
@@ -820,7 +820,7 @@ function showResult(type, targetPrize, style, track, winPosition) {
 }
 
 // ===== ОТКРЫТИЕ 10 КЕЙСОВ =====
-// === ИСПРАВЛЕНИЕ: УРОВНИ ПОСЛЕ ×10 ===
+// === ИСПРАВЛЕНИЕ 2: УРОВНИ ПОСЛЕ ×10 ===
 async function open10Cases(type) {
     if (state.isOpening) return;
     state.isOpening = true;
@@ -2001,14 +2001,10 @@ function initCrash() {
     startCrashPolling();
 }
 
+// === ИСПРАВЛЕНИЕ 1: КРАШ РЫВКАМИ — ОТМЕНА АНИМАЦИИ ТОЛЬКО ВНУТРИ ФАЗ ===
 function updateCrashUI(data) {
     const d = crash.dom;
     if (!d) return;
-
-    if (crash.animFrame && data.phase !== 'active') {
-        cancelAnimationFrame(crash.animFrame);
-        crash.animFrame = null;
-    }
 
     crash.phase = data.phase || 'waiting';
     crash.multiplier = data.multiplier || 1.0;
@@ -2033,6 +2029,11 @@ function updateCrashUI(data) {
     }
 
     else if (data.phase === 'waiting') {
+        // Отменяем анимацию при переходе в waiting
+        if (crash.animFrame) {
+            cancelAnimationFrame(crash.animFrame);
+            crash.animFrame = null;
+        }
         crash.activeStarted = false;
         crash.crashedProcessed = false;
 
@@ -2065,6 +2066,7 @@ function updateCrashUI(data) {
     }
 
     else if (data.phase === 'active') {
+        // НЕ отменяем анимацию — она продолжается
         if (!crash.activeStarted || crash.startTime !== data.start_time) {
             crash.activeStarted = true;
             crash.crashedProcessed = false;
@@ -2100,6 +2102,11 @@ function updateCrashUI(data) {
     }
 
     else if (data.phase === 'crashed' || data.phase === 'crash') {
+        // Отменяем анимацию при краше
+        if (crash.animFrame) {
+            cancelAnimationFrame(crash.animFrame);
+            crash.animFrame = null;
+        }
         crash.activeStarted = false;
         const justCrashed = !crash.crashedProcessed;
 
@@ -2246,7 +2253,6 @@ function crashColor(v, alpha = 1) {
     return `hsla(${hue}, 85%, 62%, ${alpha})`;
 }
 
-// === ИСПРАВЛЕНИЕ: КРАШ — ПЛАВНЫЙ ГРАФИК ===
 function drawCrashChart() {
     crash.animFrame = null;
     const ctx = crash.ctx;
@@ -2386,7 +2392,6 @@ function drawCrashChart() {
     if (d.progress) {
         d.progress.style.width = Math.min((displayVal / 12) * 100, 100) + '%';
     }
-    // === ЗЕЛЁНАЯ ПОЛОСКА ===
     const progressBar = document.getElementById('crashProgressBar');
     if (progressBar) {
         progressBar.style.width = Math.min((displayVal / 5.0) * 100, 100) + '%';
