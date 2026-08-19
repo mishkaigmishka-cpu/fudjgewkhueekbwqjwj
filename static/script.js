@@ -633,7 +633,7 @@ function openCaseDirect(type) {
             showTape(type, 'roulette');
             setTimeout(() => startFinalSpin(type), 300);
 
-            // ОБНОВЛЕНИЕ УРОВНЕЙ (п.6)
+            // ОБНОВЛЕНИЕ УРОВНЕЙ
             if (typeof loadLevels === 'function') {
                 setTimeout(() => loadLevels().catch(() => {}), 500);
             }
@@ -837,7 +837,7 @@ async function open10Cases(type) {
     if (data.new_balance !== undefined) updateAllBalances(data.new_balance);
     show10CasesAnimation(type, data);
 
-    // ОБНОВЛЕНИЕ УРОВНЕЙ (п.6)
+    // ОБНОВЛЕНИЕ УРОВНЕЙ
     if (typeof loadLevels === 'function') {
         setTimeout(() => loadLevels().catch(() => {}), 500);
     }
@@ -1741,7 +1741,6 @@ function closePromoAppModal() {
     document.getElementById('promoAppInput').value = '';
 }
 
-// ИСПРАВЛЕНО: fetch → apiRequest
 async function submitPromoApp() {
     const code = document.getElementById('promoAppInput').value.trim().toUpperCase();
     if (!code) return showCustomAlert('❌ Введи промокод!');
@@ -2007,7 +2006,6 @@ function initCrash() {
     startCrashPolling();
 }
 
-// ИСПРАВЛЕНО: cancelAnimationFrame только если не active
 function updateCrashUI(data) {
     const d = crash.dom;
     if (!d) return;
@@ -2253,7 +2251,6 @@ function crashColor(v, alpha = 1) {
     return `hsla(${hue}, 85%, 62%, ${alpha})`;
 }
 
-// ИСПРАВЛЕНО: фиксированный масштаб + visibleData
 function drawCrashChart() {
     crash.animFrame = null;
     const ctx = crash.ctx;
@@ -2289,7 +2286,6 @@ function drawCrashChart() {
 
     ctx.clearRect(0, 0, w, h);
 
-    // ФИКСИРОВАННЫЙ МАСШТАБ (исправлено: crashPoint || 8.0, 5.0)
     const maxVal = Math.max(crash.crashPoint || 8.0, 5.0) * 1.2;
     const maxPoints = 300;
     const topOffset = 16;
@@ -2303,7 +2299,6 @@ function drawCrashChart() {
     const displayVal = isCrashed ? data[data.length - 1] : currentMultiplier;
     const lineColor = isCrashed ? '#f87171' : crashColor(displayVal);
 
-    // ТОЛЬКО ПОСЛЕДНИЕ maxPoints ТОЧЕК
     const visibleData = data.slice(-maxPoints);
     const offsetIndex = Math.max(0, data.length - maxPoints);
 
@@ -2313,7 +2308,6 @@ function drawCrashChart() {
         return [x, y];
     };
 
-    // Заливка
     const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
     if (isCrashed) {
         fillGrad.addColorStop(0, 'rgba(248,113,113,0.35)');
@@ -2339,7 +2333,6 @@ function drawCrashChart() {
     ctx.fill();
     ctx.restore();
 
-    // Линия
     ctx.beginPath();
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = 4;
@@ -2355,7 +2348,6 @@ function drawCrashChart() {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Ракета/точка
     if (isCrashed) {
         ctx.font = '26px sans-serif';
         ctx.textAlign = 'center';
@@ -2380,7 +2372,6 @@ function drawCrashChart() {
         ctx.shadowBlur = 0;
     }
 
-    // Обновление DOM
     if (d.multiplier) {
         d.multiplier.textContent = `x${displayVal.toFixed(2)}`;
         d.multiplier.style.color = lineColor;
@@ -2391,6 +2382,11 @@ function drawCrashChart() {
     }
     if (d.progress) {
         d.progress.style.width = Math.min((displayVal / 12) * 100, 100) + '%';
+    }
+    // === ОБНОВЛЕНИЕ ЗЕЛЁНОЙ ПОЛОСКИ ===
+    const progressBar = document.getElementById('crashProgressBar');
+    if (progressBar) {
+        progressBar.style.width = Math.min((displayVal / 5.0) * 100, 100) + '%';
     }
     if (d.potential && crash.bet > 0 && !isCrashed) {
         const potential = Math.floor(crash.bet * displayVal * 0.95);
