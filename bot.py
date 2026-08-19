@@ -69,6 +69,15 @@ def safe_delete(chat_id, message_id):
     except Exception:
         pass
 
+# === АВТОУДАЛЕНИЕ ДЛЯ АДМИН-КОМАНД (п.5) ===
+def auto_delete_command_and_reply(msg, reply_msg, delay=30):
+    """Удаляет команду пользователя и ответ бота через delay секунд"""
+    try:
+        bot.delete_message(msg.chat.id, msg.message_id)
+    except Exception:
+        pass
+    delete_message_after(msg.chat.id, reply_msg.message_id, delay)
+
 main_message_ids = TTLCache(maxsize=10000, ttl=3600)
 
 # ===== БАНЫ =====
@@ -700,11 +709,19 @@ crash_data = {
 
 load_crash_bets()
 
+# === ИСПРАВЛЕНА ФОРМУЛА (п.1) ===
 def generate_crash_point():
     r = random.random()
-    if r < 0.0001:
-        r = 0.0001
-    return round(1.00 + (r ** -1) * 0.06, 2)
+    if r < 0.25:
+        return round(1.01 + random.random() * 0.29, 2)
+    elif r < 0.70:
+        return round(1.30 + random.random() * 0.20, 2)
+    elif r < 0.76:
+        return round(1.50 + random.random() * 0.50, 2)
+    elif r < 0.95:
+        return round(2.00 + random.random() * 3.00, 2)
+    else:
+        return round(5.00 + random.random() * 10.00, 2)
 
 def get_crash_multiplier(elapsed):
     if elapsed < 1.0:
@@ -792,7 +809,7 @@ def crash_timer():
                     crash_data['start_time'] = 0
                     crash_data['crash_point'] = 1.00
                     crash_data['crash_multiplier_at_crash'] = 1.00
-        time.sleep(0.1)  # ← ИСПРАВЛЕНО: было 0.05
+        time.sleep(0.1)
 
 # ===== TELEGRAM ХЕНДЛЕРЫ (БЕЗ @limiter.limit) =====
 @bot.message_handler(commands=['start'])
@@ -932,22 +949,26 @@ def got_payment(msg):
         except Exception:
             pass
 
+# ===== АДМИН-КОМАНДЫ (С АВТОУДАЛЕНИЕМ) =====
 @bot.message_handler(commands=['ban'])
 def ban_user(msg):
     if msg.from_user.id != ADMIN_ID:
         return
     args = msg.text.split()
     if len(args) < 2:
-        bot.reply_to(msg, "❌ Формат: /ban @username")
+        reply = bot.reply_to(msg, "❌ Формат: /ban @username")
+        auto_delete_command_and_reply(msg, reply)
         return
     username = args[1].replace('@', '')
     user = get_user_by_username(username)
     if not user:
-        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        reply = bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        auto_delete_command_and_reply(msg, reply)
         return
     update_user(user[0], banned=1)
     admin_log('ban', user[0], f"Забанен @{username}")
-    bot.reply_to(msg, f"✅ @{username} забанен!")
+    reply = bot.reply_to(msg, f"✅ @{username} забанен!")
+    auto_delete_command_and_reply(msg, reply)
 
 @bot.message_handler(commands=['unban'])
 def unban_user(msg):
@@ -955,16 +976,19 @@ def unban_user(msg):
         return
     args = msg.text.split()
     if len(args) < 2:
-        bot.reply_to(msg, "❌ Формат: /unban @username")
+        reply = bot.reply_to(msg, "❌ Формат: /unban @username")
+        auto_delete_command_and_reply(msg, reply)
         return
     username = args[1].replace('@', '')
     user = get_user_by_username(username)
     if not user:
-        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        reply = bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        auto_delete_command_and_reply(msg, reply)
         return
     update_user(user[0], banned=0)
     admin_log('unban', user[0], f"Разбанен @{username}")
-    bot.reply_to(msg, f"✅ @{username} разбанен!")
+    reply = bot.reply_to(msg, f"✅ @{username} разбанен!")
+    auto_delete_command_and_reply(msg, reply)
 
 @bot.message_handler(commands=['reset'])
 def reset_user(msg):
@@ -972,12 +996,14 @@ def reset_user(msg):
         return
     args = msg.text.split()
     if len(args) < 2:
-        bot.reply_to(msg, "❌ Формат: /reset @username")
+        reply = bot.reply_to(msg, "❌ Формат: /reset @username")
+        auto_delete_command_and_reply(msg, reply)
         return
     username = args[1].replace('@', '')
     user = get_user_by_username(username)
     if not user:
-        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        reply = bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        auto_delete_command_and_reply(msg, reply)
         return
     uid = user[0]
     update_user(uid, balance=0, total_cases=0, streak=0, status="🟢 Новичок", refs=0, total_spent=0, total_deposit=0, claimed_deposit='')
@@ -993,7 +1019,8 @@ def reset_user(msg):
     qw("DELETE FROM invited WHERE inviter_id=%s OR invited_id=%s", (uid, uid))
     qw("DELETE FROM active_mines_games WHERE user_id=%s", (uid,))
     admin_log('reset', uid, f"Сброшен @{username}")
-    bot.reply_to(msg, f"✅ @{username} сброшен!")
+    reply = bot.reply_to(msg, f"✅ @{username} сброшен!")
+    auto_delete_command_and_reply(msg, reply)
 
 @bot.message_handler(commands=['luck'])
 def luck_boost(msg):
@@ -1001,19 +1028,23 @@ def luck_boost(msg):
         return
     args = msg.text.split()
     if len(args) < 2:
-        bot.reply_to(msg, "❌ Формат: /luck @username")
+        reply = bot.reply_to(msg, "❌ Формат: /luck @username")
+        auto_delete_command_and_reply(msg, reply)
         return
     username = args[1].replace('@', '')
     user = get_user_by_username(username)
     if not user:
-        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        reply = bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        auto_delete_command_and_reply(msg, reply)
         return
     if user[12] > 1.0:
-        bot.reply_to(msg, f"У @{username} уже активен luck boost! Сначала /unluck @{username}")
+        reply = bot.reply_to(msg, f"У @{username} уже активен luck boost! Сначала /unluck @{username}")
+        auto_delete_command_and_reply(msg, reply)
         return
     update_user(user[0], luck_boost=5.0)
     admin_log('luck', user[0], f"Шансы x5 для @{username}")
-    bot.reply_to(msg, f"✅ Шансы @{username} увеличены в 5x!")
+    reply = bot.reply_to(msg, f"✅ Шансы @{username} увеличены в 5x!")
+    auto_delete_command_and_reply(msg, reply)
 
 @bot.message_handler(commands=['unluck'])
 def unluck_boost(msg):
@@ -1021,19 +1052,23 @@ def unluck_boost(msg):
         return
     args = msg.text.split()
     if len(args) < 2:
-        bot.reply_to(msg, "❌ Формат: /unluck @username")
+        reply = bot.reply_to(msg, "❌ Формат: /unluck @username")
+        auto_delete_command_and_reply(msg, reply)
         return
     username = args[1].replace('@', '')
     user = get_user_by_username(username)
     if not user:
-        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        reply = bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        auto_delete_command_and_reply(msg, reply)
         return
     if user[12] == 1.0:
-        bot.reply_to(msg, f"У @{username} нет активного luck boost! Сначала /luck @{username}")
+        reply = bot.reply_to(msg, f"У @{username} нет активного luck boost! Сначала /luck @{username}")
+        auto_delete_command_and_reply(msg, reply)
         return
     update_user(user[0], luck_boost=1.0)
     admin_log('unluck', user[0], f"Шансы сброшены для @{username}")
-    bot.reply_to(msg, f"✅ Шансы @{username} сброшены!")
+    reply = bot.reply_to(msg, f"✅ Шансы @{username} сброшены!")
+    auto_delete_command_and_reply(msg, reply)
 
 @bot.message_handler(commands=['give'])
 def give_stars(msg):
@@ -1041,25 +1076,30 @@ def give_stars(msg):
         return
     args = msg.text.split()
     if len(args) < 3:
-        bot.reply_to(msg, "❌ Формат: /give @username сумма")
+        reply = bot.reply_to(msg, "❌ Формат: /give @username сумма")
+        auto_delete_command_and_reply(msg, reply)
         return
     username = args[1].replace('@', '')
     try:
         amount = int(args[2])
     except ValueError:
-        bot.reply_to(msg, "❌ Сумма должна быть числом")
+        reply = bot.reply_to(msg, "❌ Сумма должна быть числом")
+        auto_delete_command_and_reply(msg, reply)
         return
     if amount < 1 or amount > 1000:
-        bot.reply_to(msg, "❌ Сумма должна быть от 1 до 1000⭐")
+        reply = bot.reply_to(msg, "❌ Сумма должна быть от 1 до 1000⭐")
+        auto_delete_command_and_reply(msg, reply)
         return
     user = get_user_by_username(username)
     if not user:
-        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        reply = bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        auto_delete_command_and_reply(msg, reply)
         return
     new_balance = user[1] + amount
     update_user(user[0], balance=new_balance)
     admin_log('give', user[0], f"Начислено {amount}⭐ @{username}")
-    bot.reply_to(msg, f"✅ Начислено {amount}⭐ @{username}!\nНовый баланс: {new_balance}⭐")
+    reply = bot.reply_to(msg, f"✅ Начислено {amount}⭐ @{username}!\nНовый баланс: {new_balance}⭐")
+    auto_delete_command_and_reply(msg, reply)
     try:
         bot.send_message(user[0], f"🎁 Администратор начислил тебе {amount}⭐!\nТекущий баланс: {new_balance}⭐")
     except Exception:
@@ -1069,7 +1109,8 @@ def give_stars(msg):
 def bonus(msg):
     if msg.from_user.id != ADMIN_ID:
         return
-    bot.reply_to(msg, f"✅ Ты ADMIN! Твой ID: {ADMIN_ID}")
+    reply = bot.reply_to(msg, f"✅ Ты ADMIN! Твой ID: {ADMIN_ID}")
+    auto_delete_command_and_reply(msg, reply)
 
 @bot.message_handler(commands=['addbalance'])
 def add_balance(msg):
@@ -1077,24 +1118,29 @@ def add_balance(msg):
         return
     args = msg.text.split()
     if len(args) < 3:
-        bot.reply_to(msg, "❌ Формат: /addbalance @username сумма")
+        reply = bot.reply_to(msg, "❌ Формат: /addbalance @username сумма")
+        auto_delete_command_and_reply(msg, reply)
         return
     username = args[1].replace('@', '')
     try:
         amount = int(args[2])
     except ValueError:
-        bot.reply_to(msg, "❌ Сумма должна быть числом")
+        reply = bot.reply_to(msg, "❌ Сумма должна быть числом")
+        auto_delete_command_and_reply(msg, reply)
         return
     if amount < 1 or amount > 1000:
-        bot.reply_to(msg, "❌ Сумма должна быть от 1 до 1000⭐")
+        reply = bot.reply_to(msg, "❌ Сумма должна быть от 1 до 1000⭐")
+        auto_delete_command_and_reply(msg, reply)
         return
     user = get_user_by_username(username)
     if not user:
-        bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        reply = bot.reply_to(msg, f"❌ Пользователь @{username} не найден")
+        auto_delete_command_and_reply(msg, reply)
         return
     qw("UPDATE users SET balance = %s WHERE id = %s", (amount, user[0]))
     admin_log('addbalance', user[0], f"Баланс установлен {amount}⭐ для @{username}")
-    bot.reply_to(msg, f"✅ Баланс @{username} установлен на {amount}⭐!")
+    reply = bot.reply_to(msg, f"✅ Баланс @{username} установлен на {amount}⭐!")
+    auto_delete_command_and_reply(msg, reply)
     try:
         bot.send_message(user[0], f"🎁 Администратор установил твой баланс на {amount}⭐!")
     except Exception:
@@ -1106,31 +1152,37 @@ def take_stars(msg):
         return
     args = msg.text.split()
     if len(args) < 3:
-        bot.reply_to(msg, "Формат: /take @username сумма [причина]")
+        reply = bot.reply_to(msg, "Формат: /take @username сумма [причина]")
+        auto_delete_command_and_reply(msg, reply)
         return
     username = args[1].replace('@', '')
     try:
         amount = int(args[2])
     except ValueError:
-        bot.reply_to(msg, "Сумма должна быть числом")
+        reply = bot.reply_to(msg, "Сумма должна быть числом")
+        auto_delete_command_and_reply(msg, reply)
         return
     if amount < 1 or amount > 10000:
-        bot.reply_to(msg, "Сумма от 1 до 10000")
+        reply = bot.reply_to(msg, "Сумма от 1 до 10000")
+        auto_delete_command_and_reply(msg, reply)
         return
     reason = ' '.join(args[3:]) if len(args) > 3 else 'Вывод средств'
     user = get_user_by_username(username)
     if not user:
-        bot.reply_to(msg, f"Пользователь @{username} не найден")
+        reply = bot.reply_to(msg, f"Пользователь @{username} не найден")
+        auto_delete_command_and_reply(msg, reply)
         return
     uid = user[0]
     current_balance = user[1]
     if current_balance < amount:
-        bot.reply_to(msg, f"У @{username} недостаточно звёзд! Баланс: {current_balance}, требуется: {amount}")
+        reply = bot.reply_to(msg, f"У @{username} недостаточно звёзд! Баланс: {current_balance}, требуется: {amount}")
+        auto_delete_command_and_reply(msg, reply)
         return
     new_balance = current_balance - amount
     update_user(uid, balance=new_balance)
     admin_log('take', uid, f"Списано {amount}⭐. Причина: {reason}. Было: {current_balance}, стало: {new_balance}")
-    bot.reply_to(msg, f"Списано {amount}⭐ у @{username}! Новый баланс: {new_balance}⭐")
+    reply = bot.reply_to(msg, f"Списано {amount}⭐ у @{username}! Новый баланс: {new_balance}⭐")
+    auto_delete_command_and_reply(msg, reply)
     try:
         bot.send_message(uid, f"С вашего баланса списано {amount}⭐\nПричина: {reason}\nТекущий баланс: {new_balance}⭐")
     except Exception:
@@ -1142,12 +1194,14 @@ def user_info(msg):
         return
     args = msg.text.split()
     if len(args) < 2:
-        bot.reply_to(msg, "Формат: /userinfo @username")
+        reply = bot.reply_to(msg, "Формат: /userinfo @username")
+        auto_delete_command_and_reply(msg, reply)
         return
     username = args[1].replace('@', '')
     user = get_user_by_username(username)
     if not user:
-        bot.reply_to(msg, f"Пользователь @{username} не найден")
+        reply = bot.reply_to(msg, f"Пользователь @{username} не найден")
+        auto_delete_command_and_reply(msg, reply)
         return
     uid = user[0]
     balance = user[1]
@@ -1176,7 +1230,8 @@ ID: {uid}
 КРАШ: Игр: {crash[0] if crash else 0} | Побед: {crash[1] if crash else 0} | Поражений: {crash[2] if crash else 0}
 БИТВЫ: Игр: {battle[0] if battle else 0} | Побед: {battle[1] if battle else 0} | Поражений: {battle[2] if battle else 0}"""
     admin_log('userinfo', uid, f"Просмотр инфо @{username}")
-    bot.reply_to(msg, text)
+    reply = bot.reply_to(msg, text)
+    auto_delete_command_and_reply(msg, reply, 60)
 
 @bot.message_handler(commands=['top'])
 def top_users(msg):
@@ -1201,7 +1256,8 @@ def top_users(msg):
     for i, (uname, bal, dep, cases) in enumerate(top_balance, 1):
         text += f"{i}. @{uname or 'N/A'} — {bal} stars\n"
     admin_log('top', None, f"Просмотр топ-{limit}")
-    bot.reply_to(msg, text)
+    reply = bot.reply_to(msg, text)
+    auto_delete_command_and_reply(msg, reply, 60)
 
 @bot.message_handler(commands=['adminlogs'])
 def admin_logs_cmd(msg):
@@ -1209,7 +1265,8 @@ def admin_logs_cmd(msg):
         return
     logs = q("SELECT action, target_id, details, created_at FROM admin_logs ORDER BY created_at DESC LIMIT 20")
     if not logs:
-        bot.reply_to(msg, "Логов пока нет")
+        reply = bot.reply_to(msg, "Логов пока нет")
+        auto_delete_command_and_reply(msg, reply)
         return
     text = "ПОСЛЕДНИЕ ДЕЙСТВИЯ АДМИНА:\n\n"
     for action, target_id, details, created_at in logs:
@@ -1220,7 +1277,8 @@ def admin_logs_cmd(msg):
         if details:
             text += f" | {details}"
         text += "\n"
-    bot.reply_to(msg, text)
+    reply = bot.reply_to(msg, text)
+    auto_delete_command_and_reply(msg, reply, 60)
 
 @bot.message_handler(commands=['create_promo'])
 def create_promo(msg):
@@ -1228,7 +1286,8 @@ def create_promo(msg):
         return
     args = msg.text.split()
     if len(args) < 2:
-        bot.reply_to(msg, "❌ Формат: /create_promo CODE [reward] [max_uses]")
+        reply = bot.reply_to(msg, "❌ Формат: /create_promo CODE [reward] [max_uses]")
+        auto_delete_command_and_reply(msg, reply)
         return
     code = args[1].upper()
     reward = 20
@@ -1246,7 +1305,8 @@ def create_promo(msg):
     qw("INSERT INTO promo_codes (code, reward, created_by, created_at, max_uses) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (code) DO NOTHING",
        (code, reward, ADMIN_ID, int(time.time()), max_uses))
     admin_log('create_promo', None, f"Создан промокод {code} на {reward}⭐, макс. {max_uses} использований")
-    bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
+    reply = bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
+    auto_delete_command_and_reply(msg, reply)
 
 @bot.message_handler(commands=['promo_stats'])
 def promo_stats(msg):
@@ -1254,18 +1314,21 @@ def promo_stats(msg):
         return
     args = msg.text.split()
     if len(args) < 2:
-        bot.reply_to(msg, "❌ Формат: /promo_stats CODE")
+        reply = bot.reply_to(msg, "❌ Формат: /promo_stats CODE")
+        auto_delete_command_and_reply(msg, reply)
         return
     code = args[1].upper()
     promo = qone("SELECT reward, max_uses, used_count, created_at FROM promo_codes WHERE code=%s", (code,))
     if not promo:
-        bot.reply_to(msg, "❌ Промокод не найден")
+        reply = bot.reply_to(msg, "❌ Промокод не найден")
+        auto_delete_command_and_reply(msg, reply)
         return
     reward, max_uses, used_count, created_at = promo
     spend_data = q("SELECT user_id, spent FROM promo_spend WHERE promo_code=%s", (code,))
     total_spent = sum([s[1] for s in spend_data]) if spend_data else 0
     text = f"📊 СТАТИСТИКА ПРОМОКОДА {code}\n\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}\n✅ Использовано: {used_count}\n💰 Всего потрачено: {total_spent}⭐\n👥 Пользователей: {len(spend_data) if spend_data else 0}"
-    bot.reply_to(msg, text)
+    reply = bot.reply_to(msg, text)
+    auto_delete_command_and_reply(msg, reply, 60)
 
 @bot.message_handler(commands=['list_promo'])
 def list_promo(msg):
@@ -1273,13 +1336,15 @@ def list_promo(msg):
         return
     promos = q("SELECT code, reward, max_uses, used_count FROM promo_codes ORDER BY created_at DESC")
     if not promos:
-        bot.reply_to(msg, "❌ Нет созданных промокодов")
+        reply = bot.reply_to(msg, "❌ Нет созданных промокодов")
+        auto_delete_command_and_reply(msg, reply)
         return
     text = "📋 СПИСОК ПРОМОКОДОВ:\n\n"
     for code, reward, max_uses, used_count in promos:
         status = "✅" if max_uses == 0 or used_count < max_uses else "❌"
         text += f"{status} {code} — {reward}⭐ (исп. {used_count}/{max_uses if max_uses > 0 else '∞'})\n"
-    bot.reply_to(msg, text)
+    reply = bot.reply_to(msg, text)
+    auto_delete_command_and_reply(msg, reply, 60)
 
 @bot.message_handler(commands=['delete_promo'])
 def delete_promo_cmd(msg):
@@ -1287,16 +1352,18 @@ def delete_promo_cmd(msg):
         return
     args = msg.text.split()
     if len(args) < 2:
-        bot.reply_to(msg, "Формат: /delete_promo CODE")
+        reply = bot.reply_to(msg, "Формат: /delete_promo CODE")
+        auto_delete_command_and_reply(msg, reply)
         return
     code = args[1].upper()
     qw("DELETE FROM promo_codes WHERE code=%s", (code,))
     qw("DELETE FROM used_promos WHERE promo_code=%s", (code,))
     qw("DELETE FROM promo_spend WHERE promo_code=%s", (code,))
     admin_log('delete_promo', None, f"Удалён промокод {code}")
-    bot.reply_to(msg, f"Промокод {code} удалён!")
+    reply = bot.reply_to(msg, f"Промокод {code} удалён!")
+    auto_delete_command_and_reply(msg, reply)
 
-# ===== FLASK РОУТЫ (С @limiter.limit) =====
+# ===== FLASK РОУТЫ =====
 @app.route('/health')
 def health():
     return 'ok'
@@ -1609,7 +1676,8 @@ def claim_promo_webapp():
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
-    code = data.get('code', '').upper()
+    # ИСПРАВЛЕНО: добавлен .strip() (п.4)
+    code = data.get('code', '').strip().upper()
     if not code:
         return jsonify({'error': 'Введите промокод'}), 400
     with write_lock:
