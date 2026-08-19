@@ -1320,8 +1320,7 @@ def create_promo(msg):
         return
     code = args[1].upper()
     reward = 20
-    max_uses = 1
-    if len(args) >= 3:
+    max_uses = 1    if len(args) >= 3:
         try:
             reward = int(args[2])
         except ValueError:
@@ -1973,7 +1972,7 @@ def get_mines_stats():
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
 # ===== CRASH =====
-# === ИСПРАВЛЕНИЕ 1.1: crash_status с дополнительными полями ===
+# === ИСПРАВЛЕНИЕ 1.1: crash_status с elapsed ===
 @app.route('/crash_status', methods=['POST'])
 def crash_status():
     global crash_data
@@ -1995,7 +1994,8 @@ def crash_status():
             'game_count': crash_data['game_count'],
             'my_bet': crash_data['bets'].get(uid, 0) if uid else 0,
             'start_time': crash_data.get('start_time', 0),
-            'crash_point': crash_data.get('crash_point', 12.0)
+            'crash_point': crash_data.get('crash_point', 12.0),
+            'elapsed': round(now - crash_data['start_time'], 3) if crash_data['phase'] == 'active' else 0
         })
 
 @app.route('/make_crash_bet', methods=['POST'])
