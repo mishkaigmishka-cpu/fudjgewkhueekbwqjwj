@@ -2076,8 +2076,10 @@ function updateCrashUI(data) {
                 crash.chartData = [];
                 crash.lastChartPush = 0;
             }
+        } else {
+            // === ИСПРАВЛЕНИЕ: НЕ ОБНОВЛЯЕМ lastUpdateTime — график считается от startTime ===
+            crash.lastServerMultiplier = data.multiplier || crash.lastServerMultiplier;
         }
-        // === ИСПРАВЛЕНИЕ: НЕ ОБНОВЛЯЕМ — график считается от startTime ===
         if (d.countdown) d.countdown.style.display = 'none';
         if (d.status) d.status.textContent = '🔥 ИГРА ИДЁТ';
         d.startBtn.style.display = 'none';
