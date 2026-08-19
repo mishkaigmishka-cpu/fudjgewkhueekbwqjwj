@@ -69,7 +69,7 @@ def safe_delete(chat_id, message_id):
     except Exception:
         pass
 
-# === НОВАЯ СИСТЕМА АВТООЧИСТКИ ===
+# === СИСТЕМА АВТООЧИСТКИ ===
 sent_message_ids = {}
 
 def track_sent_message(chat_id, msg_id):
@@ -111,7 +111,16 @@ def is_banned(uid):
     row = qone("SELECT banned FROM users WHERE id=%s", (uid,))
     return row and row[0] == 1
 
+# === ИСПРАВЛЕНИЕ 1: ЧАТ ЧИСТИТСЯ ===
 def show_main_menu(chat_id):
+    # Удаляем старое меню перед отправкой нового
+    if chat_id in main_message_ids:
+        try:
+            bot.delete_message(chat_id, main_message_ids[chat_id])
+        except Exception:
+            pass
+        main_message_ids.pop(chat_id, None)
+
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
         InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(WEBAPP_URL)),
@@ -119,13 +128,6 @@ def show_main_menu(chat_id):
     )
     caption = "🎰 <b>Добро пожаловать в RANDEVU!</b>\n\nОткрывай кейсы, играй в мини-игры и выигрывай!"
     logo_path = "static/assets/20260815T144844044172Z-ipython-tmp-29c96895207449b9923f8ffa5b30a84e.png"
-
-    if chat_id in main_message_ids:
-        try:
-            bot.delete_message(chat_id, main_message_ids[chat_id])
-        except Exception:
-            pass
-        main_message_ids.pop(chat_id, None)
 
     try:
         if os.path.exists(logo_path):
@@ -167,7 +169,6 @@ def verify_telegram_init_data(init_data_str: str) -> dict:
     except Exception:
         return None
 
-# === НОВАЯ ФУНКЦИЯ: получение пользователя с автоматическим созданием ===
 def get_or_create_user(uid, username=''):
     user = get_user(uid)
     if not user:
@@ -632,15 +633,16 @@ def get_level_progress(uid, case_type):
     row = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
     return row[0] if row else 0
 
+# === ИСПРАВЛЕНИЕ 3: ПРОГРЕСС КОПИТСЯ НА ЛЮБОМ УРОВНЕ ===
 def register_case_opening(uid, case_type, n=1):
     with write_lock:
         add_case_stats(uid, case_type, n)
         if case_type in LEVEL_ORDER and case_type in get_unlocked_levels(uid):
-            if case_type == get_current_level(uid):
-                progress = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
-                current_opened = progress[0] if progress else 0
-                if current_opened < BATTLE_PROGRESS_COST:
-                    add_level_progress(uid, case_type, n)
+            # Прогресс копится на ЛЮБОМ разблокированном уровне, но не больше 10
+            progress = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
+            current_opened = progress[0] if progress else 0
+            if current_opened < BATTLE_PROGRESS_COST:
+                add_level_progress(uid, case_type, n)
 
 def _update_game_stats(table, user_id, won, multiplier, stars):
     assert table in ('mines_stats', 'crash_stats')
@@ -744,7 +746,6 @@ crash_data = {
 
 load_crash_bets()
 
-# === НОВАЯ ФУНКЦИЯ ГЕНЕРАЦИИ ТОЧКИ КРАША ===
 def generate_crash_point():
     r = random.random()
     if r < 0.25:
@@ -1274,7 +1275,7 @@ ID: {uid}
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
-# === ИСПРАВЛЕНО: auto_delete для top_users ===
+# === ИСПРАВЛЕНИЕ 5: auto_delete для top_users ===
 @bot.message_handler(commands=['top'])
 def top_users(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1295,13 +1296,13 @@ def top_users(msg):
     text += f"Total balance: {total_balance}\n"
     text += f"Total deposited: {total_deposited}\n\n"
     text += f"TOP 100 BY CAPITAL (BALANCE):\n"
+    top_text = []
     for i, (uname, bal, dep, cases) in enumerate(top_balance, 1):
-        text += f"{i}. @{uname or 'N/A'} — {bal} stars\n"
+        top_text.append(f"{i}. @{uname or 'N/A'} — {bal} stars")
+    reply = bot.reply_to(msg, "🏆 Топ-100 игроков:\n\n" + "\n".join(top_text), parse_mode="HTML")
     admin_log('top', None, f"Просмотр топ-{limit}")
-    reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
-# === ИСПРАВЛЕНО: auto_delete для adminlogs ===
 @bot.message_handler(commands=['adminlogs'])
 def admin_logs_cmd(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1323,7 +1324,6 @@ def admin_logs_cmd(msg):
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
-# === ИСПРАВЛЕНО: auto_delete для create_promo ===
 @bot.message_handler(commands=['create_promo'])
 def create_promo(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1352,7 +1352,6 @@ def create_promo(msg):
     reply = bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
     auto_delete_command_and_reply(msg, reply)
 
-# === ИСПРАВЛЕНО: auto_delete для promo_stats ===
 @bot.message_handler(commands=['promo_stats'])
 def promo_stats(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1375,7 +1374,6 @@ def promo_stats(msg):
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
-# === ИСПРАВЛЕНО: auto_delete для list_promo ===
 @bot.message_handler(commands=['list_promo'])
 def list_promo(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1392,7 +1390,6 @@ def list_promo(msg):
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
-# === ИСПРАВЛЕНО: auto_delete для delete_promo ===
 @bot.message_handler(commands=['delete_promo'])
 def delete_promo_cmd(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1635,7 +1632,6 @@ def get_quests_data():
                     'claimed_levels': [q for q in claimed_quests if q.startswith('level_')],
                     'claimed_friends': [q for q in claimed_quests if q.startswith('friends_')]})
 
-# === ИСПРАВЛЕНО: валидация quest_id ===
 @app.route('/claim_quest', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_quest():
@@ -1686,7 +1682,6 @@ def get_quest_reward(uid, quest_id):
             return rewards.get(quest_id, 0)
     return None
 
-# === ИСПРАВЛЕНО: добавлен .strip() ===
 @app.route('/apply_promo', methods=['POST'])
 @limiter.limit("10 per minute")
 def apply_promo():
@@ -1717,7 +1712,7 @@ def apply_promo():
         qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (%s, %s, %s)", (uid, promo, int(time.time())))
         return jsonify({'success': True, 'reward': reward})
 
-# === ИСПРАВЛЕНО: один промокод на пользователя ===
+# === ИСПРАВЛЕНИЕ 4: 1 пользователь = 1 промокод ===
 @app.route('/claim_promo_webapp', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_promo_webapp():
@@ -1749,7 +1744,6 @@ def claim_promo_webapp():
         qw("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING", (uid, code, 0))
         return jsonify({'success': True, 'reward': reward, 'message': f'✅ +{reward}⭐ за промокод!'})
 
-# === ИСПРАВЛЕНО: проверка типа amount ===
 @app.route('/withdraw', methods=['POST'])
 def withdraw():
     uid, username = get_authenticated_user()
@@ -1804,7 +1798,6 @@ def get_deposit_rewards():
         'total_spent': user[14]
     })
 
-# === ИСПРАВЛЕНО: ошибка проверки claimed ===
 @app.route('/claim_deposit_reward', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_deposit_reward():
@@ -1904,8 +1897,7 @@ def open_mines_cell():
                 return jsonify({'error': 'Не твоя игра'}), 403
             if game['opened'][index] == 1:
                 return jsonify({'error': 'Клетка уже открыта'}), 400
-            game['opened'][index] = 1
-            game['opened_count'] += 1
+            game['opened'][index] = 1            game['opened_count'] += 1
             if game['board'][index] == 1:
                 game['status'] = 'lost'
                 update_mines_stats(uid, won=False, multiplier=0, stars=game['bet'])
@@ -1982,7 +1974,6 @@ def exit_mines():
         return jsonify({'success': True, 'mines_positions': [i for i, v in enumerate(game['board']) if v == 1]})
     return jsonify({'success': True})
 
-# === ИСПРАВЛЕНО: проверка stats на None ===
 @app.route('/get_mines_stats', methods=['POST'])
 def get_mines_stats():
     uid, username = get_authenticated_user()
