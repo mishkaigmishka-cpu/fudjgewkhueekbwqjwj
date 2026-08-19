@@ -610,7 +610,6 @@ function showTape(type, mode = 'preview') {
     document.body.appendChild(tapeContainer);
 }
 
-// === ИСПРАВЛЕНИЕ 2: УРОВНИ ПОСЛЕ ОТКРЫТИЯ КЕЙСА ===
 function openCaseDirect(type) {
     if (state.isOpening) return;
     state.isOpening = true;
@@ -820,7 +819,6 @@ function showResult(type, targetPrize, style, track, winPosition) {
 }
 
 // ===== ОТКРЫТИЕ 10 КЕЙСОВ =====
-// === ИСПРАВЛЕНИЕ 2: УРОВНИ ПОСЛЕ ×10 ===
 async function open10Cases(type) {
     if (state.isOpening) return;
     state.isOpening = true;
@@ -2001,7 +1999,7 @@ function initCrash() {
     startCrashPolling();
 }
 
-// === ИСПРАВЛЕНИЕ 1: КРАШ РЫВКАМИ — ОТМЕНА АНИМАЦИИ ТОЛЬКО ВНУТРИ ФАЗ ===
+// === ИСПРАВЛЕНИЕ 1: КРАШ — ПЛАВНЫЙ ГРАФИК ===
 function updateCrashUI(data) {
     const d = crash.dom;
     if (!d) return;
@@ -2029,7 +2027,6 @@ function updateCrashUI(data) {
     }
 
     else if (data.phase === 'waiting') {
-        // Отменяем анимацию при переходе в waiting
         if (crash.animFrame) {
             cancelAnimationFrame(crash.animFrame);
             crash.animFrame = null;
@@ -2066,7 +2063,6 @@ function updateCrashUI(data) {
     }
 
     else if (data.phase === 'active') {
-        // НЕ отменяем анимацию — она продолжается
         if (!crash.activeStarted || crash.startTime !== data.start_time) {
             crash.activeStarted = true;
             crash.crashedProcessed = false;
@@ -2080,10 +2076,8 @@ function updateCrashUI(data) {
                 crash.chartData = [];
                 crash.lastChartPush = 0;
             }
-        } else {
-            crash.lastServerMultiplier = data.multiplier || crash.lastServerMultiplier;
-            crash.lastUpdateTime = performance.now();
         }
+        // === ИСПРАВЛЕНИЕ: НЕ ОБНОВЛЯЕМ — график считается от startTime ===
         if (d.countdown) d.countdown.style.display = 'none';
         if (d.status) d.status.textContent = '🔥 ИГРА ИДЁТ';
         d.startBtn.style.display = 'none';
@@ -2102,7 +2096,6 @@ function updateCrashUI(data) {
     }
 
     else if (data.phase === 'crashed' || data.phase === 'crash') {
-        // Отменяем анимацию при краше
         if (crash.animFrame) {
             cancelAnimationFrame(crash.animFrame);
             crash.animFrame = null;
@@ -2253,6 +2246,7 @@ function crashColor(v, alpha = 1) {
     return `hsla(${hue}, 85%, 62%, ${alpha})`;
 }
 
+// === ИСПРАВЛЕНИЕ 1: drawCrashChart ===
 function drawCrashChart() {
     crash.animFrame = null;
     const ctx = crash.ctx;
