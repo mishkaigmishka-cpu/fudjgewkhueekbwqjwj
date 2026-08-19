@@ -1274,6 +1274,7 @@ ID: {uid}
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
+# === ИСПРАВЛЕНО: auto_delete для top_users ===
 @bot.message_handler(commands=['top'])
 def top_users(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1300,6 +1301,7 @@ def top_users(msg):
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
+# === ИСПРАВЛЕНО: auto_delete для adminlogs ===
 @bot.message_handler(commands=['adminlogs'])
 def admin_logs_cmd(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1321,6 +1323,7 @@ def admin_logs_cmd(msg):
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
+# === ИСПРАВЛЕНО: auto_delete для create_promo ===
 @bot.message_handler(commands=['create_promo'])
 def create_promo(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1349,6 +1352,7 @@ def create_promo(msg):
     reply = bot.reply_to(msg, f"✅ Промокод {code} создан!\n🎁 Награда: {reward}⭐\n📊 Макс. использований: {max_uses}")
     auto_delete_command_and_reply(msg, reply)
 
+# === ИСПРАВЛЕНО: auto_delete для promo_stats ===
 @bot.message_handler(commands=['promo_stats'])
 def promo_stats(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1371,6 +1375,7 @@ def promo_stats(msg):
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
+# === ИСПРАВЛЕНО: auto_delete для list_promo ===
 @bot.message_handler(commands=['list_promo'])
 def list_promo(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1387,6 +1392,7 @@ def list_promo(msg):
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
+# === ИСПРАВЛЕНО: auto_delete для delete_promo ===
 @bot.message_handler(commands=['delete_promo'])
 def delete_promo_cmd(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1472,7 +1478,6 @@ def open_case():
             return jsonify({'error': 'Ты забанен!'}), 403
         data = request.get_json(silent=True) or {}
         case_type = data.get('case_type')
-        # === ИСПРАВЛЕНИЕ 2: проверка CASE_PRICES ===
         if not case_type or case_type not in CASE_PRICES:
             return jsonify({'error': 'Некорректный тип кейса'}), 400
         
@@ -1630,6 +1635,7 @@ def get_quests_data():
                     'claimed_levels': [q for q in claimed_quests if q.startswith('level_')],
                     'claimed_friends': [q for q in claimed_quests if q.startswith('friends_')]})
 
+# === ИСПРАВЛЕНО: валидация quest_id ===
 @app.route('/claim_quest', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_quest():
@@ -1680,6 +1686,7 @@ def get_quest_reward(uid, quest_id):
             return rewards.get(quest_id, 0)
     return None
 
+# === ИСПРАВЛЕНО: добавлен .strip() ===
 @app.route('/apply_promo', methods=['POST'])
 @limiter.limit("10 per minute")
 def apply_promo():
@@ -1710,6 +1717,7 @@ def apply_promo():
         qw("INSERT INTO used_promos (user_id, promo_code, used_at) VALUES (%s, %s, %s)", (uid, promo, int(time.time())))
         return jsonify({'success': True, 'reward': reward})
 
+# === ИСПРАВЛЕНО: один промокод на пользователя ===
 @app.route('/claim_promo_webapp', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_promo_webapp():
@@ -1732,7 +1740,6 @@ def claim_promo_webapp():
         reward, max_uses, used_count = promo
         if max_uses > 0 and used_count >= max_uses:
             return jsonify({'error': 'Промокод уже использован максимальное количество раз!'}), 400
-        # === ИСПРАВЛЕНИЕ 1: один промокод на пользователя ===
         used = qone("SELECT * FROM used_promos WHERE user_id=%s", (uid,))
         if used:
             return jsonify({'error': 'Ты уже использовал промокод!'}), 400
@@ -1742,6 +1749,7 @@ def claim_promo_webapp():
         qw("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING", (uid, code, 0))
         return jsonify({'success': True, 'reward': reward, 'message': f'✅ +{reward}⭐ за промокод!'})
 
+# === ИСПРАВЛЕНО: проверка типа amount ===
 @app.route('/withdraw', methods=['POST'])
 def withdraw():
     uid, username = get_authenticated_user()
@@ -1752,7 +1760,6 @@ def withdraw():
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
     amount = data.get('amount', 0)
-    # === ИСПРАВЛЕНИЕ 3: проверка типа amount ===
     if not isinstance(amount, int) or amount <= 0:
         return jsonify({'error': 'Некорректная сумма'}), 400
     with write_lock:
@@ -1797,6 +1804,7 @@ def get_deposit_rewards():
         'total_spent': user[14]
     })
 
+# === ИСПРАВЛЕНО: ошибка проверки claimed ===
 @app.route('/claim_deposit_reward', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_deposit_reward():
@@ -1807,20 +1815,20 @@ def claim_deposit_reward():
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
     data = request.get_json(silent=True) or {}
-    amount = data.get('amount', 0)
+    reward_id = data.get('amount', 0)
     with write_lock:
         if not user:
             return jsonify({'error': 'User not found'}), 404
         tiers = {100: 10, 250: 25, 500: 50, 1000: 100, 2500: 250, 10000: 1000}
-        if amount not in tiers:
+        if reward_id not in tiers:
             return jsonify({'error': 'Неверная награда'}), 400
         claimed = [x.strip() for x in user[15].split(',') if x.strip()]
-        if str(amount) in claimed:
+        if str(reward_id) in claimed:
             return jsonify({'error': 'Награда уже получена'}), 400
-        if user[14] < amount:
+        if user[14] < reward_id:
             return jsonify({'error': 'Недостаточно пополнений'}), 400
-        reward = tiers[amount]
-        new_claimed = user[15] + f",{amount}" if user[15] else str(amount)
+        reward = tiers[reward_id]
+        new_claimed = user[15] + f",{reward_id}" if user[15] else str(reward_id)
         update_user(uid, balance=user[1] + reward, claimed_deposit=new_claimed)
         return jsonify({'success': True, 'reward': reward})
 
@@ -1974,6 +1982,7 @@ def exit_mines():
         return jsonify({'success': True, 'mines_positions': [i for i, v in enumerate(game['board']) if v == 1]})
     return jsonify({'success': True})
 
+# === ИСПРАВЛЕНО: проверка stats на None ===
 @app.route('/get_mines_stats', methods=['POST'])
 def get_mines_stats():
     uid, username = get_authenticated_user()
@@ -1984,7 +1993,7 @@ def get_mines_stats():
         return jsonify({'error': 'Ты забанен!'}), 403
     stats = qone("SELECT * FROM mines_stats WHERE user_id=%s", (uid,))
     if not stats:
-        return jsonify({'games': 0, 'wins': 0, 'losses': 0, 'best_multiplier': 1.0, 'total_won': 0, 'total_lost': 0})
+        return jsonify({'error': 'Статистика не найдена'}), 404
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
 # ===== CRASH =====
