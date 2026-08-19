@@ -610,6 +610,7 @@ function showTape(type, mode = 'preview') {
     document.body.appendChild(tapeContainer);
 }
 
+// === ИСПРАВЛЕНИЕ 6: обновление уровней после открытия кейса ===
 function openCaseDirect(type) {
     if (state.isOpening) return;
     state.isOpening = true;
@@ -632,11 +633,7 @@ function openCaseDirect(type) {
             state.isOpening = true;
             showTape(type, 'roulette');
             setTimeout(() => startFinalSpin(type), 300);
-
-            // ОБНОВЛЕНИЕ УРОВНЕЙ
-            if (typeof loadLevels === 'function') {
-                setTimeout(() => loadLevels().catch(() => {}), 500);
-            }
+            if (typeof loadLevels === 'function') loadLevels().catch(() => {});
         });
     });
 }
@@ -823,6 +820,7 @@ function showResult(type, targetPrize, style, track, winPosition) {
 }
 
 // ===== ОТКРЫТИЕ 10 КЕЙСОВ =====
+// === ИСПРАВЛЕНИЕ 7: обновление уровней после ×10 ===
 async function open10Cases(type) {
     if (state.isOpening) return;
     state.isOpening = true;
@@ -836,11 +834,8 @@ async function open10Cases(type) {
 
     if (data.new_balance !== undefined) updateAllBalances(data.new_balance);
     show10CasesAnimation(type, data);
-
-    // ОБНОВЛЕНИЕ УРОВНЕЙ
-    if (typeof loadLevels === 'function') {
-        setTimeout(() => loadLevels().catch(() => {}), 500);
-    }
+    // state.isOpening = false;
+    if (typeof loadLevels === 'function') loadLevels().catch(() => {});
 }
 
 function show10CasesAnimation(type, data) {
@@ -2251,6 +2246,7 @@ function crashColor(v, alpha = 1) {
     return `hsla(${hue}, 85%, 62%, ${alpha})`;
 }
 
+// === ИСПРАВЛЕНИЕ 2: ГРАФИК "ТОН ВВЕРХ" ===
 function drawCrashChart() {
     crash.animFrame = null;
     const ctx = crash.ctx;
@@ -2293,7 +2289,6 @@ function drawCrashChart() {
     const availableHeight = h - topOffset - bottomOffset;
     const maxLog = Math.log(maxVal);
     const scaleY = availableHeight / maxLog;
-    const scaleX = (w - 30) / Math.max(maxPoints - 1, 1);
 
     const isCrashed = crash.phase === 'crashed' || crash.phase === 'crash';
     const displayVal = isCrashed ? data[data.length - 1] : currentMultiplier;
@@ -2301,6 +2296,8 @@ function drawCrashChart() {
 
     const visibleData = data.slice(-maxPoints);
     const offsetIndex = Math.max(0, data.length - maxPoints);
+    const visibleCount = visibleData.length;
+    const scaleX = (w - 30) / Math.max(visibleCount - 1, 1);
 
     const pointXY = (val, i) => {
         const x = 12 + (i - offsetIndex) * scaleX;
@@ -2308,6 +2305,7 @@ function drawCrashChart() {
         return [x, y];
     };
 
+    // Заливка
     const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
     if (isCrashed) {
         fillGrad.addColorStop(0, 'rgba(248,113,113,0.35)');
@@ -2333,6 +2331,7 @@ function drawCrashChart() {
     ctx.fill();
     ctx.restore();
 
+    // Линия
     ctx.beginPath();
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = 4;
@@ -2348,6 +2347,7 @@ function drawCrashChart() {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
+    // Ракета/точка
     if (isCrashed) {
         ctx.font = '26px sans-serif';
         ctx.textAlign = 'center';
@@ -2372,6 +2372,7 @@ function drawCrashChart() {
         ctx.shadowBlur = 0;
     }
 
+    // Обновление DOM
     if (d.multiplier) {
         d.multiplier.textContent = `x${displayVal.toFixed(2)}`;
         d.multiplier.style.color = lineColor;
