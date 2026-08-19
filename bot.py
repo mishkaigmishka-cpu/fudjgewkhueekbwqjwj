@@ -94,14 +94,15 @@ def periodic_cleanup():
         for chat_id in list(sent_message_ids.keys()):
             cleanup_chat(chat_id)
 
+# === ИСПРАВЛЕНИЕ 3: ЛОГИРОВАНИЕ ОШИБОК УДАЛЕНИЯ ===
 def auto_delete_command_and_reply(msg, reply_msg, delay=30):
     track_sent_message(msg.chat.id, reply_msg.message_id)
     def delete():
         try:
             bot.delete_message(msg.chat.id, msg.message_id)
             bot.delete_message(reply_msg.chat.id, reply_msg.message_id)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[auto_delete] Error: {e}")
     threading.Timer(delay, delete).start()
 
 main_message_ids = TTLCache(maxsize=10000, ttl=3600)
@@ -631,14 +632,12 @@ def get_level_progress(uid, case_type):
     row = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
     return row[0] if row else 0
 
+# === ИСПРАВЛЕНИЕ 2: 20 КЕЙСОВ = 1 БИТВА ===
 def register_case_opening(uid, case_type, n=1):
     with write_lock:
         add_case_stats(uid, case_type, n)
         if case_type in LEVEL_ORDER and case_type in get_unlocked_levels(uid):
-            progress = qone("SELECT opened FROM level_progress WHERE user_id=%s AND case_type=%s", (uid, case_type))
-            current_opened = progress[0] if progress else 0
-            if current_opened < BATTLE_PROGRESS_COST:
-                add_level_progress(uid, case_type, n)
+            add_level_progress(uid, case_type, n)
 
 def _update_game_stats(table, user_id, won, multiplier, stars):
     assert table in ('mines_stats', 'crash_stats')
@@ -1274,7 +1273,6 @@ ID: {uid}
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
-# === ИСПРАВЛЕНИЕ 2: auto_delete для top_users ===
 @bot.message_handler(commands=['top'])
 def top_users(msg):
     if msg.from_user.id != ADMIN_ID:
