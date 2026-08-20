@@ -172,12 +172,11 @@ function spawnConfetti(container, count = 36) {
 }
 
 // ===== apiRequest =====
-// === ЕДИНСТВЕННАЯ ПРАВКА: добавляем init_data в тело запроса ===
 const apiRequest = async (endpoint, body = {}, retries = 3, timeout = 15000) => {
     const tg = window.Telegram.WebApp;
     const initData = tg.initData || '';
     
-    // КЛЮЧЕВАЯ СТРОКА: дублируем initData в тело запроса
+    // Дублируем initData в тело запроса как fallback
     body.init_data = initData;
     
     for (let attempt = 0; attempt < retries; attempt++) {
@@ -845,7 +844,6 @@ async function open10Cases(type) {
     if (typeof loadLevels === 'function') loadLevels().catch(() => {});
 }
 
-// === ИСПРАВЛЕНИЕ 7: winPos — пустые карточки ×10 ===
 function show10CasesAnimation(type, data) {
     const prizes = getPrizes(type);
     const style = getStyle(type);
@@ -1769,27 +1767,19 @@ function closeWithdrawModal() {
     document.getElementById('withdrawAmount').value = '';
 }
 
+// === ИСПРАВЛЕНО: используем apiRequest вместо fetch ===
 async function submitWithdraw() {
     const amount = parseInt(document.getElementById('withdrawAmount').value);
     if (!amount || amount < 1000) return showCustomAlert('❌ Минимум 1000 звёзд!');
     if (!userId) return;
 
-    try {
-        const res = await fetch('/withdraw', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: amount })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showCustomAlert('✅ ' + data.message, true);
-            await loadBalance();
-            closeWithdrawModal();
-        } else {
-            showCustomAlert('❌ ' + (data.error || 'Ошибка'));
-        }
-    } catch (e) {
-        showCustomAlert('❌ Ошибка сети');
+    const data = await apiRequest('/withdraw', { amount: amount });
+    if (data.success) {
+        showCustomAlert('✅ ' + data.message, true);
+        await loadBalance();
+        closeWithdrawModal();
+    } else {
+        showCustomAlert('❌ ' + (data.error || 'Ошибка'));
     }
 }
 
@@ -2266,7 +2256,6 @@ function crashColor(v, alpha = 1) {
     return `hsla(${hue}, 85%, 62%, ${alpha})`;
 }
 
-// === ИСПРАВЛЕНИЕ 8: getClientMultiplier ===
 function getClientMultiplier(elapsed) {
     if (elapsed < 0) return 1.0;
     if (elapsed < 1) return 1.0 + elapsed * 0.03;
@@ -2276,7 +2265,6 @@ function getClientMultiplier(elapsed) {
     return 2.70 + (elapsed - 15) * 0.25;
 }
 
-// === ИСПРАВЛЕНИЯ 9-10: drawCrashChart ===
 function drawCrashChart() {
     crash.animFrame = null;
     const ctx = crash.ctx;
@@ -2312,7 +2300,6 @@ function drawCrashChart() {
 
     const isCrashed = crash.phase === 'crashed' || crash.phase === 'crash';
 
-    // === ИСПРАВЛЕНИЕ 10: maxTime для crashed ===
     const elapsed = crash.phase === 'active' && crash.clientRoundStart
         ? (now - crash.clientRoundStart) / 1000
         : (crash.chartData.length > 0 && crash.clientRoundStart)
