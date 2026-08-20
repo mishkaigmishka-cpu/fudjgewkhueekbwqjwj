@@ -1654,16 +1654,11 @@ async function claimQuest(questId, reward) {
     }
 }
 
-// ===== НАГРАДЫ ЗА ПОПОЛНЕНИЕ =====
+// === ПРАВКА 3: loadDepositRewards — использует apiRequest ===
 async function loadDepositRewards() {
     if (!userId) return;
     try {
-        const res = await fetch('/get_deposit_rewards', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-        const data = await res.json();
+        const data = await apiRequest('/get_deposit_rewards', {});
         if (data.error) return;
 
         const container = document.getElementById('questTabDeposit');
@@ -1711,15 +1706,11 @@ async function loadDepositRewards() {
     } catch (e) {}
 }
 
+// === ПРАВКА 4: claimDepositReward — использует apiRequest ===
 async function claimDepositReward(amount) {
     if (!userId) return;
     try {
-        const res = await fetch('/claim_deposit_reward', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: amount })
-        });
-        const data = await res.json();
+        const data = await apiRequest('/claim_deposit_reward', { amount: amount });
         if (data.success) {
             showCustomAlert(`✅ +${data.reward}⭐ получено!`, true);
             await loadBalance();
@@ -1767,7 +1758,6 @@ function closeWithdrawModal() {
     document.getElementById('withdrawAmount').value = '';
 }
 
-// === ИСПРАВЛЕНО: используем apiRequest вместо fetch ===
 async function submitWithdraw() {
     const amount = parseInt(document.getElementById('withdrawAmount').value);
     if (!amount || amount < 1000) return showCustomAlert('❌ Минимум 1000 звёзд!');
