@@ -1309,6 +1309,7 @@ def admin_logs_cmd(msg):
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
+# === ИСПРАВЛЕНА СТРОКА 1323: max_uses = 1 и if разнесены ===
 @bot.message_handler(commands=['create_promo'])
 def create_promo(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1320,7 +1321,8 @@ def create_promo(msg):
         return
     code = args[1].upper()
     reward = 20
-    max_uses = 1    if len(args) >= 3:
+    max_uses = 1
+    if len(args) >= 3:
         try:
             reward = int(args[2])
         except ValueError:
