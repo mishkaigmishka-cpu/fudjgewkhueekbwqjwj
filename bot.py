@@ -158,8 +158,7 @@ def verify_telegram_init_data(init_data_str: str) -> dict:
         if isinstance(user_data, str):
             user_data = json.loads(user_data)
         auth_date = int(parsed.get('auth_date', 0))
-        # === ПРАВКА 1: 30 дней вместо 24 часов ===
-        if time.time() - auth_date > 2592000:  # 30 дней вместо 1
+        if time.time() - auth_date > 2592000:
             print(f"[auth] init_data expired, auth_date={auth_date}")
             return None
         return {
@@ -172,7 +171,6 @@ def verify_telegram_init_data(init_data_str: str) -> dict:
         print(f"[auth] verify error: {e}")
         return None
 
-# === ПРАВКА 2: get_authenticated_user с логами ===
 def get_authenticated_user():
     init_data = request.headers.get('X-Telegram-Init-Data', '')
     if not init_data:
@@ -1736,7 +1734,6 @@ def claim_promo_webapp():
         qw("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING", (uid, code, 0))
         return jsonify({'success': True, 'reward': reward, 'message': f'✅ +{reward}⭐ за промокод!'})
 
-# === ПРАВКА 3: WITHDRAW С ЛОГАМИ ===
 @app.route('/withdraw', methods=['POST'])
 def withdraw():
     print("[withdraw] ========== HIT ==========")
@@ -1773,6 +1770,7 @@ def withdraw():
         admin_log('withdraw', uid, f"Заявка на вывод {amount}⭐")
         return jsonify({'success': True, 'message': f'✅ Заявка на вывод {amount}⭐ отправлена!'})
 
+# === ПРАВКА 1: Удалён tier 250 ===
 @app.route('/get_deposit_rewards', methods=['POST'])
 @limiter.limit("30 per minute")
 def get_deposit_rewards():
@@ -1786,7 +1784,6 @@ def get_deposit_rewards():
         return jsonify({'error': 'User not found'}), 404
     tiers = [
         {'amount': 100, 'reward': 10},
-        {'amount': 250, 'reward': 25},
         {'amount': 500, 'reward': 50},
         {'amount': 1000, 'reward': 100},
         {'amount': 2500, 'reward': 250},
@@ -1799,6 +1796,7 @@ def get_deposit_rewards():
         'total_spent': user[14]
     })
 
+# === ПРАВКА 2: Удалён 250 из словаря ===
 @app.route('/claim_deposit_reward', methods=['POST'])
 @limiter.limit("10 per minute")
 def claim_deposit_reward():
@@ -1813,7 +1811,7 @@ def claim_deposit_reward():
     with write_lock:
         if not user:
             return jsonify({'error': 'User not found'}), 404
-        tiers = {100: 10, 250: 25, 500: 50, 1000: 100, 2500: 250, 10000: 1000}
+        tiers = {100: 10, 500: 50, 1000: 100, 2500: 250, 10000: 1000}
         if reward_id not in tiers:
             return jsonify({'error': 'Неверная награда'}), 400
         claimed = [x.strip() for x in user[15].split(',') if x.strip()]
