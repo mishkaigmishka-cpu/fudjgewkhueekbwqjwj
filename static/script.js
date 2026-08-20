@@ -172,12 +172,12 @@ function spawnConfetti(container, count = 36) {
 }
 
 // ===== apiRequest =====
-// === ПРАВКА 4: добавлен fallback init_data в body ===
+// === ЕДИНСТВЕННАЯ ПРАВКА: добавляем init_data в тело запроса ===
 const apiRequest = async (endpoint, body = {}, retries = 3, timeout = 15000) => {
     const tg = window.Telegram.WebApp;
     const initData = tg.initData || '';
     
-    // Дублируем initData в тело запроса как fallback
+    // КЛЮЧЕВАЯ СТРОКА: дублируем initData в тело запроса
     body.init_data = initData;
     
     for (let attempt = 0; attempt < retries; attempt++) {
