@@ -88,20 +88,24 @@ def cleanup_chat(chat_id, keep_main=True):
             pass
     sent_message_ids[chat_id] = list(keep)
 
+# === ИСПРАВЛЕНИЕ 3: НЕ ЧИСТИТЬ АДМИНА ===
 def periodic_cleanup():
     while True:
         time.sleep(60)
         for chat_id in list(sent_message_ids.keys()):
+            if chat_id == ADMIN_ID:
+                continue
             cleanup_chat(chat_id)
 
+# === ИСПРАВЛЕНИЕ 4: УБРАТЬ СПАМ ЛОГОВ ===
 def auto_delete_command_and_reply(msg, reply_msg, delay=30):
     track_sent_message(msg.chat.id, reply_msg.message_id)
     def delete():
         try:
             bot.delete_message(msg.chat.id, msg.message_id)
             bot.delete_message(reply_msg.chat.id, reply_msg.message_id)
-        except Exception as e:
-            print(f"[auto_delete] Error: {e}")
+        except Exception:
+            pass
     threading.Timer(delay, delete).start()
 
 main_message_ids = TTLCache(maxsize=10000, ttl=3600)
@@ -488,7 +492,6 @@ FREE_CASE_COOLDOWN = 7200
 BATTLE_PROGRESS_COST = 10
 WINS_TO_UNLOCK = 3
 
-# === ИСПРАВЛЕНИЕ 1.2: ШАНСЫ В ГРЯЗЕВОМ КЕЙСЕ ===
 CASE_RANGES = {
     "free": {"common": [1, 2], "rare": [3, 4], "epic": [5, 6, 7, 8, 9, 10], "legendary": [100], "jackpot": [1000], "common_chance": 0.599, "rare_chance": 0.299, "epic_chance": 0.0999, "legendary_chance": 0.0001, "jackpot_chance": 0.00000001},
     "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.94999999, "rare_chance": 0.04, "epic_chance": 0.01, "legendary_chance": 0.00000005, "jackpot_chance": 0.00000005},
@@ -514,7 +517,7 @@ for case_type, data in CASE_RANGES.items():
         data['legendary_chance'] *= factor
         data['jackpot_chance'] *= factor
 
-# === ИСПРАВЛЕНИЕ 1.3: УПРОЩЕНИЕ get_prize ===
+# === ИСПРАВЛЕНИЕ 1: LUCK BOOST НОВЫЕ ШАНСЫ ===
 def get_prize(case_type, user_id=None):
     data = CASE_RANGES[case_type]
     rnd = random.random()
@@ -528,10 +531,10 @@ def get_prize(case_type, user_id=None):
     if user_id:
         row = qone("SELECT luck_boost FROM users WHERE id=%s", (user_id,))
         if row and row[0] > 1.0:
-            c = max(0, c - 0.185)
-            r = r + 0.10
-            e = e + 0.05
-            l = l + 0.03
+            c = max(0, c - 0.115)
+            r = r + 0.07
+            e = e + 0.03
+            l = l + 0.01
             j = j + 0.005
             total = c + r + e + l + j
             if total > 1.0:
@@ -975,7 +978,8 @@ def got_payment(msg):
         except Exception:
             pass
 
-# ===== АДМИН-КОМАНДЫ =====
+# ===== АДМИН-КОМАНДЫ (С АВТОУДАЛЕНИЕМ) =====
+
 @bot.message_handler(commands=['ban'])
 def ban_user(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1048,6 +1052,7 @@ def reset_user(msg):
     reply = bot.reply_to(msg, f"✅ @{username} сброшен!")
     auto_delete_command_and_reply(msg, reply)
 
+# === ИСПРАВЛЕНИЕ 5: НОВОЕ СООБЩЕНИЕ ДЛЯ /luck ===
 @bot.message_handler(commands=['luck'])
 def luck_boost(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1068,10 +1073,11 @@ def luck_boost(msg):
         auto_delete_command_and_reply(msg, reply)
         return
     update_user(user[0], luck_boost=5.0)
-    admin_log('luck', user[0], f"Шансы x5 для @{username}")
-    reply = bot.reply_to(msg, f"✅ Шансы @{username} увеличены в 5x!")
+    admin_log('luck', user[0], f"Luck boost для @{username}: rare+7%, epic+3%, legend+1%, jackpot+0.5%")
+    reply = bot.reply_to(msg, f"✅ Удача @{username} активирована!\n🍀 Rare +7% | Epic +3% | Legendary +1% | Jackpot +0.5%")
     auto_delete_command_and_reply(msg, reply)
 
+# === ИСПРАВЛЕНИЕ 6: НОВОЕ СООБЩЕНИЕ ДЛЯ /unluck ===
 @bot.message_handler(commands=['unluck'])
 def unluck_boost(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1092,8 +1098,8 @@ def unluck_boost(msg):
         auto_delete_command_and_reply(msg, reply)
         return
     update_user(user[0], luck_boost=1.0)
-    admin_log('unluck', user[0], f"Шансы сброшены для @{username}")
-    reply = bot.reply_to(msg, f"✅ Шансы @{username} сброшены!")
+    admin_log('unluck', user[0], f"Luck boost сброшен для @{username}")
+    reply = bot.reply_to(msg, f"✅ Удача @{username} сброшена. Стандартные шансы.")
     auto_delete_command_and_reply(msg, reply)
 
 @bot.message_handler(commands=['give'])
@@ -1309,7 +1315,6 @@ def admin_logs_cmd(msg):
     reply = bot.reply_to(msg, text)
     auto_delete_command_and_reply(msg, reply, 60)
 
-# === ИСПРАВЛЕНА СТРОКА 1323: max_uses = 1 и if разнесены ===
 @bot.message_handler(commands=['create_promo'])
 def create_promo(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1729,6 +1734,7 @@ def claim_promo_webapp():
         qw("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING", (uid, code, 0))
         return jsonify({'success': True, 'reward': reward, 'message': f'✅ +{reward}⭐ за промокод!'})
 
+# === ИСПРАВЛЕНИЕ 2: ЗАЩИТА USERNAME В WITHDRAW ===
 @app.route('/withdraw', methods=['POST'])
 def withdraw():
     uid, username = get_authenticated_user()
@@ -1751,9 +1757,10 @@ def withdraw():
             return jsonify({'error': 'Недостаточно звёзд!'}), 400
         qw("INSERT INTO withdrawals (user_id, amount, status, created_at) VALUES (%s, %s, 'pending', %s)", (uid, amount, int(time.time())))
         try:
-            bot.send_message(ADMIN_ID, f"💸 ЗАЯВКА НА ВЫВОД\nПользователь: @{user[8]}\nСумма: {amount}⭐\nID: {uid}")
-        except Exception:
-            pass
+            username_str = user[8] if user[8] else f"ID:{uid}"
+            bot.send_message(ADMIN_ID, f"💸 ЗАЯВКА НА ВЫВОД\nПользователь: @{username_str}\nСумма: {amount}⭐\nID: {uid}")
+        except Exception as e:
+            print(f"[withdraw] Failed to notify admin: {e}")
         admin_log('withdraw', uid, f"Заявка на вывод {amount}⭐")
         return jsonify({'success': True, 'message': f'✅ Заявка на вывод {amount}⭐ отправлена!'})
 
@@ -1974,7 +1981,6 @@ def get_mines_stats():
     return jsonify({'games': stats[1], 'wins': stats[2], 'losses': stats[3], 'best_multiplier': stats[4], 'total_won': stats[5], 'total_lost': stats[6]})
 
 # ===== CRASH =====
-# === ИСПРАВЛЕНИЕ 1.1: crash_status с elapsed ===
 @app.route('/crash_status', methods=['POST'])
 def crash_status():
     global crash_data
