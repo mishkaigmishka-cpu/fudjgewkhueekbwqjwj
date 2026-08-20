@@ -88,7 +88,6 @@ def cleanup_chat(chat_id, keep_main=True):
             pass
     sent_message_ids[chat_id] = list(keep)
 
-# === ИСПРАВЛЕНИЕ 3: НЕ ЧИСТИТЬ АДМИНА ===
 def periodic_cleanup():
     while True:
         time.sleep(60)
@@ -97,7 +96,6 @@ def periodic_cleanup():
                 continue
             cleanup_chat(chat_id)
 
-# === ИСПРАВЛЕНИЕ 4: УБРАТЬ СПАМ ЛОГОВ ===
 def auto_delete_command_and_reply(msg, reply_msg, delay=30):
     track_sent_message(msg.chat.id, reply_msg.message_id)
     def delete():
@@ -160,7 +158,9 @@ def verify_telegram_init_data(init_data_str: str) -> dict:
         if isinstance(user_data, str):
             user_data = json.loads(user_data)
         auth_date = int(parsed.get('auth_date', 0))
-        if time.time() - auth_date > 86400:
+        # === ПРАВКА 1: 30 дней вместо 24 часов ===
+        if time.time() - auth_date > 2592000:  # 30 дней вместо 1
+            print(f"[auth] init_data expired, auth_date={auth_date}")
             return None
         return {
             'user_id': user_data.get('id'),
@@ -168,8 +168,25 @@ def verify_telegram_init_data(init_data_str: str) -> dict:
             'first_name': user_data.get('first_name', ''),
             'auth_date': auth_date
         }
-    except Exception:
+    except Exception as e:
+        print(f"[auth] verify error: {e}")
         return None
+
+# === ПРАВКА 2: get_authenticated_user с логами ===
+def get_authenticated_user():
+    init_data = request.headers.get('X-Telegram-Init-Data', '')
+    if not init_data:
+        data = request.get_json(silent=True) or {}
+        init_data = data.get('init_data', '')
+    if not init_data:
+        print("[auth] ERROR: No init_data!")
+        return None, None
+    verified = verify_telegram_init_data(init_data)
+    if not verified:
+        print("[auth] ERROR: verify failed!")
+        return None, None
+    print(f"[auth] OK: user_id={verified.get('user_id')}")
+    return verified.get('user_id'), verified.get('username', '')
 
 def get_or_create_user(uid, username=''):
     user = get_user(uid)
@@ -177,18 +194,6 @@ def get_or_create_user(uid, username=''):
         qw("INSERT INTO users (id, username, balance, total_cases, streak, last_open, status, refs, daily_claimed, promo_used, promo_code, total_spent, luck_boost, banned, total_deposit, claimed_deposit, last_free_case) VALUES (%s, %s, 5, 0, 0, 0, '🟢 Новичок', 0, 0, 0, '', 0, 1.0, 0, 0, '', 0) ON CONFLICT (id) DO NOTHING", (uid, username))
         user = get_user(uid)
     return user
-
-def get_authenticated_user():
-    init_data = request.headers.get('X-Telegram-Init-Data', '')
-    if not init_data:
-        data = request.get_json(silent=True) or {}
-        init_data = data.get('init_data', '')
-    if not init_data:
-        return None, None
-    verified = verify_telegram_init_data(init_data)
-    if not verified:
-        return None, None
-    return verified.get('user_id'), verified.get('username', '')
 
 # ===== БД =====
 _db_pool = psycopg2.pool.ThreadedConnectionPool(
@@ -492,7 +497,6 @@ FREE_CASE_COOLDOWN = 7200
 BATTLE_PROGRESS_COST = 10
 WINS_TO_UNLOCK = 3
 
-# ===== ИЗМЕНЕНИЕ 1-3: НОВЫЕ ШАНСЫ ДЛЯ WOOD, STONE, DIAMOND =====
 CASE_RANGES = {
     "free": {"common": [1, 2], "rare": [3, 4], "epic": [5, 6, 7, 8, 9, 10], "legendary": [100], "jackpot": [1000], "common_chance": 0.599, "rare_chance": 0.299, "epic_chance": 0.0999, "legendary_chance": 0.0001, "jackpot_chance": 0.00000001},
     "mud": {"common": [1, 2, 3, 4, 5, 6, 7], "rare": [10, 12, 13], "epic": [16, 18, 20, 22, 24, 27], "legendary": [50], "jackpot": [500], "common_chance": 0.94999999, "rare_chance": 0.04, "epic_chance": 0.01, "legendary_chance": 0.00000005, "jackpot_chance": 0.00000005},
@@ -518,7 +522,6 @@ for case_type, data in CASE_RANGES.items():
         data['legendary_chance'] *= factor
         data['jackpot_chance'] *= factor
 
-# === ИСПРАВЛЕНИЕ 1: LUCK BOOST НОВЫЕ ШАНСЫ ===
 def get_prize(case_type, user_id=None):
     data = CASE_RANGES[case_type]
     rnd = random.random()
@@ -1053,7 +1056,6 @@ def reset_user(msg):
     reply = bot.reply_to(msg, f"✅ @{username} сброшен!")
     auto_delete_command_and_reply(msg, reply)
 
-# === ИСПРАВЛЕНИЕ 5: НОВОЕ СООБЩЕНИЕ ДЛЯ /luck ===
 @bot.message_handler(commands=['luck'])
 def luck_boost(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1078,7 +1080,6 @@ def luck_boost(msg):
     reply = bot.reply_to(msg, f"✅ Удача @{username} активирована!\n🍀 Rare +7% | Epic +3% | Legendary +1% | Jackpot +0.5%")
     auto_delete_command_and_reply(msg, reply)
 
-# === ИСПРАВЛЕНИЕ 6: НОВОЕ СООБЩЕНИЕ ДЛЯ /unluck ===
 @bot.message_handler(commands=['unluck'])
 def unluck_boost(msg):
     if msg.from_user.id != ADMIN_ID:
@@ -1735,12 +1736,16 @@ def claim_promo_webapp():
         qw("INSERT INTO promo_spend (user_id, promo_code, spent) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING", (uid, code, 0))
         return jsonify({'success': True, 'reward': reward, 'message': f'✅ +{reward}⭐ за промокод!'})
 
-# === ИСПРАВЛЕНИЕ 4: ФИКС WITHDRAW С ЛОГАМИ ===
+# === ПРАВКА 3: WITHDRAW С ЛОГАМИ ===
 @app.route('/withdraw', methods=['POST'])
 def withdraw():
+    print("[withdraw] ========== HIT ==========")
     uid, username = get_authenticated_user()
     if not uid:
+        print("[withdraw] Unauthorized — auth failed")
         return jsonify({'error': 'Unauthorized'}), 401
+    print(f"[withdraw] uid={uid}, amount check...")
+    
     user = get_or_create_user(uid, username)
     if is_banned(uid):
         return jsonify({'error': 'Ты забанен!'}), 403
